@@ -2,26 +2,26 @@ var sys = require("sys");
 var tcp = require("tcp");
 var ftpd = require("./ftpd");
 var spf = require("./sprintf");
-ftpd.createServer("192.168.2.191").listen(21);
+ftpd.createServer("localhost").listen(7002);
 
 var responses = {"RSS":0,"VSZ":0,"CON":0,"ERR":0,"EOF":0,"CLO":0,"TIM":0,"220": 0,"331":0};
 
 setInterval(function() {
 	if(responses["CON"] < 50000) {
-		var client = tcp.createConnection(21, "192.168.2.191");
+		var client = tcp.createConnection(7002, "localhost");
 		client.setTimeout(0);
-		client.addListener("receive", function (data) {
+		client.addListener("data", function (data) {
 			status = data.substr(0,3);
 			switch(status)
 			{
 				case "220":
-					this.send("USER root\r\n");
+					this.write("USER root\r\n");
 					break;
 				case "331":
-					this.send("PASS root\r\n");
+					this.write("PASS root\r\n");
 					break;
 				case "230":
-					this.send("PWD\r\n");
+					this.write("PWD\r\n");
 					break;
 				default:
 					//isend++;
@@ -34,7 +34,7 @@ setInterval(function() {
 		client.addListener("connect", function () {
 			responses["CON"]++;
 		});
-		client.addListener("eof", function () {
+		client.addListener("end", function () {
 			responses["EOF"]++;
 			responses["CON"]--;
 		});
