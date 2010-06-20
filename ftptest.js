@@ -1,5 +1,5 @@
 var sys = require("sys");
-var tcp = require("tcp");
+var net = require("net");
 var ftpd = require("./ftpd");
 var spf = require("./sprintf");
 ftpd.createServer("localhost").listen(7002);
@@ -8,8 +8,9 @@ var responses = {"RSS":0,"VSZ":0,"CON":0,"ERR":0,"EOF":0,"CLO":0,"TIM":0,"220": 
 
 setInterval(function() {
 	if(responses["CON"] < 50000) {
-		var client = tcp.createConnection(7002, "localhost");
+		var client = net.createConnection(7002, "localhost");
 		client.setTimeout(0);
+		client.setEncoding("ascii"); // force data String not Buffer
 		client.addListener("data", function (data) {
 			status = data.substr(0,3);
 			switch(status)

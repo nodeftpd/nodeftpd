@@ -1,4 +1,4 @@
-var tcp = require("tcp");
+var net = require("net");
 var sys = require("sys");
 var posix = require("fs");
 //var file = require("file");
@@ -28,8 +28,9 @@ function dotrace(traceline)
 
 function createServer(host)
 {
-    var server = tcp.createServer(function (socket) {
+    var server = net.createServer(function (socket) {
 	socket.setTimeout(0);
+	socket.setEncoding("ascii"); // force data String not Buffer
 	socket.setNoDelay();
 	
 	socket.passive = false;
@@ -170,7 +171,7 @@ function createServer(host)
 		    });
 		};
 		if(!socket.passive){
-		    socket.datatransfer(tcp.createConnection(socket.pasvport, socket.pasvhost));
+		    socket.datatransfer(net.createConnection(socket.pasvport, socket.pasvhost));
 		}
 		break;
 	    case "LPRT":
@@ -228,7 +229,7 @@ function createServer(host)
 		    });
 		};
 		if(!socket.passive){
-		    socket.datatransfer(tcp.createConnection(socket.pasvport, socket.pasvhost));
+		    socket.datatransfer(net.createConnection(socket.pasvport, socket.pasvhost));
 		}
 
 		break;
@@ -249,7 +250,7 @@ function createServer(host)
 		socket.passive = true;
 		socket.pasvhost = host;
 		socket.pasvport = 0;
-		var pasv = tcp.createServer(function (psocket) {
+		var pasv = net.createServer(function (psocket) {
 		    psocket.addListener("connect", function () {
 			socket.datatransfer(psocket);
 		    });
@@ -357,7 +358,7 @@ function createServer(host)
 		    });
 		};
 		if(!socket.passive){
-		    socket.datatransfer(tcp.createConnection(socket.pasvport, socket.pasvhost));
+		    socket.datatransfer(net.createConnection(socket.pasvport, socket.pasvhost));
 		}
 		break;
 	    case "RMD":
@@ -481,7 +482,7 @@ function createServer(host)
 		    });
 		}
 		if(!socket.passive){
-		    socket.datatransfer(tcp.createConnection(socket.pasvport, socket.pasvhost));
+		    socket.datatransfer(net.createConnection(socket.pasvport, socket.pasvhost));
 		}
 		break;
 	    case "STOU":
