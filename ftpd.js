@@ -281,6 +281,7 @@ function createServer(host)
                     });
                     psocket.addListener("end", function () {
                         dotrace("DATA end");
+                        //pasv.close();
                     });
                     psocket.addListener("error", function(had_error) {
                         dotrace("DATA error: " + had_error);
