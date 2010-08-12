@@ -2,10 +2,11 @@ var sys = require("sys");
 var net = require("net");
 var ftpd = require("./ftpd");
 var spf = require("./sprintf");
-ftpd.createServer("localhost").listen(7002);
+ftpd.createServer("localhost").listen(21);
 
 var responses = {"RSS":0,"VSZ":0,"CON":0,"ERR":0,"EOF":0,"CLO":0,"TIM":0,"220": 0,"331":0};
 
+/*
 setInterval(function() {
 	if(responses["CON"] < 50000) {
 		var client = net.createConnection(7002, "localhost");
@@ -59,4 +60,9 @@ setInterval(function() {
 	responses["RSS"] = parseInt(mem.rss/(1024*1024));
 	responses["VSZ"] = parseInt(mem.vsize/(1024*1024));
 	sys.puts(JSON.stringify(responses));
-}, 3000);
+}, 10000);
+*/
+
+process.on('uncaughtException', function (err) {
+    console.log('Uncaught exception: ' + err);
+});

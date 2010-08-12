@@ -1,7 +1,7 @@
 var sys = require("sys");
 
 function dummyfs() {
-	this.dir = "/home/rob/workspace";
+	this.dir = "/";
 }
 sys.inherits(dummyfs, process.EventEmitter);
 exports.dummyfs = dummyfs;
