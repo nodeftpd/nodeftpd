@@ -34,52 +34,52 @@ function fixPath(fs, path) {
 
 function createServer(host)
 {
-
+    // make sure host is an IP address, not a domain
     var server = net.createServer(function (socket) {
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
         socket.setNoDelay();
 
-	var whenDataWritable = function(callback) {
-		if (socket.passive) {
-			if (socket.dataSocket) {
-				if (socket.dataSocket.writable) callback(socket.dataSocket);
-			} else socket.write("425 Can't open data connection.");
-		} else {
-			// DO we need to open the data connection?
-			if (socket.dataSocket) {
-				callback(socket.dataSocket);
-			} else {
-				var dataSocket = net.createConnection();
-				dataSocket.addListener("close", function() {
-					socket.dataSocket = null;
-					dotrace("DATA connection closed");
-				});
-				dataSocket.connect(socket.dataPort, socket.dataHost, function() {
-					socket.dataSocket = dataSocket;
-					dotrace("DATA connection created by server");
-					callback(dataSocket);
-				});
-			}
-		}
-	};
-	
+        var whenDataWritable = function(callback) {
+            if (socket.passive) {
+                if (socket.dataSocket) {
+                    if (socket.dataSocket.writable) callback(socket.dataSocket);
+                } else socket.write("425 Can't open data connection.");
+            } else {
+                // DO we need to open the data connection?
+                if (socket.dataSocket) {
+                    callback(socket.dataSocket);
+                } else {
+                    var dataSocket = net.createConnection();
+                    dataSocket.addListener("close", function() {
+                        socket.dataSocket = null;
+                        dotrace("DATA connection closed");
+                    });
+                    dataSocket.connect(socket.dataPort, socket.dataHost, function() {
+                        socket.dataSocket = dataSocket;
+                        dotrace("DATA connection created by server");
+                        callback(dataSocket);
+                    });
+                }
+            }
+        };
+
         socket.passive = false;
-	socket.dataHost = null;
-	socket.dataPort = 20; // default
-	socket.dataSocket = null;
+        socket.dataHost = null;
+        socket.dataPort = 20; // default
+        socket.dataSocket = null;
         socket.pasvport = 0;
         socket.pasvaddress = "";
         socket.mode = "ascii";
-	// these few don't seem necessary
+        // these few don't seem necessary
         socket.filefrom = "";
-	
+
         socket.username = "";
         socket.datatransfer = null;
         socket.totsize = 0;
         socket.filename = "";
         
-	// dummyfs needs to accept initial path so we can sandbox
+        // dummyfs needs to accept initial path so we can sandbox
         socket.fs = new dummyfs.dummyfs("/home/alan/temporary/");
         dotrace("CWD = "+socket.fs.cwd());
         
@@ -205,36 +205,35 @@ function createServer(host)
                 break;
             case "LIST":
                 // Returns information of a file or directory if specified, else information of the current working directory is returned.
-		// Passive connection may or may not already be established
-		// Is the passive connection writable?
-		// If not, 
-		
-		callback = function(pasvconn) {
-			dotrace("DATA connection for LIST");
-			ls_cmd = "ls -l " + socket.fs.cwd();
-			dotrace(ls_cmd);
-			ls = exec(ls_cmd, function (err, stdout, stderr) {
-			    if(err) {
-				pasvconn.write("");
-			    }
-			    else {
-			        // omit the first line, since it contains total
-				/*
-				var lines = stdout.split(/\r\n|\r|\n/);
-				lines.shift();
-				dotrace(lines.join("\r\n"));
-				*/
-				var lines = new Array();
-				lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 1	09:27	bin");
-				lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 22	11:34	boot");
-				lines.push("");
-				pasvconn.write(lines.join("\r\n"));
-			    }
-			    pasvconn.end();
-			    socket.write("226 Transfer OK\r\n");
-			});
-		};
-		whenDataWritable(callback);
+                // Passive connection may or may not already be established
+                // Is the passive connection writable?
+                // If not, 
+
+                callback = function(pasvconn) {
+                    dotrace("DATA connection for LIST");
+                    ls_cmd = "ls -l " + socket.fs.cwd();
+                    dotrace(ls_cmd);
+                    ls = exec(ls_cmd, function (err, stdout, stderr) {
+                        if(err) {
+                            pasvconn.write("");
+                        } else {
+                            // omit the first line, since it contains total
+                            /*
+                            var lines = stdout.split(/\r\n|\r|\n/);
+                            lines.shift();
+                            dotrace(lines.join("\r\n"));
+                            */
+                            var lines = new Array();
+                            lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 1	09:27	bin");
+                            lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 22	11:34	boot");
+                            lines.push("");
+                            pasvconn.write(lines.join("\r\n"));
+                        }
+                        pasvconn.end();
+                        socket.write("226 Transfer OK\r\n");
+                    });
+                };
+                whenDataWritable(callback);
                 break;
             case "LPRT":
                 // Specifies a long address and port to which the server should connect. (RFC 1639)
@@ -258,7 +257,7 @@ function createServer(host)
                 fs.mkdir(filename, 0755, function(err){
                     if(err)
                         dotrace("Error making directory "+filename);
-		    // report error if failed
+                    // report error if failed
                     socket.write("257 \""+filename+"\" directory created\r\n");
                 });
                 break;
@@ -310,19 +309,19 @@ function createServer(host)
             case "PASS":
                 // Authentication password.
                 socket.write("230 Logged on\r\n");
-		// Verify credentials using user and pass
+                // Verify credentials using user and pass
                 break;
             case "PASV":
                 // Enter passive mode. This creates the listening socket.
-		// But this doesn't prevent more than 1 data connection
+                // But this doesn't prevent more than 1 data connection
                 socket.passive = true;
-		// you can enter passive without data waiting to be transferred
+                // you can enter passive without data waiting to be transferred
                 var pasv = net.createServer(function (psocket) {
-		    // 'connection' event has fired on server ... now set socket listeners
+                    // 'connection' event has fired on server ... now set socket listeners
                     psocket.addListener("connect", function () {
-			socket.write("150 Connection Accepted\r\n");
-		        dotrace("PASV connection established");
-			socket.dataSocket = psocket;
+                    socket.write("150 Connection Accepted\r\n");
+                    dotrace("PASV connection established");
+                    socket.dataSocket = psocket;
                     });
                     psocket.addListener("end", function () {
                         dotrace("DATA end");
@@ -331,19 +330,18 @@ function createServer(host)
                     psocket.addListener("error", function(had_error) {
                         dotrace("DATA error: " + had_error);
                     });
-		    psocket.addListener("close", function() {
-			socket.dataSocket = null;
-		    });
+                    psocket.addListener("close", function() {
+                        socket.dataSocket = null;
+                    });
                 });
-		// Once we're successfully listening, tell the client
+                // Once we're successfully listening, tell the client
                 pasv.addListener("listening", function() {
-		    var address = pasv.address();
-		    var port = address.port;
+                    var port = pasv.address().port;
                     socket.dataPort = port;
-		    dotrace("PASV listening on port " + port);
+                    dotrace("PASV listening on port " + port);
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
-                    socket.write("227 Entering Passive Mode (" + address.address.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
+                    socket.write("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
                 });
                 pasv.listen(0, host);
                 break;
