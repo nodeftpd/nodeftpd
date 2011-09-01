@@ -43,13 +43,19 @@ function createServer(host)
         var whenDataWritable = function(callback) {
             if (socket.passive) {
                 if (socket.dataSocket) {
+                    dotrace("Re-using existing passive data socket");
                     if (socket.dataSocket.writable) callback(socket.dataSocket);
-                } else socket.write("425 Can't open data connection.");
+                } else {
+                    dotrace("passive, but no dataSocket to use");
+                    socket.write("425 Can't open data connection.");
+                }
             } else {
-                // DO we need to open the data connection?
+                // Do we need to open the data connection?
                 if (socket.dataSocket) {
+                    dotrace("using non-passive dataSocket");
                     callback(socket.dataSocket);
                 } else {
+                    dotrace("Opening data connection to client at " + socket.dataHost + ":" + socket.dataPort);
                     var dataSocket = net.createConnection();
                     dataSocket.addListener("close", function() {
                         socket.dataSocket = null;
@@ -211,6 +217,42 @@ function createServer(host)
 
                 callback = function(pasvconn) {
                     dotrace("DATA connection for LIST");
+                    fs.readdir(socket.fs.cwd(), function(err, files) {
+                        var path = socket.fs.cwd();
+                        dotrace(path);
+                        if (err) {
+                            pasvconn.write("");
+                        }
+                        for (var i = 0; i < files.length; i++) {
+                            var file = files[ i ];
+                            var s = fs.statSync(path + file);
+                            var r = "r";
+                            var w = "w";
+                            var x = "x";
+                            var h = "-";
+                            var line = s.isDirectory() ? "d" : h;
+                            var mode = s.mode;
+                            line += (0400 & mode) ? r : h;
+                            line += (0200 & mode) ? w : h;
+                            line += (0100 & mode) ? x : h;
+                            line += (040 & mode) ? r : h;
+                            line += (020 & mode) ? w : h;
+                            line += (010 & mode) ? x : h;
+                            line += (04 & mode) ? r : h;
+                            line += (02 & mode) ? w : h;
+                            line += (01 & mode) ? x : h;
+                            line += " 1 ftp ftp ";
+                            line += s.size + " ";
+                            line += "Aug 1 09:27 ";
+                            line += file + "\r\n";
+                            pasvconn.write(line);
+                        }
+                        pasvconn.end();
+                        socket.write("226 Transfer OK\r\n");
+                    });
+                    
+                    
+                    /*
                     ls_cmd = "ls -l " + socket.fs.cwd();
                     dotrace(ls_cmd);
                     ls = exec(ls_cmd, function (err, stdout, stderr) {
@@ -218,11 +260,10 @@ function createServer(host)
                             pasvconn.write("");
                         } else {
                             // omit the first line, since it contains total
-                            /*
-                            var lines = stdout.split(/\r\n|\r|\n/);
-                            lines.shift();
-                            dotrace(lines.join("\r\n"));
-                            */
+                            //var lines = stdout.split(/\r\n|\r|\n/);
+                            //lines.shift();
+                            //dotrace(lines.join("\r\n"));
+
                             var lines = new Array();
                             lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 1	09:27	bin");
                             lines.push("drwxr-xr-x	1	ftp	ftp	4096	Aug 22	11:34	boot");
@@ -232,6 +273,7 @@ function createServer(host)
                         pasvconn.end();
                         socket.write("226 Transfer OK\r\n");
                     });
+                    */
                 };
                 whenDataWritable(callback);
                 break;
@@ -258,6 +300,7 @@ function createServer(host)
                     if(err)
                         dotrace("Error making directory "+filename);
                     // report error if failed
+                    // Report directory relative to sandbox
                     socket.write("257 \""+filename+"\" directory created\r\n");
                 });
                 break;
