@@ -40,8 +40,10 @@ function createServer(host, sandbox)
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
         socket.setNoDelay();
-
-        // this is still not quite right
+        
+        // this is still not quite right ... thinking data connection setup and management should get its own event queue.
+        // Purpose of this is to establish a data connection, and run the callback when it's ready
+        // Connection might be passive or non-passive
         var whenDataWritable = function(callback) {
             if (socket.passive) {
                 if (socket.dataSocket) {
@@ -157,6 +159,8 @@ function createServer(host, sandbox)
                 break;
             case "CDUP":
                 // Change to Parent Directory.
+                // Do we need to report whether we were already at the top-level?
+                // Any other errors to report?
                 socket.write("250 Directory changed to " + socket.fs.chdir("..") + "\r\n");
                 break;
             case "CONF":
@@ -172,17 +176,12 @@ function createServer(host, sandbox)
                 // same problem again with size, repeating paths
                 var filename = fixPath(socket.fs, commandArg);
                 fs.unlink(socket.sandbox + filename, function(err){
-                    if (err)
-                        dotrace("Error delting file: "+filename+", "+err);
-                    else
+                    if (err) {
+                        dotrace("Error deleting file: "+filename+", "+err);
+                        // write error to socket
+                    } else
                         socket.write("250 file deleted\r\n");
                 });
-                // rn = exec("rm -f " + filename, function(err, stdout, stderr) {
-                // if(err) {
-                // dotrace("Error delting file: "+filename+", "+err);
-                // }
-                // socket.write("250 file deleted\r\n");
-                // });
                 break;
             case "ENC":
                 // Privacy Protected Channel (RFC 2228)
@@ -286,11 +285,11 @@ function createServer(host, sandbox)
                 // Make directory.
                 var filename = fixPath(socket.fs, commandArg);
                 fs.mkdir(socket.sandbox + filename, 0755, function(err){
-                    if(err)
+                    if(err) {
                         dotrace("Error making directory "+filename);
-                    // report error if failed
-                    // Report directory relative to sandbox
-                    socket.write("257 \""+filename+"\" directory created\r\n");
+                        // write error to socket
+                    } else
+                        socket.write("257 \""+filename+"\" directory created\r\n");
                 });
                 break;
             case "MLSD":
@@ -440,9 +439,10 @@ function createServer(host, sandbox)
                 // Remove a directory.
                 var filename = fixPath(socket.fs, commandArg);
                 fs.rmdir(socket.sandbox + filename, function(err){
-                    if(err)
+                    if(err) {
                         dotrace("Error removing directory "+filename);
-                    else
+                        // write error to socket
+                    } else
                         socket.write("250 \""+filename+"\" directory removed\r\n");
                 });
                 break;
@@ -457,17 +457,12 @@ function createServer(host, sandbox)
                 // Rename to.
                 var fileto = fixPath(socket.fs, commandArg);
                 fs.rename(socket.sandbox + socket.filefrom, socket.sandbox + fileto, function(err){
-                    if(err)
+                    if(err) {
                         dotrace("Error renaming file from "+socket.filefrom+" to "+fileto);
-                    socket.write("250 file renamed successfully\r\n");
+                        // write error to socket
+                    } else
+                        socket.write("250 file renamed successfully\r\n");
                 });
-                // var mv_cmd = "mv " + socket.filefrom + " " + fileto
-                // rn = exec(mv_cmd, function(err, stdout, stderr) {
-                    // if(err) {
-                        // dotrace("Error renaming file from "+socket.filefrom+" to "+fileto);
-                    // }
-                    // socket.write("250 file renamed successfully\r\n");
-                // });
                 break;
             case "SITE":
                 // Sends site specific commands to remote server.
@@ -614,5 +609,5 @@ function createServer(host, sandbox)
 }
 sys.inherits(createServer, process.EventEmitter);
 // for testing
-//createServer("localhost").listen(7001);
+//createServer("127.0.0.1", "/").listen(7001);
 exports.createServer = createServer;
