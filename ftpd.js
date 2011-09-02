@@ -32,14 +32,16 @@ function fixPath(fs, path) {
         return fs.cwd() + path.trim();
 }
 
+// host should be an IP address, and sandbox a path without trailing slash for now
 function createServer(host, sandbox)
 {
-    // make sure host is an IP address, not a domain
+    // make sure host is an IP address, otherwise DATA connections will likely break
     var server = net.createServer(function (socket) {
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
         socket.setNoDelay();
 
+        // this is still not quite right
         var whenDataWritable = function(callback) {
             if (socket.passive) {
                 if (socket.dataSocket) {
