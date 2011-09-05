@@ -1,7 +1,8 @@
 nodeftpd - a simple FTP server written in Node.JS
 ====
 
-+ Welcome
+Welcome
+----
 
 This is turning out to be quite a deviation from the original projects. Figured that if there's a need for an ftp server written in node.js, one probably needs something quite custom or they'd just use vsftpd. So my goal is to lay the groundwork for a basic FTP server, with all the right hooks in place for customizing things.
 
@@ -16,7 +17,8 @@ For our special case we needed custom user authentication, to sandbox all the fi
 Thanks,
     Alan
 
-+ How to use
+How to use
+----
 
 See test.js for an example.
 
@@ -25,7 +27,8 @@ Then implement the following event callbacks with logic you need performed:
 * command:pass - Sends three params. The first is the password. The second is a callback to be called if you determine the password is correct. Call the second if incorrect.
 * command:user - Same as command:pass above, but first parameter is the username that was sent from the client.
 
-++ 04 September 2011
+04 September 2011
+----
 
 Tested passive and non-passive data connections and found some issues, so I did some re-working.
 
@@ -34,15 +37,14 @@ Some things that might be nice:
 * Figure out how it should be run, maybe as root first but execs to another user
 * Fork new process when client connects and authenticates
 
+Old Readme Follows ...
+----
 
+### 28 March 2010
 
-++ Old Readme Follows ...
-
-28 March 2010
---------------------------------------------------------------------------------
 Forked from http://github.com/billywhizz/nodeftpd 
 Andrew Johnston - http://blog.beardsoft.com/node-ftp-server-initial-release
---------------------------------------------------------------------------------
+
 Andrew's initial release was tested about node.js 0.1.21
 In the few short months since that release, node.js has changed quite a bit
 to where it is now, at time of writing 0.1.33
@@ -64,7 +66,7 @@ Changes made to nodeftp are as follows:
 8. Finally. Reformatted for my Emacs and javascript-mode
 
 Also, not tested in Passive mode yet, but I think it works??
---------------------------------------------------------------------------------
+
 One thing I had problems with was the root filesystem of the FTP server.
 Even though I was running the ftpd.js from /home/rob/workspace it changed
 it to "/". This meant that if I tried to get the SIZE of a file, eg: 
@@ -73,13 +75,14 @@ it tried to get the SIZE of
 /home/rob/workspace//home/rob/workspace/file.txt
 I narrowed this down to the dummyfs.js functionality, but then
 if I changed the dummyfs root there was repeating of the path names
---------------------------------------------------------------------------------
+
 TODO
 - Fix the repeating file paths problem
 - Add in non-anonymous logins
 - Implement non-implemented functionality (see ftpd.js TODO list)
 - Add in proper error checking
 - Test in passive mode
---------------------------------------------------------------------------------
-20 June 2010
+
+### 20 June 2010
+
 Updated for node v0.1.98
