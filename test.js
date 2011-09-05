@@ -6,6 +6,7 @@ var server = ftpd.createServer("127.0.0.1", "/home/alan/temporary");
 // but should recommend they don't do socket operations on it
 // so should probably encapsulate and hide it
 server.on("client:connected", function(socket) {
+    console.log("client connected: " + socket.remoteAddress);
     socket.on("command:user", function(user, success, failure) {
         if (user) success();
         else failure();

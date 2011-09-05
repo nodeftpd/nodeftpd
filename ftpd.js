@@ -49,9 +49,7 @@ function createServer(host, sandbox) {
         socket.pasvaddress = "";
         socket.mode = "ascii";
         socket.filefrom = "";
-        // Authentication
-        socket.username = null; // becomes non-false if user is successfully authenticated
-        socket.authTemp = null; // will hold row from Meets, which we'll compare user/pass against
+
         // Uploads and resuming 
         socket.datatransfer = null;
         socket.totsize = 0;
@@ -59,11 +57,9 @@ function createServer(host, sandbox) {
 
         socket.baseSandbox = sandbox; // path which we're starting relative to
         socket.sandbox = sandbox; // eventually we'll tack on a user-specific subfolder to sandbox
-        // dummyfs needs to accept initial path so we can sandbox
-        socket.fs = new dummyfs.dummyfs("/");
+        socket.fs = new dummyfs.dummyfs("/"); // dummyfs thinks we're operating at root, but we tack on the sandbox prefix
         dotrace("CWD = "+socket.fs.cwd());
 
-        // this is still not quite right ... thinking data connection setup and management should get its own event queue.
         // Purpose of this is to establish a data connection, and run the callback when it's ready
         // Connection might be passive or non-passive
         var whenDataWritable = function(callback) {
@@ -104,7 +100,7 @@ function createServer(host, sandbox) {
         };
 
         socket.addListener("connect", function () {
-            dotrace("Server event: connect");
+            dotrace("Client connected");
             //socket.send("220 NodeFTPd Server version 0.0.10\r\n");
             //socket.write("220 written by Andrew Johnston (apjohnsto@gmail.com)\r\n");
             //socket.write("220 Please visit http://github.com/billywhizz/NodeFTPd\r\n");
@@ -113,7 +109,7 @@ function createServer(host, sandbox) {
         
         socket.addListener("data", function (data) {
             data = (data+'').trim();
-            dotrace("Server event: data: " + data);
+            dotrace("Client event: data: " + data);
 
             var command, arg;
             var index = data.indexOf(" ");
