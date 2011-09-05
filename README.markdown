@@ -20,6 +20,10 @@ Thanks,
 Status
 ----
 
+Known issues
+
+* Still some quirkiness with data connections ... namely with long-running sessions
+
 These are known to work (or mostly work)
 
 * Passive data connection establishment
