@@ -4,7 +4,7 @@ nodeftpd - a simple FTP server written in Node.JS
 Welcome
 ----
 
-This is turning out to be quite a deviation from the original projects. Figured that if there's a need for an ftp server written in node.js, one probably needs something quite custom or they'd just use vsftpd. So my goal is to lay the groundwork for a basic FTP server, with all the right hooks in place for customizing things.
+This is turning out to be quite a deviation from the original code. Figured that if there's a need for an ftp server written in node.js, one probably needs to tack on custom functionality, otherwise they'd just use vsftpd. So my goal is to lay the groundwork for a basic FTP server, with all the right hooks in place for customizing operations.
 
 I assume you'll want to customize:
 
@@ -16,6 +16,21 @@ For our special case we needed custom user authentication, to sandbox all the fi
 
 Thanks,
     Alan
+
+Status
+----
+
+These are known to work (or mostly work)
+
+* Passive data connection establishment
+* Non-passive data connection establishment
+* CWD (change working directory)
+* DELE (delete file)
+* LIST (had to construct the list format programmatically because output from `ls -l` wasn't being processed by FireFTP)
+* MKD (make directory)
+* STOR (upload)
+
+If a command is not listed, I probably haven't tested it yet.
 
 How to use
 ----
