@@ -1,6 +1,30 @@
 nodeftpd - a simple FTP server written in Node.JS
 ====
 
++ Welcome
+
+This is turning out to be quite a deviation from the original projects. Figured that if there's a need for an ftp server written in node.js, one probably needs something quite custom or they'd just use vsftpd. So my goal is to lay the groundwork for a basic FTP server, with all the right hooks in place for customizing things.
+
+I assume you'll want to customize:
+
+* User authentication (user and pass commands)
+* Where on the filesystem file commands operate
+* What happens when certain file commands are performed
+
+For our special case we needed custom user authentication, to sandbox all the file operations, and to run special code when a file is uploaded.
+
+Thanks,
+    Alan
+
++ How to use
+
+See test.js for an example.
+
+Then implement the following event callbacks with logic you need performed:
+
+* command:pass - Sends three params. The first is the password. The second is a callback to be called if you determine the password is correct. Call the second if incorrect.
+* command:user - Same as command:pass above, but first parameter is the username that was sent from the client.
+
 ++ 04 September 2011
 
 Tested passive and non-passive data connections and found some issues, so I did some re-working.
