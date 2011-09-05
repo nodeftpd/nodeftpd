@@ -1,9 +1,8 @@
-
 var net = require("net");
 var sys = require("sys");
 var fs = require("fs");
+var path = require("path");
 var dummyfs = require("./dummyfs");
-var exec = require('child_process').exec;
 
 /*
 TODO:
@@ -33,14 +32,37 @@ function fixPath(fs, path) {
 }
 
 // host should be an IP address, and sandbox a path without trailing slash for now
-function createServer(host, sandbox)
-{
+function createServer(host, sandbox) {
     // make sure host is an IP address, otherwise DATA connections will likely break
     var server = net.createServer(function (socket) {
+        server.emit("client:connected", socket); // pass socket so they can listen for client-specific events
+
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
         socket.setNoDelay();
         
+        socket.passive = false;
+        socket.dataHost = null;
+        socket.dataPort = 20; // default
+        socket.dataSocket = null;
+        socket.pasvport = 0;
+        socket.pasvaddress = "";
+        socket.mode = "ascii";
+        socket.filefrom = "";
+        // Authentication
+        socket.username = null; // becomes non-false if user is successfully authenticated
+        socket.authTemp = null; // will hold row from Meets, which we'll compare user/pass against
+        // Uploads and resuming 
+        socket.datatransfer = null;
+        socket.totsize = 0;
+        socket.filename = "";
+
+        socket.baseSandbox = sandbox; // path which we're starting relative to
+        socket.sandbox = sandbox; // eventually we'll tack on a user-specific subfolder to sandbox
+        // dummyfs needs to accept initial path so we can sandbox
+        socket.fs = new dummyfs.dummyfs("/");
+        dotrace("CWD = "+socket.fs.cwd());
+
         // this is still not quite right ... thinking data connection setup and management should get its own event queue.
         // Purpose of this is to establish a data connection, and run the callback when it's ready
         // Connection might be passive or non-passive
@@ -69,7 +91,6 @@ function createServer(host, sandbox)
                     dataSocket.addListener("close", function(had_error) {
                         socket.dataSocket = null;
                         dotrace("Data event: close" + (had_error ? " (due to error)" :""));
-                        
                     });
                     dataSocket.addListener("end", function() {
                         dotrace("Data event: end");
@@ -82,26 +103,6 @@ function createServer(host, sandbox)
             }
         };
 
-        socket.passive = false;
-        socket.dataHost = null;
-        socket.dataPort = 20; // default
-        socket.dataSocket = null;
-        socket.pasvport = 0;
-        socket.pasvaddress = "";
-        socket.mode = "ascii";
-        // these few don't seem necessary
-        socket.filefrom = "";
-
-        socket.username = "";
-        socket.datatransfer = null;
-        socket.totsize = 0;
-        socket.filename = "";
-        
-        socket.sandbox = sandbox; // path which we're starting relative to
-        // dummyfs needs to accept initial path so we can sandbox
-        socket.fs = new dummyfs.dummyfs("/");
-        dotrace("CWD = "+socket.fs.cwd());
-        
         socket.addListener("connect", function () {
             dotrace("Server event: connect");
             //socket.send("220 NodeFTPd Server version 0.0.10\r\n");
@@ -118,16 +119,16 @@ function createServer(host, sandbox)
             var index = data.indexOf(" ");
             if (index > 0)
             {
-                command = data.substring(0, index);
-                commandArg = data.substring(index+1, data.length);
+                command = data.substring(0, index).trim().toUpperCase();
+                commandArg = data.substring(index+1, data.length).trim();
             }
             else
             {
-                command = data;
+                command = data.trim().toUpperCase();
                 commandArg = '';
             }
             
-            switch(command.trim().toUpperCase())
+            switch(command)
             {
             case "ABOR":
                 // Abort an active file transfer.
@@ -169,7 +170,7 @@ function createServer(host, sandbox)
                 break;
             case "CWD":
                 // Change working directory.
-                socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg.trim()) + "\" is current directory\r\n");
+                socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg) + "\" is current directory\r\n");
                 break;
             case "DELE":
                 // Delete file.
@@ -179,8 +180,9 @@ function createServer(host, sandbox)
                     if (err) {
                         dotrace("Error deleting file: "+filename+", "+err);
                         // write error to socket
+                        socket.write("550 Permission denied\r\n");
                     } else
-                        socket.write("250 file deleted\r\n");
+                        socket.write("250 File deleted\r\n");
                 });
                 break;
             case "ENC":
@@ -223,9 +225,14 @@ function createServer(host, sandbox)
                 // Returns information of a file or directory if specified, else information of the current working directory is returned.
                 // Passive connection may or may not already be established
                 // Is the passive connection writable?
-                // If not, 
 
                 whenDataWritable( function(pasvconn) {
+                    var leftPad = function(text, width) {
+                        var out = '';
+                        for (var j = text.length; j < width; j++) out += ' ';
+                        out += text;
+                        return out;
+                    };
                     dotrace("Sending file list");
                     fs.readdir(socket.sandbox + socket.fs.cwd(), function(err, files) {
                         var path = socket.sandbox + socket.fs.cwd();
@@ -234,6 +241,8 @@ function createServer(host, sandbox)
                             dotrace("Error: " + err);
                             pasvconn.write("");
                         } else {
+                            socket.write("150 Here comes the directory listing\r\n");
+                            dotrace(files.length + " files");
                             for (var i = 0; i < files.length; i++) {
                                 var file = files[ i ];
                                 var s = fs.statSync(path + file);
@@ -253,15 +262,16 @@ function createServer(host, sandbox)
                                 line += (02 & mode) ? w : h;
                                 line += (01 & mode) ? x : h;
                                 line += " 1 ftp ftp ";
-                                for (var j = s.size.toString().length; j < 12; j++) line += " ";
+                                line += leftPad(s.size.toString(), 12);
                                 line += s.size + " ";
-                                line += "Aug 1 09:27 ";
+                                line += s.mtime + ' '; // need to use a date string formatting lib
+                                //line += "Aug 1 09:27 ";
                                 line += file + "\r\n";
                                 pasvconn.write(line);
                             }
                         }
-                        pasvconn.end();
                         socket.write("226 Transfer OK\r\n");
+                        pasvconn.end();
                     });
                 });
                 break;
@@ -318,8 +328,17 @@ function createServer(host, sandbox)
                 break;
             case "PASS":
                 // Authentication password.
-                socket.write("230 Logged on\r\n");
-                // Verify credentials using user and pass
+                socket.emit(
+                    "command:pass",
+                    commandArg,
+                    function() { // implementor should call this on successful password check
+                        
+                        socket.write("230 Logged on\r\n");
+                    },
+                    function() { // call second callback if password incorrect
+                        socket.write("530 Invalid password\r\n");
+                    }
+                );
                 break;
             case "PASV":
                 // Enter passive mode. This creates the listening socket.
@@ -388,7 +407,7 @@ function createServer(host, sandbox)
                 break;
             case "REST":
                 // Restart transfer from the specified point.
-                socket.totsize = parseInt(commandArg.trim());
+                socket.totsize = parseInt(commandArg);
                 socket.write("350 Rest supported. Restarting at " + socket.totsize + "\r\n");
                 break;
             case "RETR":
@@ -470,7 +489,7 @@ function createServer(host, sandbox)
                 break;
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
-                var filename = socket.fs.cwd() + commandArg.trim();
+                var filename = socket.fs.cwd() + commandArg;
                 fs.stat(socket.sandbox + filename, function (err, s) {
                     if(err) { 
                         dotrace("Error getting size of file: "+filename);
@@ -509,23 +528,27 @@ function createServer(host, sandbox)
 
                     fs.open(socket.sandbox + filename, 'w', 0644, function(err, fd) {
                         if(err) {
-                            dotrace('Error opening file: '+filename);
+                            dotrace('Error opening file: '+ filename);
+                            socket.write("553 Could not create file\r\n");
+                            // probably more cleanup we should do
                             throw err;
                         }
 
                         var size = 0;
-                        var paused = false;
-                        var npauses = 0;
                         pasvconn.addListener("data", function(data) {
+                            pasvconn.pause();
                             size += data.length;
                             fs.write(fd, data, null, socket.mode, function(err, bytes_written) {
                                 if(err) {
                                     dotrace("Error writing file");
                                     throw err;
-                                }
-                                else {
+                                } else {
                                     dotrace("Bytes written: "+bytes_written);
                                 }
+                                pasvconn.resume();
+                                // fails when client closes socket after upload
+                                /*
+                                // why was this here?
                                 if (!paused) {
                                     pasvconn.pause();
                                     npauses += 1;
@@ -535,15 +558,9 @@ function createServer(host, sandbox)
                                         paused = false;
                                     }, 1);
                                 }
+                                */
                             });
                         });
-                        /*
-                        pasvconn.addListener("connect", function () {
-                            dotrace("DATA connect");
-                            socket.write("150 Connection Accepted\r\n");
-                        });
-                        */
-                        
                         pasvconn.addListener("end", function () {
                             fs.close(fd, function(err) {
                                 if (err) dotrace("Error closing file: "+fd+" ("+err+")");
@@ -554,6 +571,7 @@ function createServer(host, sandbox)
                         pasvconn.addListener("error", function(had_error) {
                             dotrace("DATA error: " + had_error);
                         });
+                        socket.write("150 Ok to send data\r\n");
                         pasvconn.resume();
                     });
                 });
@@ -572,7 +590,7 @@ function createServer(host, sandbox)
                 break;
             case "TYPE":
                 // Sets the transfer mode (ASCII/Binary).
-                if(commandArg.trim() == "A"){
+                if(commandArg == "A"){
                     socket.mode = "ascii";
                     socket.write("200 Type set to A\r\n");			
                 }
@@ -583,8 +601,16 @@ function createServer(host, sandbox)
                 break;
             case "USER":
                 // Authentication username.
-                socket.username = commandArg.trim();
-                socket.write("331 password required for " + socket.username + "\r\n");
+                socket.emit(
+                    "command:user",
+                    commandArg,
+                    function() { // implementor should call this on successful password check
+                        socket.write("331 Password required for " + commandArg + "\r\n");
+                    },
+                    function() { // call second callback if password incorrect
+                        socket.write("530 Invalid username: " + commandArg + "\r\n");
+                    }
+                );
                 break;
             case "XPWD":
                 // 
@@ -595,19 +621,22 @@ function createServer(host, sandbox)
                 break;
             }
         });
-        
+
         socket.addListener("end", function () {
             dotrace("Socket end");
+            if (socket.mysqlConnection) socket.mysqlConnection.end();
             socket.end(); // ?
         });
         socket.addListener("error", function (err) {
             dotrace("Socket error: " + err);
-        });  
+        });
+    });
+
+    server.addListener("close", function() {
+        dotrace("Server closed");
     });
 
     return server;
 }
 sys.inherits(createServer, process.EventEmitter);
-// for testing
-//createServer("127.0.0.1", "/").listen(7001);
 exports.createServer = createServer;
