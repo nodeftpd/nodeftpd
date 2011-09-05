@@ -3,6 +3,7 @@ var sys = require("sys");
 var fs = require("fs");
 var path = require("path");
 var dummyfs = require("./dummyfs");
+require('./date-format');
 
 /*
 TODO:
@@ -18,6 +19,8 @@ TODO:
 // }
 
 // For some reason, the FTP server 
+
+
 
 
 function dotrace(traceline) {
@@ -258,9 +261,9 @@ function createServer(host, sandbox) {
                                 line += (02 & mode) ? w : h;
                                 line += (01 & mode) ? x : h;
                                 line += " 1 ftp ftp ";
-                                line += leftPad(s.size.toString(), 12);
-                                line += s.size + " ";
-                                line += s.mtime + ' '; // need to use a date string formatting lib
+                                line += leftPad(s.size.toString(), 12) + ' ';
+                                var d = new Date(s.mtime);
+                                line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
                                 //line += "Aug 1 09:27 ";
                                 line += file + "\r\n";
                                 pasvconn.write(line);
