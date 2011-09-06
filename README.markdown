@@ -22,6 +22,7 @@ Status
 
 Known issues
 
+* Still many places that should be paying attention to the asynchronous nature of I/O ... LIST, STOR, etc ... LIST is fixed now, but I'm going to fix the others before pushing
 * Still some quirkiness with data connections ... namely with long-running sessions
 
 These are known to work (or mostly work)
