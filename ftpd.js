@@ -12,20 +12,20 @@ TODO:
 - Implement RFC 2228
 - Implement RFC 3659
 - Implement TLS - http://en.wikipedia.org/wiki/FTPS
+
+
+- passive command is for server to determine which port it listens on and report that to the client
+- doesn't necessarily mean it needs to be listening (i guess), but i assume it actually SHOULD be listening
+- it keeps listening for subsequent connections
+
+- what sort of security should i enforce? should i require the same IP for data and control connections?
+    - maybe just for milesplit's use?
 */
 
 // String.prototype.trim = function() {
     // return this.replace(/^\s+|\s+$/g,"");
 // }
 
-// For some reason, the FTP server 
-
-
-
-
-function dotrace(traceline) {
-    console.log(traceline);
-}
 
 function fixPath(fs, path) {
     if (path.charAt(0) == '/')
@@ -37,7 +37,23 @@ function fixPath(fs, path) {
 // host should be an IP address, and sandbox a path without trailing slash for now
 function createServer(host, sandbox) {
     // make sure host is an IP address, otherwise DATA connections will likely break
-    var server = net.createServer(function (socket) {
+    var server = net.createServer();
+    server.baseSandbox = sandbox; // path which we're starting relative to
+    server.debugging = 0;
+
+    var logIf = function(level, message, socket) {
+        if (server.debugging >= level) {
+            if (socket)
+                console.log(socket.remoteAddress + ": " + message);
+            else
+                console.log(message);
+        }
+    };
+
+    server.on("listening", function() {
+        logIf(0, "nodeFTPd server up and ready for connections");
+    });
+    server.on("connection", function(socket) {
         server.emit("client:connected", socket); // pass socket so they can listen for client-specific events
 
         socket.setTimeout(0);
@@ -47,63 +63,94 @@ function createServer(host, sandbox) {
         socket.passive = false;
         socket.dataHost = null;
         socket.dataPort = 20; // default
-        socket.dataSocket = null;
-        socket.pasvport = 0;
-        socket.pasvaddress = "";
+        socket.dataListener = null; // for incoming passive connections
+        socket.dataSocket = null; // the actual data socket
         socket.mode = "ascii";
         socket.filefrom = "";
-
+        // Authentication
+        socket.authFailures = 0; // 3 tries then we disconnect you
+        socket.temp = null;
+        socket.username = null;
         // Uploads and resuming 
         socket.datatransfer = null;
         socket.totsize = 0;
         socket.filename = "";
 
-        socket.baseSandbox = sandbox; // path which we're starting relative to
-        socket.sandbox = sandbox; // eventually we'll tack on a user-specific subfolder to sandbox
-        socket.fs = new dummyfs.dummyfs("/"); // dummyfs thinks we're operating at root, but we tack on the sandbox prefix
-        dotrace("CWD = "+socket.fs.cwd());
+        socket.sandbox = sandbox; // after authentication we'll tack on a user-specific subfolder
+        socket.fs = new dummyfs.dummyfs("/");
+        logIf(0, "Base FTP directory: "+socket.fs.cwd());
 
-        // Purpose of this is to establish a data connection, and run the callback when it's ready
-        // Connection might be passive or non-passive
+
+        var authenticated = function() {
+            // send a message if not authenticated?
+            return (socket.username ? true : false);
+        };
+
+        var authFailures = function() {
+            if (socket.authFailures >= 2) {
+                socket.end();
+                return true;
+            }
+            return false;
+        };
+
+        var closeDataConnections = function() {
+            if (socket.dataListener) socket.dataListener.close(); // we're creating a new listener
+            if (socket.dataSocket) socket.dataSocket.end(); // close any existing connections
+        };
+
+        // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
         var whenDataWritable = function(callback) {
             if (socket.passive) {
+                // how many data connections are allowed?
+                // should still be listening since we created a server, right?
                 if (socket.dataSocket) {
-                    dotrace("Re-using existing passive data socket");
-                    if (socket.dataSocket.writable) callback(socket.dataSocket);
+                    logIf(3, "A data connection exists", socket);
+                    if (callback) callback(socket.dataSocket); // do!
                 } else {
-                    dotrace("passive, but no dataSocket to use");
+                    logIf(3, "Passive, but no data socket exists ... weird", socket);
                     socket.write("425 Can't open data connection\r\n");
                 }
             } else {
                 // Do we need to open the data connection?
-                if (socket.dataSocket) {
-                    dotrace("using non-passive dataSocket");
+                if (socket.dataSocket) { // There really shouldn't be an existing connection
+                    logIf(3, "Using existing non-passive dataSocket", socket);
                     callback(socket.dataSocket);
                 } else {
-                    dotrace("Opening data connection to client at " + socket.dataHost + ":" + socket.dataPort);
-                    var dataSocket = net.createConnection(socket.dataPort, socket.dataHost);
+                    logIf(1, "Opening data connection to " + socket.dataHost + ":" + socket.dataPort, socket);
+                    var dataSocket = new net.Socket();
+                    dataSocket.buffers = [];
+                    // Since data may arrive once the connection is made, buffer it
+                    dataSocket.on("data", function(data) {
+                        logIf(3, dataSocket.remoteAddress + ' event: data ; ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'));
+                        dataSocket.buffers.push(data);
+                    });
                     dataSocket.addListener("connect", function() {
                         socket.dataSocket = dataSocket;
-                        dotrace("Data event: connect");
+                        logIf(3, "Data connection succeeded", socket);
                         callback(dataSocket);
                     });
                     dataSocket.addListener("close", function(had_error) {
                         socket.dataSocket = null;
-                        dotrace("Data event: close" + (had_error ? " (due to error)" :""));
+                        if (had_error)
+                            logIf(0, "Data event: close due to error", socket);
+                        else
+                            logIf(3, "Data event: close", socket);
                     });
                     dataSocket.addListener("end", function() {
-                        dotrace("Data event: end");
+                        logIf(3, "Data event: end", socket);
                     });
                     dataSocket.addListener("error", function(err) {
-                        dotrace("Data event: error: " + err);
+                        logIf(0, "Data event: error: " + err, socket);
                         dataSocket.destroy();
                     });
+                    dataSocket.connect(socket.dataPort, socket.dataHost);
                 }
             }
         };
 
         socket.addListener("connect", function () {
-            dotrace("Client connected");
+            logIf(1, "Connection", socket);
             //socket.send("220 NodeFTPd Server version 0.0.10\r\n");
             //socket.write("220 written by Andrew Johnston (apjohnsto@gmail.com)\r\n");
             //socket.write("220 Please visit http://github.com/billywhizz/NodeFTPd\r\n");
@@ -112,17 +159,14 @@ function createServer(host, sandbox) {
         
         socket.addListener("data", function (data) {
             data = (data+'').trim();
-            dotrace("Client event: data: " + data);
+            logIf(2, "FTP command: " + data, socket);
 
             var command, arg;
             var index = data.indexOf(" ");
-            if (index > 0)
-            {
+            if (index > 0) {
                 command = data.substring(0, index).trim().toUpperCase();
                 commandArg = data.substring(index+1, data.length).trim();
-            }
-            else
-            {
+            } else {
                 command = data.trim().toUpperCase();
                 commandArg = '';
             }
@@ -159,8 +203,7 @@ function createServer(host, sandbox) {
                 break;
             case "CDUP":
                 // Change to Parent Directory.
-                // Do we need to report whether we were already at the top-level?
-                // Any other errors to report?
+                if (!authenticated()) break;
                 socket.write("250 Directory changed to " + socket.fs.chdir("..") + "\r\n");
                 break;
             case "CONF":
@@ -169,15 +212,16 @@ function createServer(host, sandbox) {
                 break;
             case "CWD":
                 // Change working directory.
+                if (!authenticated()) break;
                 socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg) + "\" is current directory\r\n");
                 break;
             case "DELE":
                 // Delete file.
-                // same problem again with size, repeating paths
+                if (!authenticated()) break;
                 var filename = fixPath(socket.fs, commandArg);
                 fs.unlink(socket.sandbox + filename, function(err){
                     if (err) {
-                        dotrace("Error deleting file: "+filename+", "+err);
+                        logIf(0, "Error deleting file: "+filename+", "+err, socket);
                         // write error to socket
                         socket.write("550 Permission denied\r\n");
                     } else
@@ -222,8 +266,7 @@ function createServer(host, sandbox) {
                 break;
             case "LIST":
                 // Returns information of a file or directory if specified, else information of the current working directory is returned.
-                // Passive connection may or may not already be established
-                // Is the passive connection writable?
+                if (!authenticated()) break;
 
                 whenDataWritable( function(pasvconn) {
                     var leftPad = function(text, width) {
@@ -232,45 +275,47 @@ function createServer(host, sandbox) {
                         out += text;
                         return out;
                     };
-                    dotrace("Sending file list");
-                    fs.readdir(socket.sandbox + socket.fs.cwd(), function(err, files) {
-                        var path = socket.sandbox + socket.fs.cwd();
-                        dotrace(path);
-                        if (err) {
-                            dotrace("Error: " + err);
-                            pasvconn.write("");
-                        } else {
-                            socket.write("150 Here comes the directory listing\r\n");
-                            dotrace(files.length + " files");
-                            for (var i = 0; i < files.length; i++) {
-                                var file = files[ i ];
-                                var s = fs.statSync(path + file);
-                                var r = "r";
-                                var w = "w";
-                                var x = "x";
-                                var h = "-";
-                                var line = s.isDirectory() ? "d" : h;
-                                var mode = s.mode;
-                                line += (0400 & mode) ? r : h;
-                                line += (0200 & mode) ? w : h;
-                                line += (0100 & mode) ? x : h;
-                                line += (040 & mode) ? r : h;
-                                line += (020 & mode) ? w : h;
-                                line += (010 & mode) ? x : h;
-                                line += (04 & mode) ? r : h;
-                                line += (02 & mode) ? w : h;
-                                line += (01 & mode) ? x : h;
-                                line += " 1 ftp ftp ";
-                                line += leftPad(s.size.toString(), 12) + ' ';
-                                var d = new Date(s.mtime);
-                                line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
-                                //line += "Aug 1 09:27 ";
-                                line += file + "\r\n";
-                                pasvconn.write(line);
-                            }
-                        }
+                    // This will be called once data has ACTUALLY written out ... socket.write() is async!
+                    var success = function() {
                         socket.write("226 Transfer OK\r\n");
                         pasvconn.end();
+                    };
+                    pasvconn.resume();
+                    logIf(3, "Sending file list", socket);
+                    fs.readdir(socket.sandbox + socket.fs.cwd(), function(err, files) {
+                        var path = socket.sandbox + socket.fs.cwd();
+                        if (err) {
+                            logIf(0, "While sending file list, reading directory: " + err, socket);
+                            pasvconn.write("", success);
+                        } else {
+                            // Wait until acknowledged!
+                            socket.write("150 Here comes the directory listing\r\n", function() {
+                                logIf(3, "Directory has " + files.length + " files", socket);
+                                for (var i = 0; i < files.length; i++) {
+                                    var file = files[ i ];
+                                    var s = fs.statSync(path + file);
+                                    var line = s.isDirectory() ? 'd' : 'h';
+                                    if (i > 0) pasvconn.write("\r\n");
+                                    line += (0400 & s.mode) ? 'r' : '-';
+                                    line += (0200 & s.mode) ? 'w' : '-';
+                                    line += (0100 & s.mode) ? 'x' : '-';
+                                    line += (040 & s.mode) ? 'r' : '-';
+                                    line += (020 & s.mode) ? 'w' : '-';
+                                    line += (010 & s.mode) ? 'x' : '-';
+                                    line += (04 & s.mode) ? 'r' : '-';
+                                    line += (02 & s.mode) ? 'w' : '-';
+                                    line += (01 & s.mode) ? 'x' : '-';
+                                    line += " 1 ftp ftp ";
+                                    line += leftPad(s.size.toString(), 12) + ' ';
+                                    var d = new Date(s.mtime);
+                                    line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
+                                    line += file;
+                                    pasvconn.write(line);
+                                }
+                                // write the last bit, so we can know when it's finished
+                                pasvconn.write("\r\n", success);
+                            });
+                        }
                     });
                 });
                 break;
@@ -292,10 +337,11 @@ function createServer(host, sandbox) {
                 break;
             case "MKD":
                 // Make directory.
+                if (!authenticated()) break;
                 var filename = fixPath(socket.fs, commandArg);
                 fs.mkdir(socket.sandbox + filename, 0755, function(err){
                     if(err) {
-                        dotrace("Error making directory "+filename);
+                        logIf(0, "Error making directory " + filename, socket);
                         // write error to socket
                     } else
                         socket.write("257 \""+filename+"\" directory created\r\n");
@@ -330,52 +376,90 @@ function createServer(host, sandbox) {
                 socket.emit(
                     "command:pass",
                     commandArg,
-                    function() { // implementor should call this on successful password check
-                        
+                    function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
+                        socket.username = username;
+                        socket.sandbox = server.baseSandbox + '/' + username;
                     },
                     function() { // call second callback if password incorrect
                         socket.write("530 Invalid password\r\n");
+                        socket.authFailures++;
+                        socket.username = null;
                     }
                 );
                 break;
             case "PASV":
                 // Enter passive mode. This creates the listening socket.
-                // But this doesn't prevent more than 1 data connection
-                socket.passive = true;
+                if (!authenticated()) break;
+                // not sure whether the spec limits to 1 data connection at a time ...
+                if (socket.dataListener) socket.dataListener.close(); // we're creating a new listener
+                if (socket.dataSocket) socket.dataSocket.end(); // close any existing connections
+                socket.dataListener = null;
                 socket.dataSocket = null;
-                // you can enter passive without data waiting to be transferred
-                var pasv = net.createServer(function (psocket) {
-                    // 'connection' event has fired on server ... now set socket listeners
-                    psocket.addListener("connect", function () {
-                        socket.write("150 Connection Accepted\r\n");
-                        dotrace("Passive data event: connect");
-                        socket.dataSocket = psocket;
+                // Passive listener needs to pause data because sometimes commands come before a data connection,
+                // othertime afterwards ... depends on the client and threads
+                socket.pause();
+                var pasv = net.createServer(function(psocket) {
+                    logIf(1, "Incoming passive data connection", socket);
+                    psocket.pause();
+                    psocket.buffers = [];
+                    psocket.on("data", function(data) {
+                        // should watch out for malicious users uploading large amounts of data outside protocol
+                        logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), socket);
+                        psocket.buffers.push(data);
                     });
-                    psocket.addListener("end", function () {
-                        dotrace("Passive data event: end");
-                        //pasv.close();
+                    psocket.on("connect", function() {
+                        logIf(1, "Passive data event: connect", socket);
+                        // Once we have a completed data connection, make note of it
+                        socket.dataSocket = psocket;
+                        // nah, there may be several of these
+                    });
+                    psocket.on("connect", function() {
+                        logIf(1, "Passive data event: connect", socket);
+                        // Once we have a completed data connection, make note of it
+                        socket.dataSocket = psocket;
+                        // 150 should be sent before we send data on the data connection
+                        //socket.write("150 Connection Accepted\r\n");
+                        socket.resume();
+                    });
+                    psocket.on("end", function () {
+                        logIf(3, "Passive data event: end", socket);
+                        // remove pointer
+                        socket.dataSocket = null;
+                        socket.resume(); // just in case
                     });
                     psocket.addListener("error", function(err) {
-                        dotrace("Passive data event: error: " + err);
-                        psocket.destroy();
+                        logIf(0, "Passive data event: error: " + err, socket);
+                        socket.dataSocket = null;
+                        socket.resume();
                     });
                     psocket.addListener("close", function(had_error) {
-                        dotrace("Passive data event: close " + (had_error ? " (due to error)" : ""));
-                        socket.dataSocket = null;
+                        logIf(
+                            (had_error ? 0 : 3),
+                            "Passive data event: close " + (had_error ? " due to error" : ""),
+                            socket
+                        );
+                        socket.resume();
                     });
                 });
                 // Once we're successfully listening, tell the client
                 pasv.addListener("listening", function() {
                     var port = pasv.address().port;
+                    socket.passive = true; // wait until we're actually listening
                     socket.dataHost = host;
                     socket.dataPort = port;
-                    dotrace("Passive data event: listening on port " + port);
+                    logIf(3, "Passive data connection listening on port " + port, socket);
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
                     socket.write("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
                 });
-                pasv.listen(0, host);
+                pasv.on("close", function() {
+                    logIf(3, "Passive data listener closed", socket);
+                    socket.resume(); // just in case
+                });
+                pasv.listen(0);
+                socket.dataListener = pasv;
+                logIf(3, "Passive data connection beginning to listen", socket);
                 break;
             case "PBSZ":
                 // Protection Buffer Size (RFC 2228)
@@ -383,6 +467,7 @@ function createServer(host, sandbox) {
                 break;
             case "PORT":
                 // Specifies an address and port to which the server should connect.
+                if (!authenticated()) break;
                 socket.passive = false;
                 socket.dataSocket = null;
                 var addr = commandArg.split(",");
@@ -392,13 +477,14 @@ function createServer(host, sandbox) {
                 break;
             case "PWD":
                 // Print working directory. Returns the current directory of the host.
+                if (!authenticated()) break;
                 socket.write("257 \"" + socket.fs.cwd() + "\" is current directory\r\n");
                 break;
             case "QUIT":
                 // Disconnect.
-                
                 socket.write("221 Goodbye\r\n");
                 socket.end();
+                closeDataConnections();
                 break;
             case "REIN":
                 // Re initializes the connection.
@@ -406,8 +492,12 @@ function createServer(host, sandbox) {
                 break;
             case "REST":
                 // Restart transfer from the specified point.
+                if (!authenticated()) break;
+                socket.write("202 Not supported\r\n");
+                /*
                 socket.totsize = parseInt(commandArg);
                 socket.write("350 Rest supported. Restarting at " + socket.totsize + "\r\n");
+                */
                 break;
             case "RETR":
                 // Retrieve (download) a remote file.
@@ -455,31 +545,36 @@ function createServer(host, sandbox) {
                 break;
             case "RMD":
                 // Remove a directory.
+                if (!authenticated()) break;
                 var filename = fixPath(socket.fs, commandArg);
                 fs.rmdir(socket.sandbox + filename, function(err){
                     if(err) {
-                        dotrace("Error removing directory "+filename);
-                        // write error to socket
+                        logIf(0, "Error removing directory "+filename, socket);
+                        socket.write("550 Delete operation failed\r\n");
                     } else
                         socket.write("250 \""+filename+"\" directory removed\r\n");
                 });
                 break;
             case "RNFR":
                 // Rename from.
+                if (!authenticated()) break;
                 socket.filefrom = fixPath(socket.fs, commandArg);
-                dotrace("Rename from "+socket.filefrom);
-                // check whether exists
-                socket.write("350 File exists, ready for destination name.\r\n");
+                logIf(3, "Rename from "+socket.filefrom, socket);
+                path.exists(socket.sandbox + socket.filefrom, function(exists) {
+                    if (exists) socket.write("350 File exists, ready for destination name\r\n");
+                    else socket.write("350 Command failed, file does not exist\r\n");
+                });
                 break;
             case "RNTO":
                 // Rename to.
+                if (!authenticated()) break;
                 var fileto = fixPath(socket.fs, commandArg);
                 fs.rename(socket.sandbox + socket.filefrom, socket.sandbox + fileto, function(err){
                     if(err) {
-                        dotrace("Error renaming file from "+socket.filefrom+" to "+fileto);
-                        // write error to socket
+                        logIf(3, "Error renaming file from "+socket.filefrom+" to "+fileto, socket);
+                        socket.write("550 Rename failed\r\n");
                     } else
-                        socket.write("250 file renamed successfully\r\n");
+                        socket.write("250 File renamed successfully\r\n");
                 });
                 break;
             case "SITE":
@@ -488,11 +583,13 @@ function createServer(host, sandbox) {
                 break;
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
+                if (!authenticated()) break;
                 var filename = socket.fs.cwd() + commandArg;
                 fs.stat(socket.sandbox + filename, function (err, s) {
                     if(err) { 
-                        dotrace("Error getting size of file: "+filename);
-                        throw err;
+                        logIf(0, "Error getting size of file: "+filename, socket);
+                        socket.write("450 Failed to get size of file\r\n");
+                        return;
                     }
                     socket.write("213 " + s.size + "\r\n");
                 });
@@ -520,58 +617,50 @@ function createServer(host, sandbox) {
                 break;
             case "STOR":
                 // Store (upload) a file.
-                whenDataWritable( function(pasvconn) {
-                    pasvconn.setEncoding(socket.mode);
-                    pasvconn.pause();
+                if (!authenticated()) break;
+                whenDataWritable( function(dataSocket) {
+                    // dataSocket comes to us paused, so we have a chance to create the file before accepting data
                     filename = fixPath(socket.fs, commandArg);
 
                     fs.open(socket.sandbox + filename, 'w', 0644, function(err, fd) {
                         if(err) {
-                            dotrace('Error opening file: '+ filename);
+                            logIf(0, 'Error opening/creating file: ' + filename, socket);
                             socket.write("553 Could not create file\r\n");
-                            // probably more cleanup we should do
-                            throw err;
+                            dataSocket.end();
+                            return;
                         }
+                        logIf(3, "File opened/created: " + filename, socket);
 
-                        var size = 0;
-                        pasvconn.addListener("data", function(data) {
-                            pasvconn.pause();
-                            size += data.length;
-                            fs.write(fd, data, null, socket.mode, function(err, bytes_written) {
-                                if(err) {
-                                    dotrace("Error writing file");
-                                    throw err;
-                                } else {
-                                    dotrace("Bytes written: "+bytes_written);
+                        dataSocket.addListener("end", function () {
+                            var writtenToFile = 0;
+                            var doneCallback = function() {
+                                fs.close(fd, function() {
+                                    socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
+                                });
+                            };
+                            var writeCallback = function(err, written) {
+                                var buf;
+                                if (err) {
+                                    logIf(0, "Error writing " + socket.sandbox + filename + ": " + err, socket);
+                                    return;
                                 }
-                                pasvconn.resume();
-                                // fails when client closes socket after upload
-                                /*
-                                // why was this here?
-                                if (!paused) {
-                                    pasvconn.pause();
-                                    npauses += 1;
-                                    paused = true;
-                                    setTimeout(function () {
-                                        pasvconn.resume();
-                                        paused = false;
-                                    }, 1);
+                                writtenToFile += written;
+                                if (!dataSocket.buffers.length) {
+                                    doneCallback();
+                                    return;
                                 }
-                                */
-                            });
+                                buf = dataSocket.buffers.shift();
+                                fs.write(fd, buf, 0, buf.length, null, writeCallback);
+                            };
+                            writeCallback();
                         });
-                        pasvconn.addListener("end", function () {
-                            fs.close(fd, function(err) {
-                                if (err) dotrace("Error closing file: "+fd+" ("+err+")");
-                            });
-                            dotrace("DATA end");
-                            socket.write("226 Closing data connection, recv " + size + " bytes\r\n");
+                        dataSocket.addListener("error", function(err) {
+                            logIf(0, "Error transferring " + filename + ": " + err, socket);
+                            // close file handle
                         });
-                        pasvconn.addListener("error", function(had_error) {
-                            dotrace("DATA error: " + had_error);
-                        });
-                        socket.write("150 Ok to send data\r\n");
-                        pasvconn.resume();
+                        logIf(3, "Told client ok to send file data", socket);
+                        socket.write("150 Ok to send data\r\n"); // don't think resume() needs to wait for this to succeed
+                        dataSocket.resume();
                     });
                 });
                 break;
@@ -589,6 +678,7 @@ function createServer(host, sandbox) {
                 break;
             case "TYPE":
                 // Sets the transfer mode (ASCII/Binary).
+                if (!authenticated()) break;
                 if(commandArg == "A"){
                     socket.mode = "ascii";
                     socket.write("200 Type set to A\r\n");			
@@ -622,17 +712,15 @@ function createServer(host, sandbox) {
         });
 
         socket.addListener("end", function () {
-            dotrace("Socket end");
-            if (socket.mysqlConnection) socket.mysqlConnection.end();
-            socket.end(); // ?
+            logIf(1, "Client connection ended", socket);
         });
         socket.addListener("error", function (err) {
-            dotrace("Socket error: " + err);
+            logIf(0, "Client connection error: " + err, socket);
         });
     });
 
     server.addListener("close", function() {
-        dotrace("Server closed");
+        logIf(0, "Server closed");
     });
 
     return server;
