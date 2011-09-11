@@ -12,7 +12,7 @@ I assume you'll want to customize:
 * Base folder for file operations
 * What happens when certain file commands are performed
 
-For our special case we needed custom user authentication, to sandbox all the file operations, and to run special code when a file is uploaded.
+For my specific needs (at work) we needed custom user authentication, to sandbox all the file operations, and to run special code when a file is uploaded.
 
 Thanks,
     Alan
