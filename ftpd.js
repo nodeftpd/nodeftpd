@@ -412,12 +412,6 @@ function createServer(host, sandbox) {
                         logIf(1, "Passive data event: connect", socket);
                         // Once we have a completed data connection, make note of it
                         socket.dataSocket = psocket;
-                        // nah, there may be several of these
-                    });
-                    psocket.on("connect", function() {
-                        logIf(1, "Passive data event: connect", socket);
-                        // Once we have a completed data connection, make note of it
-                        socket.dataSocket = psocket;
                         // 150 should be sent before we send data on the data connection
                         //socket.write("150 Connection Accepted\r\n");
                         socket.resume();
