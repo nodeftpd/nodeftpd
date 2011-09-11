@@ -9,7 +9,7 @@ This is turning out to be quite a deviation from the original code. Figured that
 I assume you'll want to customize:
 
 * User authentication (user and pass commands)
-* Where on the filesystem file commands operate
+* Base folder for file operations
 * What happens when certain file commands are performed
 
 For our special case we needed custom user authentication, to sandbox all the file operations, and to run special code when a file is uploaded.
@@ -20,20 +20,24 @@ Thanks,
 Status
 ----
 
+To Do
+
+* Fire more events to allow customizations: directory changes, file uploads, etc
+
 Known issues
 
-* Still many places that should be paying attention to the asynchronous nature of I/O ... LIST, STOR, etc ... LIST is fixed now, but I'm going to fix the others before pushing
-* Still some quirkiness with data connections ... namely with long-running sessions
+* None at the moment
 
 These are known to work (or mostly work)
 
 * Passive data connection establishment
 * Non-passive data connection establishment
-* CWD (change working directory)
-* DELE (delete file)
-* LIST (had to construct the list format programmatically because output from `ls -l` wasn't being processed by FireFTP)
-* MKD (make directory)
-* STOR (upload)
+* CWD - change working directory
+* DELE - delete file
+* LIST - had to construct the list format programmatically because output from `ls -l` wasn't being processed by FireFTP
+* MKD - make directory
+* RMD - remove directory (and contents)
+* STOR - upload
 
 If a command is not listed, I probably haven't tested it yet.
 
@@ -44,8 +48,9 @@ See test.js for an example.
 
 Then implement the following event callbacks with logic you need performed:
 
-* command:pass - Sends three params. The first is the password. The second is a callback to be called if you determine the password is correct. Call the second if incorrect.
-* command:user - Same as command:pass above, but first parameter is the username that was sent from the client.
+* command:user - Same as command:pass above, but first parameter will be the username that was sent from the client.
+* command:pass - Sends three params. The first is the password. The second is a callback to be called if you determine the password is correct ... pass the username as the first parameter to this callback. Call the second if incorrect.
+
 
 04 September 2011
 ----
