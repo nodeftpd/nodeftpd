@@ -294,7 +294,7 @@ function createServer(host, sandbox) {
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
                                     var s = fs.statSync(path + file);
-                                    var line = s.isDirectory() ? 'd' : 'h';
+                                    var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
                                     line += (0200 & s.mode) ? 'w' : '-';
