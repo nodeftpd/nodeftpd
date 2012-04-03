@@ -504,12 +504,13 @@ function createServer(host, sandbox) {
                         socket.totsize = 0;
                         socket.filename = filename;
                     }
-                    fs.open(socket.sandbox + socket.filename, process.O_RDONLY, 0666, function (err, fd) {
-                        dotrace("DATA file " + socket.filename + " opened");
+                    fs.open(socket.sandbox + socket.filename, "r", function (err, fd) {
+                        console.trace("DATA file " + socket.filename + " opened");
+                        socket.write("150 Opening " + socket.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
                             fs.read(fd, 4096, socket.totsize, socket.mode, function(err, chunk, bytes_read) {
                                 if(err) {
-                                    dotrace("Erro reading chunk");
+                                    console.trace("Erro reading chunk");
                                     throw err;
                                     return;
                                 }
@@ -519,7 +520,7 @@ function createServer(host, sandbox) {
                                     readChunk();
                                 }
                                 else {
-                                    dotrace("DATA file " + socket.filename + " closed");
+                                    console.trace("DATA file " + socket.filename + " closed");
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + socket.totsize + " bytes\r\n");
                                     fs.close(fd);
