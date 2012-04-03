@@ -2,7 +2,7 @@ require('should');
 var ftpd = require('../ftpd'), Ftp = require("jsftp");
 
 
-describe('application factory module', function(){
+describe('LIST ftpd command', function(){
     var ftp, server;
 
     beforeEach(function(done){
@@ -31,7 +31,7 @@ describe('application factory module', function(){
         });
     });
 
-    it("should return an application with port", function(done){
+    it("should return - as a first character for files", function(done){
         ftp.list("/", function(err, d){
             var fileLine = d.substring(1).trim().split("\r\n")
                 .filter(function(line){
