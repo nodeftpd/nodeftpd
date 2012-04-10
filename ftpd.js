@@ -281,13 +281,16 @@ function createServer(host, sandbox) {
                         socket.write("226 Transfer OK\r\n");
                         pasvconn.end();
                     };
+                    var failure = function() {
+                        pasvconn.end();
+                    };
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
                     fs.readdir(socket.sandbox + socket.fs.cwd(), function(err, files) {
                         var path = socket.sandbox + socket.fs.cwd();
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
-                            pasvconn.write("", success);
+                            pasvconn.write("", failure);
                         } else {
                             // Wait until acknowledged!
                             socket.write("150 Here comes the directory listing\r\n", function() {
@@ -381,6 +384,9 @@ function createServer(host, sandbox) {
                         socket.write("226 Transfer OK\r\n");
                         pasvconn.end();
                     };
+                    var failure = function() {
+                        pasvconn.end();
+                    };
                     // Use temporary filesystem path maker since a path might be sent with NLST
                     var temp = '';
                     if (commandArg) {
@@ -400,7 +406,7 @@ function createServer(host, sandbox) {
                         if (err) {
                             logIf(0, "During NLST, error globbing files: " + err, socket);
                             socket.write("451 Read error\r\n");
-                            pasvconn.write("", success);
+                            pasvconn.write("", failure);
                             return;
                         }
                         // Wait until acknowledged!
