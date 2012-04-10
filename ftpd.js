@@ -280,7 +280,7 @@ function createServer(host, sandbox) {
                         socket.write("226 Transfer OK\r\n");
                         pasvconn.end();
                     };
-                    pasvconn.resume();
+                    if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
                     fs.readdir(socket.sandbox + socket.fs.cwd(), function(err, files) {
                         var path = socket.sandbox + socket.fs.cwd();
@@ -294,7 +294,7 @@ function createServer(host, sandbox) {
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
                                     var s = fs.statSync(path + file);
-                                    var line = s.isDirectory() ? 'd' : 'h';
+                                    var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
                                     line += (0200 & s.mode) ? 'w' : '-';
@@ -414,18 +414,18 @@ function createServer(host, sandbox) {
                         socket.dataSocket = psocket;
                         // 150 should be sent before we send data on the data connection
                         //socket.write("150 Connection Accepted\r\n");
-                        socket.resume();
+                        if (socket.readable) socket.resume();
                     });
                     psocket.on("end", function () {
                         logIf(3, "Passive data event: end", socket);
                         // remove pointer
                         socket.dataSocket = null;
-                        socket.resume(); // just in case
+                        if (socket.readable) socket.resume(); // just in case
                     });
                     psocket.addListener("error", function(err) {
                         logIf(0, "Passive data event: error: " + err, socket);
                         socket.dataSocket = null;
-                        socket.resume();
+                        if (socket.readable) socket.resume();
                     });
                     psocket.addListener("close", function(had_error) {
                         logIf(
@@ -433,7 +433,7 @@ function createServer(host, sandbox) {
                             "Passive data event: close " + (had_error ? " due to error" : ""),
                             socket
                         );
-                        socket.resume();
+                        if (socket.readable) socket.resume();
                     });
                 });
                 // Once we're successfully listening, tell the client
@@ -449,7 +449,7 @@ function createServer(host, sandbox) {
                 });
                 pasv.on("close", function() {
                     logIf(3, "Passive data listener closed", socket);
-                    socket.resume(); // just in case
+                    if (socket.readable) socket.resume(); // just in case
                 });
                 pasv.listen(0);
                 socket.dataListener = pasv;
@@ -504,12 +504,13 @@ function createServer(host, sandbox) {
                         socket.totsize = 0;
                         socket.filename = filename;
                     }
-                    fs.open(socket.sandbox + socket.filename, process.O_RDONLY, 0666, function (err, fd) {
-                        dotrace("DATA file " + socket.filename + " opened");
+                    fs.open(socket.sandbox + socket.filename, "r", function (err, fd) {
+                        console.trace("DATA file " + socket.filename + " opened");
+                        socket.write("150 Opening " + socket.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
                             fs.read(fd, 4096, socket.totsize, socket.mode, function(err, chunk, bytes_read) {
                                 if(err) {
-                                    dotrace("Erro reading chunk");
+                                    console.trace("Erro reading chunk");
                                     throw err;
                                     return;
                                 }
@@ -519,7 +520,7 @@ function createServer(host, sandbox) {
                                     readChunk();
                                 }
                                 else {
-                                    dotrace("DATA file " + socket.filename + " closed");
+                                    console.trace("DATA file " + socket.filename + " closed");
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + socket.totsize + " bytes\r\n");
                                     fs.close(fd);
@@ -654,7 +655,7 @@ function createServer(host, sandbox) {
                         });
                         logIf(3, "Told client ok to send file data", socket);
                         socket.write("150 Ok to send data\r\n"); // don't think resume() needs to wait for this to succeed
-                        dataSocket.resume();
+                        if (dataSocket.readable) dataSocket.resume();
                     });
                 });
                 break;

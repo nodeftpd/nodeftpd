@@ -1,0 +1,14 @@
+{
+  "name": "ftpd",
+  "version": "0.0.1",
+  "dependencies": {},
+  "devDependencies": {
+    "async": "~0.1.15",
+    "mocha": "~0.12.1",
+    "should": "~0.5.1",
+    "jsftp": "*"
+  },
+  "scripts": { 
+    "test" : "mocha specs/* --globals commandArg" 
+  } 
+}
