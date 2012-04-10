@@ -93,7 +93,7 @@ function glob(path, callback) {
                     if (part && part.indexOf('*') > -1) { // pattern to check
                         // protect periods and replace asterisks
                         var pattern = '^' + part.replace(/\./g, '\\.').replace(/\*/g, '.+') + '$';
-                        console.log('usng pattern: ' + pattern);
+                        //console.log('using pattern: ' + pattern);
                         var pattern = new RegExp(pattern);
                         if (!pattern.test( file )) continue;
                     }
