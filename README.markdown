@@ -14,8 +14,7 @@ I assume you'll want to customize:
 
 For my specific needs (at work) we needed custom user authentication, to sandbox all the file operations, and to run special code when a file is uploaded.
 
-Thanks,
-    Alan
+Thanks, Alan
 
 Status
 ----
@@ -51,6 +50,9 @@ Then implement the following event callbacks with logic you need performed:
 * command:user - Same as command:pass above, but first parameter will be the username that was sent from the client.
 * command:pass - Sends three params. The first is the password. The second is a callback to be called if you determine the password is correct ... pass the username as the first parameter to this callback. Call the second if incorrect.
 
+Also, don't run node as root just so you can get access to the FTP port. We run our node FTP server as an unprivileged user and perform port-forwarding with iptables. The following should work for you as well:
+
+> iptables -A PREROUTING -t nat -i eth0 -p tcp --dport 21 -j REDIRECT --to-port 10000
 
 04 September 2011
 ----
