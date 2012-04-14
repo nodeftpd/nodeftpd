@@ -214,7 +214,14 @@ function createServer(host, sandbox) {
             case "CWD":
                 // Change working directory.
                 if (!authenticated()) break;
-                socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg) + "\" is current directory\r\n");
+                var path = PathModule.join(socket.sandbox, PathModule.resolve(socket.fs.cwd(), commandArg));
+                PathModule.exists(path, function(exists) {
+                    if (!exists) {
+                        socket.write("550 Folder not found.\r\n");
+                        return;
+                    }
+                    socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg) + "\" is current directory\r\n");
+                });
                 break;
             case "DELE":
                 // Delete file.
@@ -345,10 +352,12 @@ function createServer(host, sandbox) {
                 var filename = PathModule.resolve(socket.fs.cwd(), commandArg);
                 fs.mkdir( PathModule.join(socket.sandbox, filename), 0755, function(err){
                     if(err) {
-                        logIf(0, "Error making directory " + filename, socket);
+                        logIf(0, "Error making directory " + filename + " because " + err, socket);
                         // write error to socket
-                    } else
-                        socket.write("257 \""+filename+"\" directory created\r\n");
+                        socket.write("550 \""+filename+"\" directory NOT created\r\n");
+                        return;
+                    }
+                    socket.write("257 \""+filename+"\" directory created\r\n");
                 });
                 break;
             case "MLSD":
