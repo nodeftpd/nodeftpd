@@ -249,7 +249,7 @@ function createServer(host, options) {
                 // Delete file.
                 if (!authenticated()) break;
                 var filename = PathModule.resolve(socket.cwd, commandArg);
-                fs.unlink( filename, function(err){
+                socket.fs.unlink( filename, function(err){
                     if (err) {
                         logIf(0, "Error deleting file: "+filename+", "+err, socket);
                         // write error to socket
@@ -321,7 +321,7 @@ function createServer(host, options) {
                     };
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
-                    fs.readdir(socket.cwd, function(err, files) {
+                    socket.fs.readdir(socket.cwd, function(err, files) {
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
                             pasvconn.write("", failure);
@@ -331,7 +331,7 @@ function createServer(host, options) {
                                 logIf(3, "Directory has " + files.length + " files", socket);
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
-                                    var s = fs.statSync( PathModule.join(socket.cwd, file) );
+                                    var s = socket.fs.statSync( PathModule.join(socket.cwd, file) );
                                     var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
@@ -377,7 +377,7 @@ function createServer(host, options) {
                 // Make directory.
                 if (!authenticated()) break;
                 var filename = PathModule.resolve(socket.cwd, commandArg);
-                fs.mkdir( filename, 0755, function(err){
+                socket.fs.mkdir( filename, 0755, function(err){
                     if(err) {
                         logIf(0, "Error making directory " + filename + " because " + err, socket);
                         // write error to socket
@@ -610,7 +610,7 @@ function createServer(host, options) {
                         console.trace("DATA file " + socket.filename + " opened");
                         socket.write("150 Opening " + socket.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
-                            fs.read(fd, 4096, socket.totsize, socket.mode, function(err, chunk, bytes_read) {
+                            socket.fs.read(fd, 4096, socket.totsize, socket.mode, function(err, chunk, bytes_read) {
                                 if(err) {
                                     console.trace("Erro reading chunk");
                                     throw err;
@@ -625,7 +625,7 @@ function createServer(host, options) {
                                     console.trace("DATA file " + socket.filename + " closed");
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + socket.totsize + " bytes\r\n");
-                                    fs.close(fd);
+                                    socket.fs.close(fd);
                                     socket.totsize = 0;
                                 }
                             });
@@ -644,7 +644,7 @@ function createServer(host, options) {
                 // Remove a directory.
                 if (!authenticated()) break;
                 var filename = PathModule.resolve(socket.cwd, commandArg);
-                fs.rmdir( filename, function(err){
+                socket.fs.rmdir( filename, function(err){
                     if(err) {
                         logIf(0, "Error removing directory "+filename, socket);
                         socket.write("550 Delete operation failed\r\n");
@@ -666,7 +666,7 @@ function createServer(host, options) {
                 // Rename to.
                 if (!authenticated()) break;
                 var fileto = PathModule.resolve(socket.cwd, commandArg);
-                fs.rename( socket.filefrom, fileto, function(err){
+                socket.fs.rename( socket.filefrom, fileto, function(err){
                     if(err) {
                         logIf(3, "Error renaming file from "+socket.filefrom+" to "+fileto, socket);
                         socket.write("550 Rename failed\r\n");
@@ -682,7 +682,7 @@ function createServer(host, options) {
                 // Return the size of a file. (RFC 3659)
                 if (!authenticated()) break;
                 var filename = PathModule.resolve(socket.cwd, commandArg);
-                fs.stat( filename, function (err, s) {
+                socket.fs.stat( filename, function (err, s) {
                     if(err) { 
                         logIf(0, "Error getting size of file: "+filename, socket);
                         socket.write("450 Failed to get size of file\r\n");
@@ -718,7 +718,7 @@ function createServer(host, options) {
                 whenDataWritable( function(dataSocket) {
                     // dataSocket comes to us paused, so we have a chance to create the file before accepting data
                     filename = PathModule.resolve(socket.cwd, commandArg);
-                    fs.open( filename, 'w', 0644, function(err, fd) {
+                    socket.fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
                             logIf(0, 'Error opening/creating file: ' + filename, socket);
                             socket.write("553 Could not create file\r\n");
@@ -730,7 +730,7 @@ function createServer(host, options) {
                         dataSocket.addListener("end", function () {
                             var writtenToFile = 0;
                             var doneCallback = function() {
-                                fs.close(fd, function() {
+                                socket.fs.close(fd, function() {
                                     socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
                                 });
                             };
@@ -746,7 +746,7 @@ function createServer(host, options) {
                                     return;
                                 }
                                 buf = dataSocket.buffers.shift();
-                                fs.write(fd, buf, 0, buf.length, null, writeCallback);
+                                socket.fs.write(fd, buf, 0, buf.length, null, writeCallback);
                             };
                             writeCallback();
                         });
