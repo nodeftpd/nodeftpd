@@ -1,6 +1,5 @@
 var net = require("net");
 var util = require("util");
-var fs = require("fs");
 var PathModule = require('path');
 var glob = require('./glob');
 require('./date-format');
@@ -56,9 +55,9 @@ TODO:
 function createServer(host, options) {
     // make sure host is an IP address, otherwise DATA connections will likely break
     var server = net.createServer();
-    server.getFsModule = options.getFsModule;
-    server.getPathModule = options.getPathModule;
-    server.getInitialCwd = options.getInitialCwd;
+    server.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
+    server.getPathModule = options.getPathModule || function () { return PathModule; }
+    server.getInitialCwd = options.getInitialCwd || function () { return "/"; };
     server.debugging = 0;
 
     var logIf = function(level, message, socket) {
