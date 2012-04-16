@@ -1,6 +1,10 @@
 nodeftpd - a simple FTP server written in Node.JS
 ====
 
+Fork of https://github.com/alanszlosek/nodeftpd
+
+Abstracts out all filesystem operations. Original README below.
+
 Welcome
 ----
 
