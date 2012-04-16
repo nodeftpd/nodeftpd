@@ -27,19 +27,12 @@ TODO:
 // }
 
 
-function fixPath(fs, path) {
-    if (path.charAt(0) == '/')
-        return path.trim();
-    else
-        return fs.cwd() + path.trim();
-}
-
 // host should be an IP address
 function createServer(host, options) {
     // make sure host is an IP address, otherwise DATA connections will likely break
     var server = net.createServer();
     server.getFsModule = options.getFsModule;
-    server.getPath = options.getPathModule;
+    server.getPathModule = options.getPathModule;
     server.getInitialCwd = options.getInitialCwd;
     server.debugging = 0;
 
@@ -204,7 +197,11 @@ function createServer(host, options) {
             case "CDUP":
                 // Change to Parent Directory.
                 if (!authenticated()) break;
-                socket.write("250 Directory changed to " + socket.fs.chdir("..") + "\r\n");
+                // Not sure if this is technically correct, but 'dirname' does in fact just
+                // strip the last component of the path for a UNIX-style path, even if this
+                // has a trailing slash. It also maps "/foo" to "/" and "/" to "/".
+                socket.cwd = PathModule.dirname(cwd);
+                socket.write("250 Directory changed to " + socket.cwd + "\r\n");
                 break;
             case "CONF":
                 // Confidentiality Protection Command (RFC 697)
@@ -214,12 +211,13 @@ function createServer(host, options) {
                 // Change working directory.
                 if (!authenticated()) break;
                 var path = PathModule.resolve(socket.cwd, commandArg);
-                server.path.exists(commandArg, function(exists) {
+                socket.path.exists(commandArg, function(exists) {
                     if (!exists) {
                         socket.write("550 Folder not found.\r\n");
                         return;
                     }
-                    socket.write("250 CWD successful. \"" + socket.fs.chdir(commandArg) + "\" is current directory\r\n");
+                    socket.cwd = path;
+                    socket.write("250 CWD successful. \"" + socket.cwd + "\" is current directory\r\n");
                 });
                 break;
             case "DELE":
@@ -252,10 +250,6 @@ function createServer(host, options) {
                     socket.dataPort = parseInt(addr[3]);
                     socket.write("200 EPRT command successful.\r\n");
                 }
-                break;
-            case "EPSV":
-                // Enter extended passive mode. (RFC 2428)
-                socket.write("202 Not supported\r\n");
                 break;
             case "FEAT":
                 // Get the feature list implemented by the server. (RFC 2389)
@@ -450,6 +444,7 @@ function createServer(host, options) {
                         socket.write("230 Logged on\r\n");
                         socket.username = username;
                         socket.fs = server.getFsModule(username);
+                        socket.path = server.getPathModule(username);
                         socket.cwd = server.getInitialCwd(username);
                     },
                     function() { // call second callback if password incorrect
@@ -460,6 +455,11 @@ function createServer(host, options) {
                 );
                 break;
             case "PASV":
+            case "EPSV":
+                if (command == "EPSV" && commandArg && commandArg != "1") {
+                    socket.write("202 Not supported\r\n");
+                    break;
+                }
                 // Enter passive mode. This creates the listening socket.
                 if (!authenticated()) break;
                 // not sure whether the spec limits to 1 data connection at a time ...
@@ -516,7 +516,13 @@ function createServer(host, options) {
                     logIf(3, "Passive data connection listening on port " + port, socket);
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
-                    socket.write("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
+                    if (command == "PASV") {
+                        console.log("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
+                        socket.write("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
+                    }
+                    else if (command == "EPSV") {
+                        socket.write("229 Entering Extended Passive Mode (|||" + port + "|)\r\n");
+                    }
                 });
                 pasv.on("close", function() {
                     logIf(3, "Passive data listener closed", socket);
@@ -650,7 +656,7 @@ function createServer(host, options) {
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.fs.cwd(), commandArg);
+                var filename = PathModule.resolve(socket.cwd, commandArg);
                 fs.stat( filename, function (err, s) {
                     if(err) { 
                         logIf(0, "Error getting size of file: "+filename, socket);
