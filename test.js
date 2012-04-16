@@ -1,6 +1,11 @@
 var ftpd = require('./ftpd.js');
+var fs = require('fs');
 
-var server = ftpd.createServer("127.0.0.1", "/home/alan/temporary/ftpd");
+var server = ftpd.createServer("127.0.0.1", {
+    getFsModule: function () { return fs; },
+    getPathModule: function () { return path; },
+    getInitialCwd: function () { return "/"; }
+});
 
 // this event passes in the client socket which emits further events
 // but should recommend they don't do socket operations on it

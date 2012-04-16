@@ -40,6 +40,7 @@ function createServer(host, options) {
     var server = net.createServer();
     server.getFsModule = options.getFsModule;
     server.getPath = options.getPathModule;
+    server.getInitialCwd = options.getInitialCwd;
     server.debugging = 0;
 
     var logIf = function(level, message, socket) {
@@ -68,7 +69,6 @@ function createServer(host, options) {
         socket.dataSocket = null; // the actual data socket
         socket.mode = "ascii";
         socket.filefrom = "";
-        socket.cwd = options.initialCwd;
         // Authentication
         socket.authFailures = 0; // 3 tries then we disconnect you
         socket.temp = null;
@@ -78,7 +78,7 @@ function createServer(host, options) {
         socket.totsize = 0;
         socket.filename = "";
 
-        logIf(0, "Base FTP directory: "+socket.fs.cwd());
+//        logIf(0, "Base FTP directory: "+socket.fs.cwd());
 
 
         var authenticated = function() {
@@ -100,7 +100,7 @@ function createServer(host, options) {
         };
 
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
-        var whenDataWritable = function(callback) {
+        function whenDataWritable(callback) {
             if (socket.passive) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
@@ -439,7 +439,8 @@ function createServer(host, options) {
                     function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         socket.username = username;
-                        socket.fs = server.getFsModule(username)
+                        socket.fs = server.getFsModule(username);
+                        socket.cwd = server.getInitialCwd(username);
                     },
                     function() { // call second callback if password incorrect
                         socket.write("530 Invalid password\r\n");
@@ -532,7 +533,7 @@ function createServer(host, options) {
             case "PWD":
                 // Print working directory. Returns the current directory of the host.
                 if (!authenticated()) break;
-                socket.write("257 \"" + socket.fs.cwd() + "\" is current directory\r\n");
+                socket.write("257 \"" + socket.cwd + "\" is current directory\r\n");
                 break;
             case "QUIT":
                 // Disconnect.
