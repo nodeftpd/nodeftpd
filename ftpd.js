@@ -21,10 +21,6 @@ TODO:
     - maybe just for milesplit's use?
 */
 
-// String.prototype.trim = function() {
-    // return this.replace(/^\s+|\s+$/g,"");
-// }
-
 
 // host
 //     an IP address.

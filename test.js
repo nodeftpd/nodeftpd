@@ -3,9 +3,9 @@ var fs = require('fs');
 var path = require('path');
 
 var server = ftpd.createServer("127.0.0.1", {
-    getFsModule: function () { return fs; },
-    getPathModule: function () { return path; },
-    getInitialCwd: function () { return "/"; }
+//    getFsModule: function () { return fs; },
+//    getPathModule: function () { return path; },
+//    getInitialCwd: function () { return "/"; }
 });
 
 // this event passes in the client socket which emits further events
