@@ -581,7 +581,7 @@ function createServer(host, options) {
                         socket.totsize = 0;
                         socket.filename = filename;
                     }
-                    server.fs.open( socket.filename, "r", function (err, fd) {
+                    socket.fs.open( socket.filename, "r", function (err, fd) {
                         console.trace("DATA file " + socket.filename + " opened");
                         socket.write("150 Opening " + socket.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
