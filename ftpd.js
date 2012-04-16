@@ -27,7 +27,32 @@ TODO:
 // }
 
 
-// host should be an IP address
+// host
+//     an IP address.
+//
+// options.getFsModule
+//     a function which, given a username, returns an object implemeting the API of
+//     require('fs'). The following need to be implemented:
+//         unlink
+//         readdir
+//         statSync
+//         mkdir
+//         open
+//         read
+//         close
+//         rmdir
+//         rename
+//         stat
+//         write
+//
+// options.getPathModule
+//     a function which, given a username, returns an object implemeting the API of
+//     require('path'). The following need to be implemented:
+//         exists
+//
+// options.getInitialCwd
+//     a function which, given a username, returns an initial CWD.
+// 
 function createServer(host, options) {
     // make sure host is an IP address, otherwise DATA connections will likely break
     var server = net.createServer();
@@ -618,7 +643,7 @@ function createServer(host, options) {
             case "RMD":
                 // Remove a directory.
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.fs.cwd(), commandArg);
+                var filename = PathModule.resolve(socket.cwd, commandArg);
                 fs.rmdir( filename, function(err){
                     if(err) {
                         logIf(0, "Error removing directory "+filename, socket);
@@ -630,7 +655,7 @@ function createServer(host, options) {
             case "RNFR":
                 // Rename from.
                 if (!authenticated()) break;
-                socket.filefrom = PathModule.resolve(socket.fs.cwd(), commandArg);
+                socket.filefrom = PathModule.resolve(socket.cwd, commandArg);
                 logIf(3, "Rename from " + socket.filefrom, socket);
                 path.exists( socket.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
@@ -640,7 +665,7 @@ function createServer(host, options) {
             case "RNTO":
                 // Rename to.
                 if (!authenticated()) break;
-                var fileto = PathModule.resolve(socket.fs.cwd(), commandArg);
+                var fileto = PathModule.resolve(socket.cwd, commandArg);
                 fs.rename( socket.filefrom, fileto, function(err){
                     if(err) {
                         logIf(3, "Error renaming file from "+socket.filefrom+" to "+fileto, socket);
@@ -692,7 +717,7 @@ function createServer(host, options) {
                 if (!authenticated()) break;
                 whenDataWritable( function(dataSocket) {
                     // dataSocket comes to us paused, so we have a chance to create the file before accepting data
-                    filename = PathModule.resolve(socket.fs.cwd(), commandArg);
+                    filename = PathModule.resolve(socket.cwd, commandArg);
                     fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
                             logIf(0, 'Error opening/creating file: ' + filename, socket);
@@ -774,7 +799,7 @@ function createServer(host, options) {
                 break;
             case "XPWD":
                 // 
-                socket.write("257 " + socket.fs.cwd() + " is the current directory\r\n");
+                socket.write("257 " + socket.cwd + " is the current directory\r\n");
                 break;
             default:
                 socket.write("202 Not supported\r\n");
