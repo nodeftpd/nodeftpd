@@ -241,7 +241,17 @@ function createServer(host, options) {
                 break;
             case "EPRT":
                 // Specifies an extended address and port to which the server should connect. (RFC 2428)
-                socket.write("202 Not supported\r\n");
+                var addr = commandArg.split("|");
+                if (addr.length != 5 || addr[1] != "1" ||
+                    !addr[2].match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/) ||
+                    !addr[3].match(/^\d+/)) {
+                    socket.write("202 Not supported\r\n");
+                }
+                else {
+                    socket.dataHost = addr[2];
+                    socket.dataPort = parseInt(addr[3]);
+                    socket.write("200 EPRT command successful.\r\n");
+                }
                 break;
             case "EPSV":
                 // Enter extended passive mode. (RFC 2428)
