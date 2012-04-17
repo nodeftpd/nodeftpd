@@ -47,6 +47,10 @@ TODO:
 //
 // options.getInitialCwd
 //     a function which, given a username, returns an initial CWD.
+//
+// options.getRoot
+//     a function which, given a username, returns a root directory (user cannot get
+//     outside of this dir).
 // 
 function createServer(host, options) {
     // make sure host is an IP address, otherwise DATA connections will likely break
@@ -54,6 +58,7 @@ function createServer(host, options) {
     server.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
     server.getPathModule = options.getPathModule || function () { return PathModule; }
     server.getInitialCwd = options.getInitialCwd || function () { return "/"; };
+    server.getRoot = options.getRoot || function () { return "/"; };
     server.debugging = 0;
 
     var logIf = function(level, message, socket) {
@@ -90,7 +95,7 @@ function createServer(host, options) {
             filename: ""
         };
 
-//        logIf(0, "Base FTP directory: "+socket.fs.cwd());
+//        logIf(0, "Base FTP directory: "+cinfo.fs.cwd());
 
         var authenticated = function() {
             // send a message if not authenticated?
@@ -218,8 +223,8 @@ function createServer(host, options) {
                 // Not sure if this is technically correct, but 'dirname' does in fact just
                 // strip the last component of the path for a UNIX-style path, even if this
                 // has a trailing slash. It also maps "/foo" to "/" and "/" to "/".
-                socket.cwd = PathModule.dirname(cwd);
-                socket.write("250 Directory changed to " + socket.cwd + "\r\n");
+                cinfo.cwd = PathModule.dirname(cwd);
+                socket.write("250 Directory changed to " + cinfo.cwd + "\r\n");
                 break;
             case "CONF":
                 // Confidentiality Protection Command (RFC 697)
@@ -228,21 +233,21 @@ function createServer(host, options) {
             case "CWD":
                 // Change working directory.
                 if (!authenticated()) break;
-                var path = PathModule.resolve(socket.cwd, commandArg);
-                socket.path.exists(commandArg, function(exists) {
+                var path = PathModule.resolve(cinfo.cwd, commandArg);
+                cinfo.path.exists(commandArg, function(exists) {
                     if (!exists) {
                         socket.write("550 Folder not found.\r\n");
                         return;
                     }
-                    socket.cwd = path;
-                    socket.write("250 CWD successful. \"" + socket.cwd + "\" is current directory\r\n");
+                    cinfo.cwd = path;
+                    socket.write("250 CWD successful. \"" + cinfo.cwd + "\" is current directory\r\n");
                 });
                 break;
             case "DELE":
                 // Delete file.
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.cwd, commandArg);
-                socket.fs.unlink( filename, function(err){
+                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                cinfo.fs.unlink( filename, function(err){
                     if (err) {
                         logIf(0, "Error deleting file: "+filename+", "+err, socket);
                         // write error to socket
@@ -314,7 +319,7 @@ function createServer(host, options) {
                     };
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
-                    socket.fs.readdir(socket.cwd, function(err, files) {
+                    cinfo.fs.readdir(PathModule.join(cinfo.root, cinfo.cwd), function(err, files) {
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
                             pasvconn.write("", failure);
@@ -324,7 +329,7 @@ function createServer(host, options) {
                                 logIf(3, "Directory has " + files.length + " files", socket);
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
-                                    var s = socket.fs.statSync( PathModule.join(socket.cwd, file) );
+                                    var s = cinfo.fs.statSync( PathModule.join(cinfo.root, cinfo.cwd, file) );
                                     var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
@@ -369,8 +374,8 @@ function createServer(host, options) {
             case "MKD":
                 // Make directory.
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.cwd, commandArg);
-                socket.fs.mkdir( filename, 0755, function(err){
+                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                cinfo.fs.mkdir( filename, 0755, function(err){
                     if(err) {
                         logIf(0, "Error making directory " + filename + " because " + err, socket);
                         // write error to socket
@@ -424,9 +429,9 @@ function createServer(host, options) {
                         if (commandArg.substr(0, 1) == '/') {
                             temp = commandArg;
                         } else {
-                            temp = PathModule.join(socket.cwd, commandArg);
+                            temp = PathModule.join(cinfo.cwd, commandArg);
                         }
-                    } else temp = socket.cwd;
+                    } else temp = cinfo.cwd;
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
                     
@@ -461,9 +466,10 @@ function createServer(host, options) {
                     function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         cinfo.username = username;
-                        socket.fs = server.getFsModule(username);
-                        socket.path = server.getPathModule(username);
-                        socket.cwd = server.getInitialCwd(username);
+                        cinfo.fs = server.getFsModule(username);
+                        cinfo.path = server.getPathModule(username);
+                        cinfo.cwd = server.getInitialCwd(username);
+                        cinfo.root = server.getRoot(username);
                     },
                     function() { // call second callback if password incorrect
                         socket.write("530 Invalid password\r\n");
@@ -567,7 +573,7 @@ function createServer(host, options) {
             case "PWD":
                 // Print working directory. Returns the current directory of the host.
                 if (!authenticated()) break;
-                socket.write("257 \"" + socket.cwd + "\" is current directory\r\n");
+                socket.write("257 \"" + cinfo.cwd + "\" is current directory\r\n");
                 break;
             case "QUIT":
                 // Disconnect.
@@ -593,17 +599,17 @@ function createServer(host, options) {
                 whenDataWritable( function(pasvconn) {
                     pasvconn.setEncoding(cinfo.mode);
 
-                    var filename = PathModule.resolve('/', commandArg);
+                    var filename = PathModule.join(cinfo.root, PathModule.resolve('/', commandArg));
                     if(filename != cinfo.filename)
                     {
                         cinfo.totsize = 0;
                         cinfo.filename = filename;
                     }
-                    socket.fs.open( cinfo.filename, "r", function (err, fd) {
+                    cinfo.fs.open( cinfo.filename, "r", function (err, fd) {
                         console.trace("DATA file " + cinfo.filename + " opened");
                         socket.write("150 Opening " + cinfo.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
-                            socket.fs.read(fd, 4096, cinfo.totsize, cinfo.mode, function(err, chunk, bytes_read) {
+                            cinfo.fs.read(fd, 4096, cinfo.totsize, cinfo.mode, function(err, chunk, bytes_read) {
                                 if(err) {
                                     console.trace("Erro reading chunk");
                                     throw err;
@@ -618,7 +624,7 @@ function createServer(host, options) {
                                     console.trace("DATA file " + cinfo.filename + " closed");
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + cinfo.totsize + " bytes\r\n");
-                                    socket.fs.close(fd);
+                                    cinfo.fs.close(fd);
                                     cinfo.totsize = 0;
                                 }
                             });
@@ -636,8 +642,8 @@ function createServer(host, options) {
             case "RMD":
                 // Remove a directory.
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.cwd, commandArg);
-                socket.fs.rmdir( filename, function(err){
+                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                cinfo.fs.rmdir( filename, function(err){
                     if(err) {
                         logIf(0, "Error removing directory "+filename, socket);
                         socket.write("550 Delete operation failed\r\n");
@@ -648,7 +654,7 @@ function createServer(host, options) {
             case "RNFR":
                 // Rename from.
                 if (!authenticated()) break;
-                cinfo.filefrom = PathModule.resolve(socket.cwd, commandArg);
+                cinfo.filefrom = PathModule.resolve(cinfo.cwd, commandArg);
                 logIf(3, "Rename from " + cinfo.filefrom, socket);
                 path.exists( cinfo.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
@@ -658,8 +664,8 @@ function createServer(host, options) {
             case "RNTO":
                 // Rename to.
                 if (!authenticated()) break;
-                var fileto = PathModule.resolve(socket.cwd, commandArg);
-                socket.fs.rename( cinfo.filefrom, fileto, function(err){
+                var fileto = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                cinfo.fs.rename( cinfo.filefrom, fileto, function(err){
                     if(err) {
                         logIf(3, "Error renaming file from "+cinfo.filefrom+" to "+fileto, socket);
                         socket.write("550 Rename failed\r\n");
@@ -674,8 +680,8 @@ function createServer(host, options) {
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
                 if (!authenticated()) break;
-                var filename = PathModule.resolve(socket.cwd, commandArg);
-                socket.fs.stat( filename, function (err, s) {
+                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                cinfo.fs.stat( filename, function (err, s) {
                     if(err) { 
                         logIf(0, "Error getting size of file: "+filename, socket);
                         socket.write("450 Failed to get size of file\r\n");
@@ -710,8 +716,8 @@ function createServer(host, options) {
                 if (!authenticated()) break;
                 whenDataWritable( function(dataSocket) {
                     // dataSocket comes to us paused, so we have a chance to create the file before accepting data
-                    filename = PathModule.resolve(socket.cwd, commandArg);
-                    socket.fs.open( filename, 'w', 0644, function(err, fd) {
+                    filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
+                    cinfo.fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
                             logIf(0, 'Error opening/creating file: ' + filename, socket);
                             socket.write("553 Could not create file\r\n");
@@ -723,7 +729,7 @@ function createServer(host, options) {
                         dataSocket.addListener("end", function () {
                             var writtenToFile = 0;
                             var doneCallback = function() {
-                                socket.fs.close(fd, function() {
+                                cinfo.fs.close(fd, function() {
                                     socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
                                 });
                             };
@@ -739,7 +745,7 @@ function createServer(host, options) {
                                     return;
                                 }
                                 buf = dataSocket.buffers.shift();
-                                socket.fs.write(fd, buf, 0, buf.length, null, writeCallback);
+                                cinfo.fs.write(fd, buf, 0, buf.length, null, writeCallback);
                             };
                             writeCallback();
                         });
@@ -792,7 +798,7 @@ function createServer(host, options) {
                 break;
             case "XPWD":
                 // 
-                socket.write("257 " + socket.cwd + " is the current directory\r\n");
+                socket.write("257 " + cinfo.cwd + " is the current directory\r\n");
                 break;
             default:
                 socket.write("202 Not supported\r\n");
