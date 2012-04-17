@@ -22,6 +22,13 @@ TODO:
     - maybe just for milesplit's use?
 */
 
+function withCwd(cwd, p) {
+    if (! p) return cwd;
+    else if (! cwd) return p;
+    else if (p.charAt(0) == "/") return p;
+    else return PathModule.join(cwd, p);
+}
+
 function FtpConnection(properties) {
     if (false === (this instanceof FtpConnection)) {
         return new FtpConnection();
@@ -260,21 +267,23 @@ function FtpServer(host, options) {
             case "CWD":
                 // Change working directory.
                 if (!authenticated()) break;
-                var path = PathModule.join(conn.cwd, commandArg);
+                var path = withCwd(conn.cwd, commandArg);
                 var fspath = PathModule.join(conn.root, path);
                 conn.path.exists(fspath, function(exists) {
                     if (!exists) {
+                        console.log("NOT FOUND " + fspath);
                         socket.write("550 Folder not found.\r\n");
                         return;
                     }
                     conn.cwd = path;
+                    console.log("NEW CWD " + conn.cwd);
                     socket.write("250 CWD successful. \"" + conn.cwd + "\" is current directory\r\n");
                 });
                 break;
             case "DELE":
                 // Delete file.
                 if (!authenticated()) break;
-                var filename = PathModule.join(conn.root, conn.cwd, commandArg);
+                var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.unlink( filename, function(err){
                     if (err) {
                         logIf(0, "Error deleting file: "+filename+", "+err, socket);
@@ -347,7 +356,8 @@ function FtpServer(host, options) {
                     };
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
-                    conn.fs.readdir(PathModule.join(conn.root, conn.cwd), function(err, files) {
+                    var dir = withCwd(conn.cwd, commandArg);
+                    conn.fs.readdir(PathModule.join(conn.root, dir), function(err, files) {
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
                             pasvconn.write("", failure);
@@ -357,7 +367,7 @@ function FtpServer(host, options) {
                                 logIf(3, "Directory has " + files.length + " files", socket);
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
-                                    var s = conn.fs.statSync( PathModule.join(conn.root, conn.cwd, file) );
+                                    var s = conn.fs.statSync( PathModule.join(conn.root, dir, file) );
                                     var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
@@ -402,7 +412,7 @@ function FtpServer(host, options) {
             case "MKD":
                 // Make directory.
                 if (!authenticated()) break;
-                var filename = PathModule.join(conn.root, conn.cwd, commandArg);
+                var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.mkdir( filename, 0755, function(err){
                     if(err) {
                         logIf(0, "Error making directory " + filename + " because " + err, socket);
@@ -457,7 +467,7 @@ function FtpServer(host, options) {
                         if (commandArg.substr(0, 1) == '/') {
                             temp = commandArg;
                         } else {
-                            temp = PathModule.join(conn.cwd, commandArg);
+                            temp = withCwd(conn.cwd, commandArg);
                         }
                     } else temp = conn.cwd;
                     if (pasvconn.readable) pasvconn.resume();
@@ -670,7 +680,7 @@ function FtpServer(host, options) {
             case "RMD":
                 // Remove a directory.
                 if (!authenticated()) break;
-                var filename = PathModule.join(conn.root, conn.cwd, commandArg);
+                var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.rmdir( filename, function(err){
                     if(err) {
                         traceIf(0, "Error removing directory "+filename, socket);
@@ -682,7 +692,7 @@ function FtpServer(host, options) {
             case "RNFR":
                 // Rename from.
                 if (!authenticated()) break;
-                conn.filefrom = PathModule.join(conn.cwd, commandArg);
+                conn.filefrom = withCwd(conn.cwd, commandArg);
                 logIf(3, "Rename from " + conn.filefrom, socket);
                 path.exists( conn.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
@@ -692,7 +702,7 @@ function FtpServer(host, options) {
             case "RNTO":
                 // Rename to.
                 if (!authenticated()) break;
-                var fileto = PathModule.join(conn.root, conn.cwd, commandArg);
+                var fileto = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.rename( conn.filefrom, fileto, function(err){
                     if(err) {
                         traceIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
@@ -708,7 +718,7 @@ function FtpServer(host, options) {
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
                 if (!authenticated()) break;
-                var filename = PathModule.join(conn.root, conn.cwd, commandArg);
+                var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.stat( filename, function (err, s) {
                     if(err) { 
                         traceIf(0, "Error getting size of file: "+filename, socket);
@@ -744,7 +754,7 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 whenDataWritable( function(dataSocket) {
                     // dataSocket comes to us paused, so we have a chance to create the file before accepting data
-                    filename = PathModule.join(conn.root, conn.cwd, commandArg);
+                    filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                     conn.fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
                             traceIf(0, 'Error opening/creating file: ' + filename, socket);
