@@ -88,7 +88,7 @@ function FtpServer(host, options) {
     function logIf(level, message, conn, isError) {
         if (self.debugging >= level) {
             if (conn)
-                console.log(conn.remoteAddress + ": " + message);
+                console.log(conn.socket.remoteAddress + ": " + message);
             else
                 console.log(message);
 
@@ -657,7 +657,7 @@ function FtpServer(host, options) {
                                     readChunk();
                                 }
                                 else {
-                                    traceIf(0, "DATA file " + conn.filename + " closed", conn);
+                                    logIf(0, "DATA file " + conn.filename + " closed", conn);
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
                                     conn.fs.close(fd);
@@ -666,8 +666,13 @@ function FtpServer(host, options) {
                             });
                         }
                         if(err) {
-                            traceIf(0, "Error at read", conn);
-                            conn.emit("error", err);
+                            if (err.code == 'ENOENT') {
+                                socket.write("550 Not Found\r\n");
+                            }
+                            else { // Who know's what's going on here...
+                                socket.write("550 Not Accessible\r\n");
+                                traceIf(0, "Error at read other than ENOENT", conn);
+                            }
                         }
                         else {
                             readChunk();
