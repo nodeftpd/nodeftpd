@@ -1,22 +1,27 @@
 require('should');
-var ftpd = require('../ftpd'), Ftp = require("jsftp"), fs = require("fs");
+var ftpd = require('../ftpd'),
+    Ftp = require("jsftp"),
+    fs = require("fs"),
+    path = require('path');
 
 
 describe('RETR ftpd command', function(){
     var ftp, server;
 
     beforeEach(function(done){
-        server = ftpd.createServer("127.0.0.1", fs.realpathSync(__dirname + '/../fixture'));
-        server.on("client:connected", function(socket) {
+        server = new ftpd.FtpServer("127.0.0.1", {
+            getRoot: function (u) { return fs.realpathSync(path.join(__dirname, '/../fixture', u)); }
+        });
+        server.on("client:connected", function(cinfo) {
             var username;
-            socket.on("command:user", function(user, success, failure) {
+            cinfo.on("command:user", function(user, success, failure) {
                 if (user) {
                     username = user;
                     success();
                 } else failure();
             });
 
-            socket.on("command:pass", function(pass, success, failure) {
+            cinfo.on("command:pass", function(pass, success, failure) {
                 if (pass) success(username);
                 else failure();
             });
