@@ -80,14 +80,14 @@ function createServer(host, options) {
             dataHost: null,
             dataPort: 20, // default
             dataListener: null, // for incoming passive connections
-            dataSocket = null, // the actual data socket
-            mode = "ascii",
-            filefrom = "",
-            authFailures = 0, // 3 tries then we disconnect you
-            temp = null,
-            username = null,
-            totsize = 0,
-            filename = ""
+            dataSocket: null, // the actual data socket
+            mode: "ascii",
+            filefrom: "",
+            authFailures: 0, // 3 tries then we disconnect you
+            temp: null,
+            username: null,
+            totsize: 0,
+            filename: ""
         };
 
 //        logIf(0, "Base FTP directory: "+socket.fs.cwd());
