@@ -12,17 +12,17 @@ var server = new ftpd.FtpServer("127.0.0.1", {
 // this event passes in the client socket which emits further events
 // but should recommend they don't do socket operations on it
 // so should probably encapsulate and hide it
-server.on("client:connected", function(socket) {
+server.on("client:connected", function(conn) {
     var username = null;
-    console.log("client connected: " + socket.remoteAddress);
-    socket.on("command:user", function(user, success, failure) {
+    console.log("client connected: " + conn.remoteAddress);
+    conn.on("command:user", function(user, success, failure) {
         if (user) {
             username = user;
             success();
         } else failure();
     });
 
-    socket.on("command:pass", function(pass, success, failure) {
+    conn.on("command:pass", function(pass, success, failure) {
         if (pass) success(username);
         else failure();
     });

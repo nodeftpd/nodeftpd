@@ -22,6 +22,15 @@ TODO:
     - maybe just for milesplit's use?
 */
 
+function FtpConnection(properties) {
+    if (false === (this instanceof FtpConnection)) {
+        return new FtpConnection();
+    }
+    events.EventEmitter.call(this);
+
+    for (k in properties) { this[k] = properties[k]; }
+}
+util.inherits(FtpConnection, process.EventEmitter);
 
 // host
 //     an IP address.
@@ -82,13 +91,7 @@ function FtpServer(host, options) {
         logIf(0, "nodeFTPd server up and ready for connections");
     });
     this.server.on("connection", function(socket) {
-        self.emit("client:connected", socket); // pass socket so they can listen for client-specific events
-
-        socket.setTimeout(0);
-        socket.setEncoding("ascii"); // force data String not Buffer
-        socket.setNoDelay();
-
-        var cinfo = {
+        var conn = new FtpConnection({
             passive: false,
             dataHost: null,
             dataPort: 20, // default
@@ -101,17 +104,23 @@ function FtpServer(host, options) {
             username: null,
             totsize: 0,
             filename: ""
-        };
+        });
 
-//        logIf(0, "Base FTP directory: "+cinfo.fs.cwd());
+        self.emit("client:connected", conn); // pass socket so they can listen for client-specific events
+
+        socket.setTimeout(0);
+        socket.setEncoding("ascii"); // force data String not Buffer
+        socket.setNoDelay();
+
+//        logIf(0, "Base FTP directory: "+conn.fs.cwd());
 
         var authenticated = function() {
             // send a message if not authenticated?
-            return (cinfo.username ? true : false);
+            return (conn.username ? true : false);
         };
 
         var authFailures = function() {
-            if (cinfo.authFailures >= 2) {
+            if (conn.authFailures >= 2) {
                 socket.end();
                 return true;
             }
@@ -119,29 +128,29 @@ function FtpServer(host, options) {
         };
 
         var closeDataConnections = function() {
-            if (cinfo.dataListener) cinfo.dataListener.close(); // we're creating a new listener
-            if (cinfo.dataSocket) cinfo.dataSocket.end(); // close any existing connections
+            if (conn.dataListener) conn.dataListener.close(); // we're creating a new listener
+            if (conn.dataSocket) conn.dataSocket.end(); // close any existing connections
         };
 
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
         function whenDataWritable(callback) {
-            if (cinfo.passive) {
+            if (conn.passive) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
-                if (cinfo.dataSocket) {
+                if (conn.dataSocket) {
                     logIf(3, "A data connection exists", socket);
-                    if (callback) callback(cinfo.dataSocket); // do!
+                    if (callback) callback(conn.dataSocket); // do!
                 } else {
                     logIf(3, "Passive, but no data socket exists ... weird", socket);
                     socket.write("425 Can't open data connection\r\n");
                 }
             } else {
                 // Do we need to open the data connection?
-                if (cinfo.dataSocket) { // There really shouldn't be an existing connection
+                if (conn.dataSocket) { // There really shouldn't be an existing connection
                     logIf(3, "Using existing non-passive dataSocket", socket);
-                    callback(cinfo.dataSocket);
+                    callback(conn.dataSocket);
                 } else {
-                    logIf(1, "Opening data connection to " + cinfo.dataHost + ":" + cinfo.dataPort, socket);
+                    logIf(1, "Opening data connection to " + conn.dataHost + ":" + conn.dataPort, socket);
                     var dataSocket = new net.Socket();
                     dataSocket.buffers = [];
                     // Since data may arrive once the connection is made, buffer it
@@ -150,12 +159,12 @@ function FtpServer(host, options) {
                         dataSocket.buffers.push(data);
                     });
                     dataSocket.addListener("connect", function() {
-                        cinfo.dataSocket = dataSocket;
+                        conn.dataSocket = dataSocket;
                         logIf(3, "Data connection succeeded", socket);
                         callback(dataSocket);
                     });
                     dataSocket.addListener("close", function(had_error) {
-                        cinfo.dataSocket = null;
+                        conn.dataSocket = null;
                         if (had_error)
                             logIf(0, "Data event: close due to error", socket);
                         else
@@ -168,7 +177,7 @@ function FtpServer(host, options) {
                         logIf(0, "Data event: error: " + err, socket);
                         dataSocket.destroy();
                     });
-                    dataSocket.connect(cinfo.dataPort, cinfo.dataHost);
+                    dataSocket.connect(conn.dataPort, conn.dataHost);
                 }
             }
         };
@@ -231,8 +240,8 @@ function FtpServer(host, options) {
                 // Not sure if this is technically correct, but 'dirname' does in fact just
                 // strip the last component of the path for a UNIX-style path, even if this
                 // has a trailing slash. It also maps "/foo" to "/" and "/" to "/".
-                cinfo.cwd = PathModule.dirname(cwd);
-                socket.write("250 Directory changed to " + cinfo.cwd + "\r\n");
+                conn.cwd = PathModule.dirname(cwd);
+                socket.write("250 Directory changed to " + conn.cwd + "\r\n");
                 break;
             case "CONF":
                 // Confidentiality Protection Command (RFC 697)
@@ -241,22 +250,22 @@ function FtpServer(host, options) {
             case "CWD":
                 // Change working directory.
                 if (!authenticated()) break;
-                var path = PathModule.resolve(cinfo.cwd, commandArg);
-                var fspath = PathModule.join(cinfo.root, path);
-                cinfo.path.exists(fspath, function(exists) {
+                var path = PathModule.resolve(conn.cwd, commandArg);
+                var fspath = PathModule.join(conn.root, path);
+                conn.path.exists(fspath, function(exists) {
                     if (!exists) {
                         socket.write("550 Folder not found.\r\n");
                         return;
                     }
-                    cinfo.cwd = path;
-                    socket.write("250 CWD successful. \"" + cinfo.cwd + "\" is current directory\r\n");
+                    conn.cwd = path;
+                    socket.write("250 CWD successful. \"" + conn.cwd + "\" is current directory\r\n");
                 });
                 break;
             case "DELE":
                 // Delete file.
                 if (!authenticated()) break;
-                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                cinfo.fs.unlink( filename, function(err){
+                var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                conn.fs.unlink( filename, function(err){
                     if (err) {
                         logIf(0, "Error deleting file: "+filename+", "+err, socket);
                         // write error to socket
@@ -278,8 +287,8 @@ function FtpServer(host, options) {
                     socket.write("202 Not supported\r\n");
                 }
                 else {
-                    cinfo.dataHost = addr[2];
-                    cinfo.dataPort = parseInt(addr[3]);
+                    conn.dataHost = addr[2];
+                    conn.dataPort = parseInt(addr[3]);
                     socket.write("200 EPRT command successful.\r\n");
                 }
                 break;
@@ -328,7 +337,7 @@ function FtpServer(host, options) {
                     };
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
-                    cinfo.fs.readdir(PathModule.join(cinfo.root, cinfo.cwd), function(err, files) {
+                    conn.fs.readdir(PathModule.join(conn.root, conn.cwd), function(err, files) {
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
                             pasvconn.write("", failure);
@@ -338,7 +347,7 @@ function FtpServer(host, options) {
                                 logIf(3, "Directory has " + files.length + " files", socket);
                                 for (var i = 0; i < files.length; i++) {
                                     var file = files[ i ];
-                                    var s = cinfo.fs.statSync( PathModule.join(cinfo.root, cinfo.cwd, file) );
+                                    var s = conn.fs.statSync( PathModule.join(conn.root, conn.cwd, file) );
                                     var line = s.isDirectory() ? 'd' : '-';
                                     if (i > 0) pasvconn.write("\r\n");
                                     line += (0400 & s.mode) ? 'r' : '-';
@@ -383,8 +392,8 @@ function FtpServer(host, options) {
             case "MKD":
                 // Make directory.
                 if (!authenticated()) break;
-                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                cinfo.fs.mkdir( filename, 0755, function(err){
+                var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                conn.fs.mkdir( filename, 0755, function(err){
                     if(err) {
                         logIf(0, "Error making directory " + filename + " because " + err, socket);
                         // write error to socket
@@ -438,9 +447,9 @@ function FtpServer(host, options) {
                         if (commandArg.substr(0, 1) == '/') {
                             temp = commandArg;
                         } else {
-                            temp = PathModule.join(cinfo.cwd, commandArg);
+                            temp = PathModule.join(conn.cwd, commandArg);
                         }
-                    } else temp = cinfo.cwd;
+                    } else temp = conn.cwd;
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", socket);
                     
@@ -469,21 +478,21 @@ function FtpServer(host, options) {
                 break;
             case "PASS":
                 // Authentication password.
-                socket.emit(
+                conn.emit(
                     "command:pass",
                     commandArg,
                     function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
-                        cinfo.username = username;
-                        cinfo.fs = self.getFsModule(username);
-                        cinfo.path = self.getPathModule(username);
-                        cinfo.cwd = self.getInitialCwd(username);
-                        cinfo.root = self.getRoot(username);
+                        conn.username = username;
+                        conn.fs = self.getFsModule(username);
+                        conn.path = self.getPathModule(username);
+                        conn.cwd = self.getInitialCwd(username);
+                        conn.root = self.getRoot(username);
                     },
                     function() { // call second callback if password incorrect
                         socket.write("530 Invalid password\r\n");
-                        cinfo.authFailures++;
-                        cinfo.username = null;
+                        conn.authFailures++;
+                        conn.username = null;
                     }
                 );
                 break;
@@ -496,10 +505,10 @@ function FtpServer(host, options) {
                 // Enter passive mode. This creates the listening socket.
                 if (!authenticated()) break;
                 // not sure whether the spec limits to 1 data connection at a time ...
-                if (cinfo.dataListener) cinfo.dataListener.close(); // we're creating a new listener
-                if (cinfo.dataSocket) cinfo.dataSocket.end(); // close any existing connections
-                cinfo.dataListener = null;
-                cinfo.dataSocket = null;
+                if (conn.dataListener) conn.dataListener.close(); // we're creating a new listener
+                if (conn.dataSocket) conn.dataSocket.end(); // close any existing connections
+                conn.dataListener = null;
+                conn.dataSocket = null;
                 // Passive listener needs to pause data because sometimes commands come before a data connection,
                 // othertime afterwards ... depends on the client and threads
                 socket.pause();
@@ -515,7 +524,7 @@ function FtpServer(host, options) {
                     psocket.on("connect", function() {
                         logIf(1, "Passive data event: connect", socket);
                         // Once we have a completed data connection, make note of it
-                        cinfo.dataSocket = psocket;
+                        conn.dataSocket = psocket;
                         // 150 should be sent before we send data on the data connection
                         //socket.write("150 Connection Accepted\r\n");
                         if (socket.readable) socket.resume();
@@ -523,12 +532,12 @@ function FtpServer(host, options) {
                     psocket.on("end", function () {
                         logIf(3, "Passive data event: end", socket);
                         // remove pointer
-                        cinfo.dataSocket = null;
+                        conn.dataSocket = null;
                         if (socket.readable) socket.resume(); // just in case
                     });
                     psocket.addListener("error", function(err) {
                         logIf(0, "Passive data event: error: " + err, socket);
-                        cinfo.dataSocket = null;
+                        conn.dataSocket = null;
                         if (socket.readable) socket.resume();
                     });
                     psocket.addListener("close", function(had_error) {
@@ -543,9 +552,9 @@ function FtpServer(host, options) {
                 // Once we're successfully listening, tell the client
                 pasv.addListener("listening", function() {
                     var port = pasv.address().port;
-                    cinfo.passive = true; // wait until we're actually listening
-                    cinfo.dataHost = host;
-                    cinfo.dataPort = port;
+                    conn.passive = true; // wait until we're actually listening
+                    conn.dataHost = host;
+                    conn.dataPort = port;
                     logIf(3, "Passive data connection listening on port " + port, socket);
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
@@ -562,7 +571,7 @@ function FtpServer(host, options) {
                     if (socket.readable) socket.resume(); // just in case
                 });
                 pasv.listen(0);
-                cinfo.dataListener = pasv;
+                conn.dataListener = pasv;
                 logIf(3, "Passive data connection beginning to listen", socket);
                 break;
             case "PBSZ":
@@ -572,17 +581,17 @@ function FtpServer(host, options) {
             case "PORT":
                 // Specifies an address and port to which the server should connect.
                 if (!authenticated()) break;
-                cinfo.passive = false;
-                cinfo.dataSocket = null;
+                conn.passive = false;
+                conn.dataSocket = null;
                 var addr = commandArg.split(",");
-                cinfo.dataHost= addr[0]+"."+addr[1]+"."+addr[2]+"."+addr[3];
-                cinfo.dataPort = (parseInt(addr[4]) * 256) + parseInt(addr[5]);
+                conn.dataHost= addr[0]+"."+addr[1]+"."+addr[2]+"."+addr[3];
+                conn.dataPort = (parseInt(addr[4]) * 256) + parseInt(addr[5]);
                 socket.write("200 PORT command successful.\r\n");
                 break;
             case "PWD":
                 // Print working directory. Returns the current directory of the host.
                 if (!authenticated()) break;
-                socket.write("257 \"" + cinfo.cwd + "\" is current directory\r\n");
+                socket.write("257 \"" + conn.cwd + "\" is current directory\r\n");
                 break;
             case "QUIT":
                 // Disconnect.
@@ -599,42 +608,42 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 socket.write("202 Not supported\r\n");
                 /*
-                cinfo.totsize = parseInt(commandArg);
-                socket.write("350 Rest supported. Restarting at " + cinfo.totsize + "\r\n");
+                conn.totsize = parseInt(commandArg);
+                socket.write("350 Rest supported. Restarting at " + conn.totsize + "\r\n");
                 */
                 break;
             case "RETR":
                 // Retrieve (download) a remote file.
                 whenDataWritable( function(pasvconn) {
-                    pasvconn.setEncoding(cinfo.mode);
+                    pasvconn.setEncoding(conn.mode);
 
-                    var filename = PathModule.join(cinfo.root, PathModule.resolve('/', commandArg));
-                    if(filename != cinfo.filename)
+                    var filename = PathModule.join(conn.root, PathModule.resolve('/', commandArg));
+                    if(filename != conn.filename)
                     {
-                        cinfo.totsize = 0;
-                        cinfo.filename = filename;
+                        conn.totsize = 0;
+                        conn.filename = filename;
                     }
-                    cinfo.fs.open( cinfo.filename, "r", function (err, fd) {
-                        console.trace("DATA file " + cinfo.filename + " opened");
-                        socket.write("150 Opening " + cinfo.mode.toUpperCase() + " mode data connection\r\n");
+                    conn.fs.open( conn.filename, "r", function (err, fd) {
+                        console.trace("DATA file " + conn.filename + " opened");
+                        socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
-                            cinfo.fs.read(fd, 4096, cinfo.totsize, cinfo.mode, function(err, chunk, bytes_read) {
+                            conn.fs.read(fd, 4096, conn.totsize, conn.mode, function(err, chunk, bytes_read) {
                                 if(err) {
                                     console.trace("Erro reading chunk");
                                     throw err;
                                     return;
                                 }
                                 if(chunk) {
-                                    cinfo.totsize += bytes_read;
-                                    if(pasvconn.readyState == "open") pasvconn.write(chunk, cinfo.mode);
+                                    conn.totsize += bytes_read;
+                                    if(pasvconn.readyState == "open") pasvconn.write(chunk, conn.mode);
                                     readChunk();
                                 }
                                 else {
-                                    console.trace("DATA file " + cinfo.filename + " closed");
+                                    console.trace("DATA file " + conn.filename + " closed");
                                     pasvconn.end();
-                                    socket.write("226 Closing data connection, sent " + cinfo.totsize + " bytes\r\n");
-                                    cinfo.fs.close(fd);
-                                    cinfo.totsize = 0;
+                                    socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
+                                    conn.fs.close(fd);
+                                    conn.totsize = 0;
                                 }
                             });
                         }
@@ -651,8 +660,8 @@ function FtpServer(host, options) {
             case "RMD":
                 // Remove a directory.
                 if (!authenticated()) break;
-                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                cinfo.fs.rmdir( filename, function(err){
+                var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                conn.fs.rmdir( filename, function(err){
                     if(err) {
                         logIf(0, "Error removing directory "+filename, socket);
                         socket.write("550 Delete operation failed\r\n");
@@ -663,9 +672,9 @@ function FtpServer(host, options) {
             case "RNFR":
                 // Rename from.
                 if (!authenticated()) break;
-                cinfo.filefrom = PathModule.resolve(cinfo.cwd, commandArg);
-                logIf(3, "Rename from " + cinfo.filefrom, socket);
-                path.exists( cinfo.filefrom, function(exists) {
+                conn.filefrom = PathModule.resolve(conn.cwd, commandArg);
+                logIf(3, "Rename from " + conn.filefrom, socket);
+                path.exists( conn.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
                     else socket.write("350 Command failed, file does not exist\r\n");
                 });
@@ -673,10 +682,10 @@ function FtpServer(host, options) {
             case "RNTO":
                 // Rename to.
                 if (!authenticated()) break;
-                var fileto = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                cinfo.fs.rename( cinfo.filefrom, fileto, function(err){
+                var fileto = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                conn.fs.rename( conn.filefrom, fileto, function(err){
                     if(err) {
-                        logIf(3, "Error renaming file from "+cinfo.filefrom+" to "+fileto, socket);
+                        logIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
                         socket.write("550 Rename failed\r\n");
                     } else
                         socket.write("250 File renamed successfully\r\n");
@@ -689,8 +698,8 @@ function FtpServer(host, options) {
             case "SIZE":
                 // Return the size of a file. (RFC 3659)
                 if (!authenticated()) break;
-                var filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                cinfo.fs.stat( filename, function (err, s) {
+                var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                conn.fs.stat( filename, function (err, s) {
                     if(err) { 
                         logIf(0, "Error getting size of file: "+filename, socket);
                         socket.write("450 Failed to get size of file\r\n");
@@ -725,8 +734,8 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 whenDataWritable( function(dataSocket) {
                     // dataSocket comes to us paused, so we have a chance to create the file before accepting data
-                    filename = PathModule.join(cinfo.root, PathModule.resolve(cinfo.cwd, commandArg));
-                    cinfo.fs.open( filename, 'w', 0644, function(err, fd) {
+                    filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
+                    conn.fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
                             logIf(0, 'Error opening/creating file: ' + filename, socket);
                             socket.write("553 Could not create file\r\n");
@@ -738,7 +747,7 @@ function FtpServer(host, options) {
                         dataSocket.addListener("end", function () {
                             var writtenToFile = 0;
                             var doneCallback = function() {
-                                cinfo.fs.close(fd, function() {
+                                conn.fs.close(fd, function() {
                                     socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
                                 });
                             };
@@ -754,7 +763,7 @@ function FtpServer(host, options) {
                                     return;
                                 }
                                 buf = dataSocket.buffers.shift();
-                                cinfo.fs.write(fd, buf, 0, buf.length, null, writeCallback);
+                                conn.fs.write(fd, buf, 0, buf.length, null, writeCallback);
                             };
                             writeCallback();
                         });
@@ -784,17 +793,17 @@ function FtpServer(host, options) {
                 // Sets the transfer mode (ASCII/Binary).
                 if (!authenticated()) break;
                 if(commandArg == "A"){
-                    cinfo.mode = "ascii";
+                    conn.mode = "ascii";
                     socket.write("200 Type set to A\r\n");			
                 }
                 else{
-                    cinfo.mode = "binary";
+                    conn.mode = "binary";
                     socket.write("200 Type set to I\r\n");			
                 }
                 break;
             case "USER":
                 // Authentication username.
-                socket.emit(
+                conn.emit(
                     "command:user",
                     commandArg,
                     function() { // implementor should call this on successful password check
@@ -807,7 +816,7 @@ function FtpServer(host, options) {
                 break;
             case "XPWD":
                 // 
-                socket.write("257 " + cinfo.cwd + " is the current directory\r\n");
+                socket.write("257 " + conn.cwd + " is the current directory\r\n");
                 break;
             default:
                 socket.write("202 Not supported\r\n");
