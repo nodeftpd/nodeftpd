@@ -97,6 +97,7 @@ function FtpServer(host, options) {
     });
     this.server.on("connection", function(socket) {
         var conn = new FtpConnection({
+            socket: socket,
             passive: false,
             dataHost: null,
             dataPort: 20, // default
@@ -115,7 +116,7 @@ function FtpServer(host, options) {
             root: null
         });
 
-        self.emit("client:connected", conn); // pass socket so they can listen for client-specific events
+        self.emit("client:connected", conn); // pass client info so they can listen for client-specific events
 
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
