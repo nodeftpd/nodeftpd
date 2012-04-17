@@ -88,7 +88,7 @@ function FtpServer(host, options) {
     function logIf(level, message, conn, isError) {
         if (self.debugging >= level) {
             if (conn)
-                console.log(conn.socket.remoteAddress + ": " + message);
+                console.log((conn & conn.socket ? conn.socket.remoteAddress + ": " : "") + message);
             else
                 console.log(message);
 
