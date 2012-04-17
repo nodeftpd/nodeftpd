@@ -1,22 +1,27 @@
 require('should');
-var ftpd = require('../ftpd'), Ftp = require("jsftp");
+var ftpd = require('../ftpd'),
+    Ftp = require("jsftp"),
+    path = require('path');
 
 
 describe('LIST ftpd command', function(){
     var ftp, server;
 
     beforeEach(function(done){
-        server = ftpd.createServer("127.0.0.1", __dirname + '/../fixture');
-        server.on("client:connected", function(socket) {
+        console.log("D", __dirname,  path.resolve(path.join(__dirname, '/../fixture')));
+        server = new ftpd.FtpServer("127.0.0.1", {
+            getRoot: function () { return path.resolve(path.join(__dirname, '/../fixture')); }
+        });
+        server.on("client:connected", function(cinfo) {
             var username;
-            socket.on("command:user", function(user, success, failure) {
+            cinfo.on("command:user", function(user, success, failure) {
                 if (user) {
                     username = user;
                     success();
                 } else failure();
             });
 
-            socket.on("command:pass", function(pass, success, failure) {
+            cinfo.on("command:pass", function(pass, success, failure) {
                 if (pass) success(username);
                 else failure();
             });
@@ -32,9 +37,11 @@ describe('LIST ftpd command', function(){
     });
 
     it("should return - as a first character for files", function(done){
-        ftp.list("/", function(err, d){
+        ftp.list("/jose", function(err, d){
+            console.log("X", d);
             var fileLine = d.substring(1).trim().split("\r\n")
                 .filter(function(line){
+                    console.log("FIL", line);
                     return line.indexOf("data.txt") !== -1;
                 })[0];
             fileLine[0].should.eql("-");
