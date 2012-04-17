@@ -78,14 +78,19 @@ function FtpServer(host, options) {
     this.getRoot = options.getRoot || function () { return "/"; };
     this.debugging = 0;
 
-    var logIf = function(level, message, socket) {
+    function logIf(level, message, conn, isError) {
         if (self.debugging >= level) {
-            if (socket)
-                console.log(socket.remoteAddress + ": " + message);
+            if (conn)
+                console.log(conn.remoteAddress + ": " + message);
             else
                 console.log(message);
+
+            if (isError) {
+                console.trace("Trace follows");
+            }
         }
     };
+    function traceIf(level, message, conn) { return logIf(level, message, conn, true); }
 
     this.server.on("listening", function() {
         logIf(0, "nodeFTPd server up and ready for connections");
@@ -563,7 +568,7 @@ function FtpServer(host, options) {
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
                     if (command == "PASV") {
-                        console.log("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
+                        logIf(0, "227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n", conn);
                         socket.write("227 Entering Passive Mode (" + host.split(".").join(",") + "," + i1 + "," + i2 + ")\r\n");
                     }
                     else if (command == "EPSV") {
@@ -628,13 +633,13 @@ function FtpServer(host, options) {
                         conn.filename = filename;
                     }
                     conn.fs.open( conn.filename, "r", function (err, fd) {
-                        console.trace("DATA file " + conn.filename + " opened");
+                        logIf(0, "DATA file " + conn.filename + " opened", conn);
                         socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
                             conn.fs.read(fd, 4096, conn.totsize, conn.mode, function(err, chunk, bytes_read) {
                                 if(err) {
-                                    console.trace("Erro reading chunk");
-                                    throw err;
+                                    traceIf(0, "Error reading chunk", conn);
+                                    conn.emit("error", err);
                                     return;
                                 }
                                 if(chunk) {
@@ -643,7 +648,7 @@ function FtpServer(host, options) {
                                     readChunk();
                                 }
                                 else {
-                                    console.trace("DATA file " + conn.filename + " closed");
+                                    traceIf(0, "DATA file " + conn.filename + " closed", conn);
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
                                     conn.fs.close(fd);
@@ -652,8 +657,8 @@ function FtpServer(host, options) {
                             });
                         }
                         if(err) {
-                            dotrace("Error at read");
-                            throw err;
+                            traceIf(0, "Error at read", conn);
+                            conn.emit("error", err);
                         }
                         else {
                             readChunk();
@@ -667,7 +672,7 @@ function FtpServer(host, options) {
                 var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
                 conn.fs.rmdir( filename, function(err){
                     if(err) {
-                        logIf(0, "Error removing directory "+filename, socket);
+                        traceIf(0, "Error removing directory "+filename, socket);
                         socket.write("550 Delete operation failed\r\n");
                     } else
                         socket.write("250 \""+filename+"\" directory removed\r\n");
@@ -689,7 +694,7 @@ function FtpServer(host, options) {
                 var fileto = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
                 conn.fs.rename( conn.filefrom, fileto, function(err){
                     if(err) {
-                        logIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
+                        traceIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
                         socket.write("550 Rename failed\r\n");
                     } else
                         socket.write("250 File renamed successfully\r\n");
@@ -705,7 +710,7 @@ function FtpServer(host, options) {
                 var filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
                 conn.fs.stat( filename, function (err, s) {
                     if(err) { 
-                        logIf(0, "Error getting size of file: "+filename, socket);
+                        traceIf(0, "Error getting size of file: "+filename, socket);
                         socket.write("450 Failed to get size of file\r\n");
                         return;
                     }
@@ -741,7 +746,7 @@ function FtpServer(host, options) {
                     filename = PathModule.join(conn.root, PathModule.resolve(conn.cwd, commandArg));
                     conn.fs.open( filename, 'w', 0644, function(err, fd) {
                         if(err) {
-                            logIf(0, 'Error opening/creating file: ' + filename, socket);
+                            traceIf(0, 'Error opening/creating file: ' + filename, socket);
                             socket.write("553 Could not create file\r\n");
                             dataSocket.end();
                             return;
@@ -758,7 +763,7 @@ function FtpServer(host, options) {
                             var writeCallback = function(err, written) {
                                 var buf;
                                 if (err) {
-                                    logIf(0, "Error writing " + filename + ": " + err, socket);
+                                    traceIf(0, "Error writing " + filename + ": " + err, socket);
                                     return;
                                 }
                                 writtenToFile += written;
@@ -772,7 +777,7 @@ function FtpServer(host, options) {
                             writeCallback();
                         });
                         dataSocket.addListener("error", function(err) {
-                            logIf(0, "Error transferring " + filename + ": " + err, socket);
+                            traceIf(0, "Error transferring " + filename + ": " + err, socket);
                             // close file handle
                         });
                         logIf(3, "Told client ok to send file data", socket);
