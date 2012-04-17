@@ -103,7 +103,11 @@ function FtpServer(host, options) {
             temp: null,
             username: null,
             totsize: 0,
-            filename: ""
+            filename: "",
+            fs: null,
+            path: null,
+            cwd: null,
+            root: null
         });
 
         self.emit("client:connected", conn); // pass socket so they can listen for client-specific events
