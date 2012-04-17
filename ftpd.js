@@ -234,7 +234,8 @@ function createServer(host, options) {
                 // Change working directory.
                 if (!authenticated()) break;
                 var path = PathModule.resolve(cinfo.cwd, commandArg);
-                cinfo.path.exists(commandArg, function(exists) {
+                var fspath = PathModule.join(cinfo.root, path);
+                cinfo.path.exists(fspath, function(exists) {
                     if (!exists) {
                         socket.write("550 Folder not found.\r\n");
                         return;

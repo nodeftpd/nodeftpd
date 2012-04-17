@@ -6,6 +6,7 @@ var server = ftpd.createServer("127.0.0.1", {
 //    getFsModule: function () { return fs; },
 //    getPathModule: function () { return path; },
 //    getInitialCwd: function () { return "/"; }
+    getRoot: function () { return process.cwd(); }
 });
 
 // this event passes in the client socket which emits further events
