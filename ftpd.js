@@ -1,5 +1,6 @@
-var net = require("net");
-var util = require("util");
+var net = require('net');
+var util = require('util');
+var events = require('events');
 var PathModule = require('path');
 var glob = require('./glob');
 require('./date-format');
@@ -52,17 +53,24 @@ TODO:
 //     a function which, given a username, returns a root directory (user cannot get
 //     outside of this dir).
 // 
-function createServer(host, options) {
+function FtpServer(host, options) {
+    var self = this;
+
+    if (false === (this instanceof FtpServer)) {
+        return new FtpServer(host, options);
+    }
+    events.EventEmitter.call(this);
+
     // make sure host is an IP address, otherwise DATA connections will likely break
-    var server = net.createServer();
-    server.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
-    server.getPathModule = options.getPathModule || function () { return PathModule; }
-    server.getInitialCwd = options.getInitialCwd || function () { return "/"; };
-    server.getRoot = options.getRoot || function () { return "/"; };
-    server.debugging = 0;
+    this.server = net.createServer();
+    this.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
+    this.getPathModule = options.getPathModule || function () { return PathModule; }
+    this.getInitialCwd = options.getInitialCwd || function () { return "/"; };
+    this.getRoot = options.getRoot || function () { return "/"; };
+    this.debugging = 0;
 
     var logIf = function(level, message, socket) {
-        if (server.debugging >= level) {
+        if (self.debugging >= level) {
             if (socket)
                 console.log(socket.remoteAddress + ": " + message);
             else
@@ -70,11 +78,11 @@ function createServer(host, options) {
         }
     };
 
-    server.on("listening", function() {
+    this.server.on("listening", function() {
         logIf(0, "nodeFTPd server up and ready for connections");
     });
-    server.on("connection", function(socket) {
-        server.emit("client:connected", socket); // pass socket so they can listen for client-specific events
+    this.server.on("connection", function(socket) {
+        self.emit("client:connected", socket); // pass socket so they can listen for client-specific events
 
         socket.setTimeout(0);
         socket.setEncoding("ascii"); // force data String not Buffer
@@ -467,10 +475,10 @@ function createServer(host, options) {
                     function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         cinfo.username = username;
-                        cinfo.fs = server.getFsModule(username);
-                        cinfo.path = server.getPathModule(username);
-                        cinfo.cwd = server.getInitialCwd(username);
-                        cinfo.root = server.getRoot(username);
+                        cinfo.fs = self.getFsModule(username);
+                        cinfo.path = self.getPathModule(username);
+                        cinfo.cwd = self.getInitialCwd(username);
+                        cinfo.root = self.getRoot(username);
                     },
                     function() { // call second callback if password incorrect
                         socket.write("530 Invalid password\r\n");
@@ -815,11 +823,12 @@ function createServer(host, options) {
         });
     });
 
-    server.addListener("close", function() {
+    this.server.addListener("close", function() {
         logIf(0, "Server closed");
     });
-
-    return server;
 }
-util.inherits(createServer, process.EventEmitter);
-exports.createServer = createServer;
+util.inherits(FtpServer, process.EventEmitter);
+
+FtpServer.prototype.listen = function () { return this.server.listen.apply(this.server, arguments); };
+
+exports.FtpServer = FtpServer;

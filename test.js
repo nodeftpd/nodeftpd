@@ -2,7 +2,7 @@ var ftpd = require('./ftpd.js');
 var fs = require('fs');
 var path = require('path');
 
-var server = ftpd.createServer("127.0.0.1", {
+var server = new ftpd.FtpServer("127.0.0.1", {
 //    getFsModule: function () { return fs; },
 //    getPathModule: function () { return path; },
 //    getInitialCwd: function () { return "/"; }
