@@ -358,6 +358,7 @@ function FtpServer(host, options) {
                     conn.fs.readdir(PathModule.join(conn.root, dir), function(err, files) {
                         if (err) {
                             logIf(0, "While sending file list, reading directory: " + err, socket);
+                            socket.write("550 Not a directory\r\n");
                             pasvconn.write("", failure);
                         } else {
                             // Wait until acknowledged!
