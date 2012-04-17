@@ -271,12 +271,10 @@ function FtpServer(host, options) {
                 var fspath = PathModule.join(conn.root, path);
                 conn.path.exists(fspath, function(exists) {
                     if (!exists) {
-                        console.log("NOT FOUND " + fspath);
                         socket.write("550 Folder not found.\r\n");
                         return;
                     }
                     conn.cwd = path;
-                    console.log("NEW CWD " + conn.cwd);
                     socket.write("250 CWD successful. \"" + conn.cwd + "\" is current directory\r\n");
                 });
                 break;
@@ -858,6 +856,10 @@ function FtpServer(host, options) {
 }
 util.inherits(FtpServer, process.EventEmitter);
 
-FtpServer.prototype.listen = function () { return this.server.listen.apply(this.server, arguments); };
+["listen", "close"].forEach(function (fname) {
+    FtpServer.prototype[fname] = function () {
+        return this.server[fname].apply(this.server, arguments);
+    }
+});
 
 exports.FtpServer = FtpServer;
