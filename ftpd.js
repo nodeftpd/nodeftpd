@@ -640,15 +640,16 @@ function FtpServer(host, options) {
                         logIf(0, "DATA file " + conn.filename + " opened", conn);
                         socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
                         function readChunk() {
-                            conn.fs.read(fd, 4096, conn.totsize, conn.mode, function(err, chunk, bytes_read) {
+                            if (! self.buffer) self.buffer = new Buffer(4096);
+                            conn.fs.read(fd, self.buffer, 0, 4096, null/*pos*/, function(err, bytesRead, buffer) {
                                 if(err) {
                                     traceIf(0, "Error reading chunk", conn);
                                     conn.emit("error", err);
                                     return;
                                 }
-                                if(chunk) {
-                                    conn.totsize += bytes_read;
-                                    if(pasvconn.readyState == "open") pasvconn.write(chunk, conn.mode);
+                                if (bytesRead > 0) {
+                                    conn.totsize += bytesRead;
+                                    if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead), conn.mode);
                                     readChunk();
                                 }
                                 else {
