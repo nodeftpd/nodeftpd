@@ -656,8 +656,10 @@ function FtpServer(host, options) {
                                     logIf(0, "DATA file " + conn.filename + " closed", conn);
                                     pasvconn.end();
                                     socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
-                                    conn.fs.close(fd);
-                                    conn.totsize = 0;
+                                    conn.fs.close(fd, function (err) {
+                                        if (err) conn.emit("error", err);
+                                        conn.totsize = 0;
+                                    });
                                 }
                             });
                         }
@@ -766,8 +768,9 @@ function FtpServer(host, options) {
                         dataSocket.addListener("end", function () {
                             var writtenToFile = 0;
                             var doneCallback = function() {
-                                conn.fs.close(fd, function() {
-                                    socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
+                                conn.fs.close(fd, function(err) {
+                                    if (err) conn.emit(err);
+                                    else socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
                                 });
                             };
                             var writeCallback = function(err, written) {
