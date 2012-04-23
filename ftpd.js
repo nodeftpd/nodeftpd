@@ -47,7 +47,6 @@ util.inherits(FtpConnection, process.EventEmitter);
 //     require('fs'). The following need to be implemented:
 //         unlink
 //         readdir
-//         stat
 //         mkdir
 //         open
 //         read
