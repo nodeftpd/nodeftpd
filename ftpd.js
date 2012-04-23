@@ -54,7 +54,7 @@ util.inherits(FtpConnection, process.EventEmitter);
 //         close
 //         rmdir
 //         rename
-//         stat
+//         stat -> { mode, isDirectory, size, mtime }
 //         write
 //
 // options.getPathModule
