@@ -361,6 +361,10 @@ function FtpServer(host, options) {
                             socket.write("150 Here comes the directory listing\r\n", function() {
                                 logIf(3, "Directory has " + files.length + " files", conn);
                                 var count = 0;
+                                function writelast() { 
+                                    // write the last bit, so we can know when it's finished
+                                    pasvconn.write("\r\n", success);
+                                }
                                 for (var i = 0; i < files.length; ++i) {
                                     (function (file) {
                                         conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
@@ -394,12 +398,12 @@ function FtpServer(host, options) {
                                             }
                                             
                                             if (count == files.length) {
-                                                // write the last bit, so we can know when it's finished
-                                                pasvconn.write("\r\n", success);
+                                                writelast();
                                             }
                                         });
                                     })(files[i]);
                                 }
+                                if (files.length == 0) writelast();
                             });
                         }
                     });
