@@ -2,6 +2,7 @@
   "name": "ftpd",
   "version": "0.0.1",
   "dependencies": {},
+  "main": "./ftpd.js",
   "devDependencies": {
     "async": "~0.1.15",
     "mocha": "~0.12.1",
