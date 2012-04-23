@@ -155,19 +155,19 @@ function FtpServer(host, options) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
                 if (conn.dataSocket) {
-                    logIf(3, "A data connection exists", socket);
+                    logIf(3, "A data connection exists", conn);
                     if (callback) callback(conn.dataSocket); // do!
                 } else {
-                    logIf(3, "Passive, but no data socket exists ... weird", socket);
+                    logIf(3, "Passive, but no data socket exists ... weird", conn);
                     socket.write("425 Can't open data connection\r\n");
                 }
             } else {
                 // Do we need to open the data connection?
                 if (conn.dataSocket) { // There really shouldn't be an existing connection
-                    logIf(3, "Using existing non-passive dataSocket", socket);
+                    logIf(3, "Using existing non-passive dataSocket", conn);
                     callback(conn.dataSocket);
                 } else {
-                    logIf(1, "Opening data connection to " + conn.dataHost + ":" + conn.dataPort, socket);
+                    logIf(1, "Opening data connection to " + conn.dataHost + ":" + conn.dataPort, conn);
                     var dataSocket = new net.Socket();
                     dataSocket.buffers = [];
                     // Since data may arrive once the connection is made, buffer it
@@ -177,21 +177,21 @@ function FtpServer(host, options) {
                     });
                     dataSocket.addListener("connect", function() {
                         conn.dataSocket = dataSocket;
-                        logIf(3, "Data connection succeeded", socket);
+                        logIf(3, "Data connection succeeded", conn);
                         callback(dataSocket);
                     });
                     dataSocket.addListener("close", function(had_error) {
                         conn.dataSocket = null;
                         if (had_error)
-                            logIf(0, "Data event: close due to error", socket);
+                            logIf(0, "Data event: close due to error", conn);
                         else
-                            logIf(3, "Data event: close", socket);
+                            logIf(3, "Data event: close", conn);
                     });
                     dataSocket.addListener("end", function() {
-                        logIf(3, "Data event: end", socket);
+                        logIf(3, "Data event: end", conn);
                     });
                     dataSocket.addListener("error", function(err) {
-                        logIf(0, "Data event: error: " + err, socket);
+                        logIf(0, "Data event: error: " + err, conn);
                         dataSocket.destroy();
                     });
                     dataSocket.connect(conn.dataPort, conn.dataHost);
@@ -200,7 +200,7 @@ function FtpServer(host, options) {
         };
 
         socket.addListener("connect", function () {
-            logIf(1, "Connection", socket);
+            logIf(1, "Connection", conn);
             //socket.send("220 NodeFTPd Server version 0.0.10\r\n");
             //socket.write("220 written by Andrew Johnston (apjohnsto@gmail.com)\r\n");
             //socket.write("220 Please visit http://github.com/billywhizz/NodeFTPd\r\n");
@@ -209,7 +209,7 @@ function FtpServer(host, options) {
         
         socket.addListener("data", function (data) {
             data = (data+'').trim();
-            logIf(2, "FTP command: " + data, socket);
+            logIf(2, "FTP command: " + data, conn);
 
             var command, arg;
             var index = data.indexOf(" ");
@@ -284,7 +284,7 @@ function FtpServer(host, options) {
                 var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.unlink( filename, function(err){
                     if (err) {
-                        logIf(0, "Error deleting file: "+filename+", "+err, socket);
+                        logIf(0, "Error deleting file: "+filename+", "+err, conn);
                         // write error to socket
                         socket.write("550 Permission denied\r\n");
                     } else
@@ -350,40 +350,56 @@ function FtpServer(host, options) {
                         pasvconn.end();
                     };
                     if (pasvconn.readable) pasvconn.resume();
-                    logIf(3, "Sending file list", socket);
+                    logIf(3, "Sending file list", conn);
                     var dir = withCwd(conn.cwd, commandArg);
                     conn.fs.readdir(PathModule.join(conn.root, dir), function(err, files) {
                         if (err) {
-                            logIf(0, "While sending file list, reading directory: " + err, socket);
+                            logIf(0, "While sending file list, reading directory: " + err, conn);
                             socket.write("550 Not a directory\r\n");
                             pasvconn.end();
                         } else {
                             // Wait until acknowledged!
                             socket.write("150 Here comes the directory listing\r\n", function() {
-                                logIf(3, "Directory has " + files.length + " files", socket);
-                                for (var i = 0; i < files.length; i++) {
-                                    var file = files[ i ];
-                                    var s = conn.fs.statSync( PathModule.join(conn.root, dir, file) );
-                                    var line = s.isDirectory() ? 'd' : '-';
-                                    if (i > 0) pasvconn.write("\r\n");
-                                    line += (0400 & s.mode) ? 'r' : '-';
-                                    line += (0200 & s.mode) ? 'w' : '-';
-                                    line += (0100 & s.mode) ? 'x' : '-';
-                                    line += (040 & s.mode) ? 'r' : '-';
-                                    line += (020 & s.mode) ? 'w' : '-';
-                                    line += (010 & s.mode) ? 'x' : '-';
-                                    line += (04 & s.mode) ? 'r' : '-';
-                                    line += (02 & s.mode) ? 'w' : '-';
-                                    line += (01 & s.mode) ? 'x' : '-';
-                                    line += " 1 ftp ftp ";
-                                    line += leftPad(s.size.toString(), 12) + ' ';
-                                    var d = new Date(s.mtime);
-                                    line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
-                                    line += file;
-                                    pasvconn.write(line);
+                                logIf(3, "Directory has " + files.length + " files", conn);
+                                var count = 0;
+                                for (var i = 0; i < files.length; ++i) {
+                                    conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
+                                        count++;
+
+                                        // An error could conceivably occur here if e.g. the file gets deleted
+                                        // in between the call to readdir and stat. Not really sure what a sensible
+                                        // thing to do would be in this sort of scenario. At the moment, we just
+                                        // pretend that the file doesn't exist in this case.
+                                        if (err) {
+                                            logIf(0, "Weird failure of 'stat' " + err, conn);
+                                        }
+                                        else {
+                                            var file = files[ i ];
+                                            var line = s.isDirectory() ? 'd' : '-';
+                                            if (i > 0) pasvconn.write("\r\n");
+                                            line += (0400 & s.mode) ? 'r' : '-';
+                                            line += (0200 & s.mode) ? 'w' : '-';
+                                            line += (0100 & s.mode) ? 'x' : '-';
+                                            line += (040 & s.mode) ? 'r' : '-';
+                                            line += (020 & s.mode) ? 'w' : '-';
+                                            line += (010 & s.mode) ? 'x' : '-';
+                                            line += (04 & s.mode) ? 'r' : '-';
+                                            line += (02 & s.mode) ? 'w' : '-';
+                                            line += (01 & s.mode) ? 'x' : '-';
+                                            line += " 1 ftp ftp ";
+                                            line += leftPad(s.size.toString(), 12) + ' ';
+                                            var d = new Date(s.mtime);
+                                            line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
+                                            line += file;
+                                            pasvconn.write(line);
+                                        }
+                                        
+                                        if (count == files.length) {
+                                            // write the last bit, so we can know when it's finished
+                                            pasvconn.write("\r\n", success);
+                                        }
+                                    });
                                 }
-                                // write the last bit, so we can know when it's finished
-                                pasvconn.write("\r\n", success);
                             });
                         }
                     });
@@ -411,7 +427,7 @@ function FtpServer(host, options) {
                 var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.mkdir( filename, 0755, function(err){
                     if(err) {
-                        logIf(0, "Error making directory " + filename + " because " + err, socket);
+                        logIf(0, "Error making directory " + filename + " because " + err, conn);
                         // write error to socket
                         socket.write("550 \""+filename+"\" directory NOT created\r\n");
                         return;
@@ -464,18 +480,18 @@ function FtpServer(host, options) {
                         }
                     } else temp = conn.cwd;
                     if (pasvconn.readable) pasvconn.resume();
-                    logIf(3, "Sending file list", socket);
+                    logIf(3, "Sending file list", conn);
                     
                     glob.glob(temp, function(err, files) {
                         if (err) {
-                            logIf(0, "During NLST, error globbing files: " + err, socket);
+                            logIf(0, "During NLST, error globbing files: " + err, conn);
                             socket.write("451 Read error\r\n");
                             pasvconn.end();
                             return;
                         }
                         // Wait until acknowledged!
                         socket.write("150 Here comes the directory listing\r\n", function() {
-                            logIf(3, "Directory has " + files.length + " files", socket);
+                            logIf(3, "Directory has " + files.length + " files", conn);
                             pasvconn.write( files.map(PathModule.basename).join("\015\012") + "\015\012", success);
                         });
                     });
@@ -526,16 +542,16 @@ function FtpServer(host, options) {
                 // othertime afterwards ... depends on the client and threads
                 socket.pause();
                 var pasv = net.createServer(function(psocket) {
-                    logIf(1, "Incoming passive data connection", socket);
+                    logIf(1, "Incoming passive data connection", conn);
                     psocket.pause();
                     psocket.buffers = [];
                     psocket.on("data", function(data) {
                         // should watch out for malicious users uploading large amounts of data outside protocol
-                        logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), socket);
+                        logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
                         psocket.buffers.push(data);
                     });
                     psocket.on("connect", function() {
-                        logIf(1, "Passive data event: connect", socket);
+                        logIf(1, "Passive data event: connect", conn);
                         // Once we have a completed data connection, make note of it
                         conn.dataSocket = psocket;
                         // 150 should be sent before we send data on the data connection
@@ -543,13 +559,13 @@ function FtpServer(host, options) {
                         if (socket.readable) socket.resume();
                     });
                     psocket.on("end", function () {
-                        logIf(3, "Passive data event: end", socket);
+                        logIf(3, "Passive data event: end", conn);
                         // remove pointer
                         conn.dataSocket = null;
                         if (socket.readable) socket.resume(); // just in case
                     });
                     psocket.addListener("error", function(err) {
-                        logIf(0, "Passive data event: error: " + err, socket);
+                        logIf(0, "Passive data event: error: " + err, conn);
                         conn.dataSocket = null;
                         if (socket.readable) socket.resume();
                     });
@@ -568,7 +584,7 @@ function FtpServer(host, options) {
                     conn.passive = true; // wait until we're actually listening
                     conn.dataHost = host;
                     conn.dataPort = port;
-                    logIf(3, "Passive data connection listening on port " + port, socket);
+                    logIf(3, "Passive data connection listening on port " + port, conn);
                     var i1 = parseInt(port / 256);
                     var i2 = parseInt(port % 256);
                     if (command == "PASV") {
@@ -580,12 +596,12 @@ function FtpServer(host, options) {
                     }
                 });
                 pasv.on("close", function() {
-                    logIf(3, "Passive data listener closed", socket);
+                    logIf(3, "Passive data listener closed", conn);
                     if (socket.readable) socket.resume(); // just in case
                 });
                 pasv.listen(0);
                 conn.dataListener = pasv;
-                logIf(3, "Passive data connection beginning to listen", socket);
+                logIf(3, "Passive data connection beginning to listen", conn);
                 break;
             case "PBSZ":
                 // Protection Buffer Size (RFC 2228)
