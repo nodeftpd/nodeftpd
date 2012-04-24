@@ -703,7 +703,7 @@ function FtpServer(host, options) {
                             }
                             else { // Who know's what's going on here...
                                 socket.write("550 Not Accessible\r\n");
-                                traceIf(0, "Error at read other than ENOENT", conn);
+                                traceIf(0, "Error at read other than ENOENT " + err, conn);
                             }
                         }
                         else {
