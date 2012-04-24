@@ -365,45 +365,59 @@ function FtpServer(host, options) {
                                     // write the last bit, so we can know when it's finished
                                     pasvconn.write("\r\n", success);
                                 }
-                                for (var i = 0; i < files.length; ++i) {
-                                    (function (file) {
-                                        conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
-                                            ++count;
-                                            
-                                            // An error could conceivably occur here if e.g. the file gets deleted
-                                            // in between the call to readdir and stat. Not really sure what a sensible
-                                            // thing to do would be in this sort of scenario. At the moment, we just
-                                            // pretend that the file doesn't exist in this case.
-                                            if (err) {
-                                                logIf(0, "Weird failure of 'stat' " + err, conn);
-                                            }
-                                            else {
-                                                var line = s.isDirectory() ? 'd' : '-';
-                                                if (i > 0) pasvconn.write("\r\n");
-                                                line += (0400 & s.mode) ? 'r' : '-';
-                                                line += (0200 & s.mode) ? 'w' : '-';
-                                                line += (0100 & s.mode) ? 'x' : '-';
-                                                line += (040 & s.mode) ? 'r' : '-';
-                                                line += (020 & s.mode) ? 'w' : '-';
-                                                line += (010 & s.mode) ? 'x' : '-';
-                                                line += (04 & s.mode) ? 'r' : '-';
-                                                line += (02 & s.mode) ? 'w' : '-';
-                                                line += (01 & s.mode) ? 'x' : '-';
-                                                line += " 1 ftp ftp ";
-                                                line += leftPad(s.size.toString(), 12) + ' ';
-                                                var d = new Date(s.mtime);
-                                                line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
-                                                line += file;
-                                                pasvconn.write(line);
-                                            }
-                                            
-                                            if (count == files.length) {
-                                                writelast();
-                                            }
-                                        });
-                                    })(files[i]);
+
+                                // Could use the Seq library here, but since it's not used anywhere else, seems
+                                // a bit unnecessary. This requests file stats in parallel to degree AT_ONCE.
+                                var count = 0;
+                                var AT_ONCE = options.maxStatsAtOnce || 5;
+                                function doStat() {
+                                    if (count < files.length) {
+                                        var icount = 0;
+                                        for (var i = 0; i < AT_ONCE && count+i < files.length; ++i) {
+                                            (function (file) {
+                                            conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
+                                                // An error could conceivably occur here if e.g. the file gets deleted
+                                                // in between the call to readdir and stat. Not really sure what a sensible
+                                                // thing to do would be in this sort of scenario. At the moment, we just
+                                                // pretend that the file doesn't exist in this case.
+                                                if (err) {
+                                                    logIf(0, "Weird failure of 'stat' " + err, conn);
+                                                }
+                                                else {
+                                                    var line = s.isDirectory() ? 'd' : '-';
+                                                    if (i > 0) pasvconn.write("\r\n");
+                                                    line += (0400 & s.mode) ? 'r' : '-';
+                                                    line += (0200 & s.mode) ? 'w' : '-';
+                                                    line += (0100 & s.mode) ? 'x' : '-';
+                                                    line += (040 & s.mode) ? 'r' : '-';
+                                                    line += (020 & s.mode) ? 'w' : '-';
+                                                    line += (010 & s.mode) ? 'x' : '-';
+                                                    line += (04 & s.mode) ? 'r' : '-';
+                                                    line += (02 & s.mode) ? 'w' : '-';
+                                                    line += (01 & s.mode) ? 'x' : '-';
+                                                    line += " 1 ftp ftp ";
+                                                    line += leftPad(s.size.toString(), 12) + ' ';
+                                                    var d = new Date(s.mtime);
+                                                    line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
+                                                    line += file;
+                                                    pasvconn.write(line);
+
+                                                    ++icount;
+                                                    if (icount == AT_ONCE || count+icount == files.length) {
+                                                        count += icount;
+                                                        doStat();
+                                                    }
+                                                }
+                                            });
+                                            })(files[count+i]);
+                                        }
+                                    }
+                                    else{
+                                        // write the last bit, so we can know when it's finished
+                                        pasvconn.write("\r\n", success);
+                                    }
                                 }
-                                if (files.length == 0) writelast();
+                                doStat();
                             });
                         }
                     });
