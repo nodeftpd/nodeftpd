@@ -888,6 +888,7 @@ function FtpServer(host, options) {
         });
         socket.addListener("error", function (err) {
             logIf(0, "Client connection error: " + err, socket);
+            socket.destroy();
         });
     });
 
