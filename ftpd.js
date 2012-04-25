@@ -182,15 +182,13 @@ function FtpServer(host, options) {
                         logIf(3, "Data connection succeeded", conn);
                         callback(dataSocket);
                     });
-                    function closeOrError (hadError) {
+                    dataSocket.addListener("close", function (hadError) {
                         conn.dataSocket = null;
                         if (hadError)
                             logIf(0, "Data event: close due to error", conn);
                         else
                             logIf(3, "Data event: close", conn);
-                    }
-                    dataSocket.addListener("close", closeOrError);
-                    dataSocket.on("error", closeOrError);
+                    });
                     dataSocket.addListener("end", function() {
                         logIf(3, "Data event: end", conn);
                     });
