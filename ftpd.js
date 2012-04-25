@@ -189,7 +189,7 @@ function FtpServer(host, options) {
                         else
                             logIf(3, "Data event: close", conn);
                     }
-                    dataSocket.addListener("close", hadError);
+                    dataSocket.addListener("close", closeOrError);
                     dataSocket.on("error", closeOrError);
                     dataSocket.addListener("end", function() {
                         logIf(3, "Data event: end", conn);
