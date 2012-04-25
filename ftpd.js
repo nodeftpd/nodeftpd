@@ -389,30 +389,34 @@ function FtpServer(host, options) {
                                                     logIf(0, "Weird failure of 'stat' " + err, conn);
                                                 }
                                                 else {
-                                                    var line = s.isDirectory() ? 'd' : '-';
-                                                    if (i > 0) pasvconn.write("\r\n");
-                                                    line += (0400 & s.mode) ? 'r' : '-';
-                                                    line += (0200 & s.mode) ? 'w' : '-';
-                                                    line += (0100 & s.mode) ? 'x' : '-';
-                                                    line += (040 & s.mode) ? 'r' : '-';
-                                                    line += (020 & s.mode) ? 'w' : '-';
-                                                    line += (010 & s.mode) ? 'x' : '-';
-                                                    line += (04 & s.mode) ? 'r' : '-';
-                                                    line += (02 & s.mode) ? 'w' : '-';
-                                                    line += (01 & s.mode) ? 'x' : '-';
-                                                    line += " 1 " + self.getUsernameFromUid(s.uid) + " " +
-                                                                    self.getGroupFromGid(s.gid) + " ";
-                                                    line += leftPad(s.size.toString(), 12) + ' ';
-                                                    var d = new Date(s.mtime);
-                                                    line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
-                                                    line += file;
-                                                    pasvconn.write(line);
-
-                                                    ++icount;
-                                                    if (icount == AT_ONCE || count+icount == files.length) {
-                                                        count += icount;
-                                                        doStat();
-                                                    }
+                                                    self.getUsernameFromUid(s.uid, function (e1) { self.getGroupFromGid(s.gid, function (e2) {
+                                                        if (e1) logIf(0, "While attempting to get username: " + e1, conn);
+                                                        if (e2) logIf(0, "While attempting to get group:" + e2, conn);
+                                                        var line = s.isDirectory() ? 'd' : '-';
+                                                        if (i > 0) pasvconn.write("\r\n");
+                                                        line += (0400 & s.mode) ? 'r' : '-';
+                                                        line += (0200 & s.mode) ? 'w' : '-';
+                                                        line += (0100 & s.mode) ? 'x' : '-';
+                                                        line += (040 & s.mode) ? 'r' : '-';
+                                                        line += (020 & s.mode) ? 'w' : '-';
+                                                        line += (010 & s.mode) ? 'x' : '-';
+                                                        line += (04 & s.mode) ? 'r' : '-';
+                                                        line += (02 & s.mode) ? 'w' : '-';
+                                                        line += (01 & s.mode) ? 'x' : '-';
+                                                        line += " 1 " + (e1 ? "ftp" : self.getUsernameFromUid(s.uid)) + " " +
+                                                                (e2 ? "ftp" : self.getGroupFromGid(s.gid) + " ");
+                                                        line += leftPad(s.size.toString(), 12) + ' ';
+                                                        var d = new Date(s.mtime);
+                                                        line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
+                                                        line += file;
+                                                        pasvconn.write(line);
+                                                        
+                                                        ++icount;
+                                                        if (icount == AT_ONCE || count+icount == files.length) {
+                                                            count += icount;
+                                                            doStat();
+                                                        }
+                                                    }); });
                                                 }
                                             });
                                             })(files[count+i]);
