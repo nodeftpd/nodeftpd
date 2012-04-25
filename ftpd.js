@@ -389,7 +389,7 @@ function FtpServer(host, options) {
                                                     logIf(0, "Weird failure of 'stat' " + err, conn);
                                                 }
                                                 else {
-                                                    self.getUsernameFromUid(s.uid, function (e1) { self.getGroupFromGid(s.gid, function (e2) {
+                                                    self.getUsernameFromUid(s.uid, function (e1, uname) { self.getGroupFromGid(s.gid, function (e2, gname) {
                                                         if (e1) logIf(0, "While attempting to get username: " + e1, conn);
                                                         if (e2) logIf(0, "While attempting to get group:" + e2, conn);
                                                         var line = s.isDirectory() ? 'd' : '-';
@@ -403,8 +403,8 @@ function FtpServer(host, options) {
                                                         line += (04 & s.mode) ? 'r' : '-';
                                                         line += (02 & s.mode) ? 'w' : '-';
                                                         line += (01 & s.mode) ? 'x' : '-';
-                                                        line += " 1 " + (e1 ? "ftp" : self.getUsernameFromUid(s.uid)) + " " +
-                                                                (e2 ? "ftp" : self.getGroupFromGid(s.gid) + " ");
+                                                        line += " 1 " + (e1 ? "ftp" : uname) + " " +
+                                                                (e2 ? "ftp" : gname) + " ";
                                                         line += leftPad(s.size.toString(), 12) + ' ';
                                                         var d = new Date(s.mtime);
                                                         line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
