@@ -81,6 +81,8 @@ function FtpServer(host, options) {
     this.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
     this.getPathModule = options.getPathModule || function () { return PathModule; }
     this.getInitialCwd = options.getInitialCwd || function () { return "/"; };
+    this.getUsernameFromUid = options.getUsernameFromUid || function (c) { c(null, "ftp"); };
+    this.getGroupFromGid = options.getGroupFromGid || function (c) { c(null, "ftp"); }
     this.getRoot = options.getRoot || function () { return "/"; };
     this.debugging = 0;
 
@@ -398,7 +400,8 @@ function FtpServer(host, options) {
                                                     line += (04 & s.mode) ? 'r' : '-';
                                                     line += (02 & s.mode) ? 'w' : '-';
                                                     line += (01 & s.mode) ? 'x' : '-';
-                                                    line += " 1 ftp ftp ";
+                                                    line += " 1 " + self.getUsernameFromUid(s.uid) + " " +
+                                                                    self.getGroupFromGid(s.gid) + " ";
                                                     line += leftPad(s.size.toString(), 12) + ' ';
                                                     var d = new Date(s.mtime);
                                                     line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
