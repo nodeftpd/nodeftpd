@@ -81,8 +81,8 @@ function FtpServer(host, options) {
     this.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
     this.getPathModule = options.getPathModule || function () { return PathModule; }
     this.getInitialCwd = options.getInitialCwd || function () { return "/"; };
-    this.getUsernameFromUid = options.getUsernameFromUid || function (c) { c(null, "ftp"); };
-    this.getGroupFromGid = options.getGroupFromGid || function (c) { c(null, "ftp"); }
+    this.getUsernameFromUid = options.getUsernameFromUid || function (uid, c) { c(null, "ftp"); };
+    this.getGroupFromGid = options.getGroupFromGid || function (gid, c) { c(null, "ftp"); }
     this.getRoot = options.getRoot || function () { return "/"; };
     this.debugging = 0;
 
