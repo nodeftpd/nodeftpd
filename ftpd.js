@@ -98,6 +98,9 @@ function FtpServer(host, options) {
     };
     function traceIf(level, message, conn) { return logIf(level, message, conn, true); }
 
+    this.server.on("error", function (err) {
+        logIf(0, "Server error: " + err);
+    });
     this.server.on("listening", function() {
         logIf(0, "nodeFTPd server up and ready for connections");
     });
@@ -179,13 +182,15 @@ function FtpServer(host, options) {
                         logIf(3, "Data connection succeeded", conn);
                         callback(dataSocket);
                     });
-                    dataSocket.addListener("close", function(had_error) {
+                    function closeOrError (hadError) {
                         conn.dataSocket = null;
-                        if (had_error)
+                        if (hadError)
                             logIf(0, "Data event: close due to error", conn);
                         else
                             logIf(3, "Data event: close", conn);
-                    });
+                    }
+                    dataSocket.addListener("close", hadError);
+                    dataSocket.on("error", closeOrError);
                     dataSocket.addListener("end", function() {
                         logIf(3, "Data event: end", conn);
                     });
