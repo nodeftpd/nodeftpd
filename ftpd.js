@@ -728,7 +728,7 @@ function FtpServer(host, options) {
                 var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.rmdir( filename, function(err){
                     if(err) {
-                        traceIf(0, "Error removing directory "+filename, socket);
+                        logIf(0, "Error removing directory "+filename, socket);
                         socket.write("550 Delete operation failed\r\n");
                     } else
                         socket.write("250 \""+filename+"\" directory removed\r\n");
@@ -750,7 +750,7 @@ function FtpServer(host, options) {
                 var fileto = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
                 conn.fs.rename( conn.filefrom, fileto, function(err){
                     if(err) {
-                        traceIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
+                        logIf(3, "Error renaming file from "+conn.filefrom+" to "+fileto, socket);
                         socket.write("550 Rename failed\r\n");
                     } else
                         socket.write("250 File renamed successfully\r\n");
