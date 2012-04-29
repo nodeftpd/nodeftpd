@@ -9,7 +9,6 @@ describe('LIST ftpd command', function(){
     var ftp, server;
 
     beforeEach(function(done){
-        console.log("D", __dirname,  path.resolve(path.join(__dirname, '/../fixture')));
         server = new ftpd.FtpServer("127.0.0.1", {
             getRoot: function (u) { return fs.realpathSync(path.join(__dirname, '/../fixture', u)); }
         });

@@ -84,7 +84,7 @@ function FtpServer(host, options) {
     this.getUsernameFromUid = options.getUsernameFromUid || function (uid, c) { c(null, "ftp"); };
     this.getGroupFromGid = options.getGroupFromGid || function (gid, c) { c(null, "ftp"); }
     this.getRoot = options.getRoot || function () { return "/"; };
-    this.debugging = 0;
+    this.debugging = options.logLevel || 0;
 
     function logIf(level, message, conn, isError) {
         if (self.debugging >= level) {
@@ -836,6 +836,7 @@ function FtpServer(host, options) {
                         dataSocket.addListener("error", function(err) {
                             traceIf(0, "Error transferring " + filename + ": " + err, socket);
                             // close file handle
+                            conn.fs.close(fd);
                         });
                         logIf(3, "Told client ok to send file data", socket);
                         socket.write("150 Ok to send data\r\n"); // don't think resume() needs to wait for this to succeed
