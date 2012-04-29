@@ -739,7 +739,7 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 conn.filefrom = withCwd(conn.cwd, commandArg);
                 logIf(3, "Rename from " + conn.filefrom, socket);
-                path.exists( conn.filefrom, function(exists) {
+                conn.path.exists( conn.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
                     else socket.write("350 Command failed, file does not exist\r\n");
                 });
