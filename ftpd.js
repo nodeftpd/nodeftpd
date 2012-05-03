@@ -373,61 +373,55 @@ function FtpServer(host, options) {
 
                                 // Could use the Seq library here, but since it's not used anywhere else, seems
                                 // a bit unnecessary. This requests file stats in parallel to degree AT_ONCE.
-                                var count = 0;
+                                var i = 0;
                                 var AT_ONCE = options.maxStatsAtOnce || 5;
-                                function doStat() {
-                                    if (count < files.length) {
-                                        var icount = 0;
-                                        for (var i = 0; i < AT_ONCE && count+i < files.length; ++i) {
-                                            (function (file) {
-                                            conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
-                                                // An error could conceivably occur here if e.g. the file gets deleted
-                                                // in between the call to readdir and stat. Not really sure what a sensible
-                                                // thing to do would be in this sort of scenario. At the moment, we just
-                                                // pretend that the file doesn't exist in this case.
-                                                if (err) {
-                                                    logIf(0, "Weird failure of 'stat' " + err, conn);
-                                                }
-                                                else {
-                                                    self.getUsernameFromUid(s.uid, function (e1, uname) { self.getGroupFromGid(s.gid, function (e2, gname) {
-                                                        if (e1) logIf(0, "While attempting to get username: " + e1, conn);
-                                                        if (e2) logIf(0, "While attempting to get group:" + e2, conn);
-                                                        var line = s.isDirectory() ? 'd' : '-';
-                                                        if (i > 0) pasvconn.write("\r\n");
-                                                        line += (0400 & s.mode) ? 'r' : '-';
-                                                        line += (0200 & s.mode) ? 'w' : '-';
-                                                        line += (0100 & s.mode) ? 'x' : '-';
-                                                        line += (040 & s.mode) ? 'r' : '-';
-                                                        line += (020 & s.mode) ? 'w' : '-';
-                                                        line += (010 & s.mode) ? 'x' : '-';
-                                                        line += (04 & s.mode) ? 'r' : '-';
-                                                        line += (02 & s.mode) ? 'w' : '-';
-                                                        line += (01 & s.mode) ? 'x' : '-';
-                                                        line += " 1 " + (e1 ? "ftp" : uname) + " " +
-                                                                (e2 ? "ftp" : gname) + " ";
-                                                        line += leftPad(s.size.toString(), 12) + ' ';
-                                                        var d = new Date(s.mtime);
-                                                        line += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
-                                                        line += file;
-                                                        pasvconn.write(line);
-                                                        
-                                                        ++icount;
-                                                        if (icount == AT_ONCE || count+icount == files.length) {
-                                                            count += icount;
-                                                            doStat();
-                                                        }
-                                                    }); });
-                                                }
-                                            });
-                                            })(files[count+i]);
+                                var lines = new Array(files.length);
+                                function doStat(file, li) {
+                                    conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
+                                        // An error could conceivably occur here if e.g. the file gets deleted
+                                        // in between the call to readdir and stat. Not really sure what a sensible
+                                        // thing to do would be in this sort of scenario. At the moment, we just
+                                        // pretend that the file doesn't exist in this case.
+                                        if (err) {
+                                            logIf(0, "Weird failure of 'stat' " + err, conn);
                                         }
-                                    }
-                                    else{
-                                        // write the last bit, so we can know when it's finished
-                                        pasvconn.write("\r\n", success);
-                                    }
+                                        else {
+                                            self.getUsernameFromUid(s.uid, function (e1, uname) { self.getGroupFromGid(s.gid, function (e2, gname) {
+                                                if (e1) logIf(0, "While attempting to get username: " + e1, conn);
+                                                if (e2) logIf(0, "While attempting to get group:" + e2, conn);
+                                                lines[li] = s.isDirectory() ? 'd' : '-';
+                                                lines[li] += (0400 & s.mode) ? 'r' : '-';
+                                                lines[li] += (0200 & s.mode) ? 'w' : '-';
+                                                lines[li] += (0100 & s.mode) ? 'x' : '-';
+                                                lines[li] += (040 & s.mode) ? 'r' : '-';
+                                                lines[li] += (020 & s.mode) ? 'w' : '-';
+                                                lines[li] += (010 & s.mode) ? 'x' : '-';
+                                                lines[li] += (04 & s.mode) ? 'r' : '-';
+                                                lines[li] += (02 & s.mode) ? 'w' : '-';
+                                                lines[li] += (01 & s.mode) ? 'x' : '-';
+                                                lines[li] += " 1 " + (e1 ? "ftp" : uname) + " " +
+                                                    (e2 ? "ftp" : gname) + " ";
+                                                lines[li] += leftPad(s.size.toString(), 12) + ' ';
+                                                var d = new Date(s.mtime);
+                                                lines[li] += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
+                                                lines[li] += file;
+                                                
+                                                ++i;
+                                                if (i < files.length)
+                                                    doStat(files[i], i);
+                                                else if (i == files.length + AT_ONCE - 1) {
+                                                    pasvconn.write(lines.join('\r\n'));
+                                                    // write the last bit, so we can know when it's finished
+                                                    pasvconn.write("\r\n", success);
+                                                }
+                                            }) });
+                                            
+                                        }
+                                    });
                                 }
-                                doStat();
+                                for (; i < AT_ONCE && i < files.length; ++i) {
+                                    doStat(files[i], i);
+                                }
                             });
                         }
                     });
