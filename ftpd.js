@@ -375,7 +375,7 @@ function FtpServer(host, options) {
 
                                 // Could use the Seq library here, but since it's not used anywhere else, seems
                                 // a bit unnecessary. This requests file stats in parallel to degree AT_ONCE.
-                                var i = 0;
+                                var i = 0, count = 0;
                                 var AT_ONCE = options.maxStatsAtOnce || 5;
                                 var lines = new Array(files.length);
                                 function doStat(file, li) {
@@ -408,10 +408,10 @@ function FtpServer(host, options) {
                                                 lines[li] += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
                                                 lines[li] += file;
                                                 
-                                                ++i;
+                                                ++i; ++count;
                                                 if (i < files.length)
                                                     doStat(files[i], i);
-                                                else if (i == files.length + AT_ONCE - 1) {
+                                                else if (count == files.length) {
                                                     pasvconn.write(lines.join('\r\n'));
                                                     // write the last bit, so we can know when it's finished
                                                     pasvconn.write("\r\n", success);
