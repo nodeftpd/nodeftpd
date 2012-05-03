@@ -42,9 +42,12 @@ util.inherits(FtpConnection, process.EventEmitter);
 // host
 //     an IP address.
 //
-// options.getFsModule
-//     a function which, given a username, returns an object implemeting the API of
-//     require('fs'). The following need to be implemented:
+// options.getPathAndFsModules
+//     a function which, given a username, returns a dictionary containing two
+//     objects, 'path' and 'fs', which implemet the APIs of the 'path' and 'fs'
+//     modules respectively. The following need to be implemented:
+//
+//     fs
 //         unlink
 //         readdir
 //         mkdir
@@ -55,10 +58,7 @@ util.inherits(FtpConnection, process.EventEmitter);
 //         rename
 //         stat -> { mode, isDirectory, size, mtime }
 //         write
-//
-// options.getPathModule
-//     a function which, given a username, returns an object implemeting the API of
-//     require('path'). The following need to be implemented:
+//     path
 //         exists
 //
 // options.getInitialCwd
@@ -78,8 +78,10 @@ function FtpServer(host, options) {
 
     // make sure host is an IP address, otherwise DATA connections will likely break
     this.server = net.createServer();
-    this.getFsModule = options.getFsModule || (function () { var fs = require('fs'); return function () { return fs } })();
-    this.getPathModule = options.getPathModule || function () { return PathModule; }
+    this.getPathAndFsModules = options.getPathAndFsModules ||
+        (function (fs) {
+            return function () { return { fs: fs, path: PathModule }; };
+        })(require('fs'));
     this.getInitialCwd = options.getInitialCwd || function () { return "/"; };
     this.getUsernameFromUid = options.getUsernameFromUid || function (uid, c) { c(null, "ftp"); };
     this.getGroupFromGid = options.getGroupFromGid || function (gid, c) { c(null, "ftp"); }
@@ -534,8 +536,9 @@ function FtpServer(host, options) {
                     function(username) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         conn.username = username;
-                        conn.fs = self.getFsModule(username);
-                        conn.path = self.getPathModule(username);
+                        var m = self.getPathAndFsModules(username);
+                        conn.fs = m.fs;
+                        conn.path = m.path;
                         conn.cwd = self.getInitialCwd(username);
                         conn.root = self.getRoot(username);
                     },
