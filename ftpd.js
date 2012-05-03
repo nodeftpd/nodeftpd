@@ -415,7 +415,6 @@ function FtpServer(host, options) {
                                                     pasvconn.write("\r\n", success);
                                                 }
                                             }) });
-                                            
                                         }
                                     });
                                 }
