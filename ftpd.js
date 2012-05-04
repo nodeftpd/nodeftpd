@@ -2,6 +2,7 @@ var net = require('net');
 var util = require('util');
 var events = require('events');
 var PathModule = require('path');
+var FsModule = require('fs');
 var glob = require('./glob');
 require('./date-format');
 
@@ -42,10 +43,18 @@ util.inherits(FtpConnection, process.EventEmitter);
 // host
 //     an IP address.
 //
-// options.getPathAndFsModules
-//     a function which, given a username, returns a dictionary containing two
-//     objects, 'path' and 'fs', which implemet the APIs of the 'path' and 'fs'
-//     modules respectively. The following need to be implemented:
+// options.getInitialCwd
+//     a function which, given a username, returns an initial CWD.
+//
+// options.getRoot
+//     a function which, given a username, returns a root directory (user cannot get
+//     outside of this dir).
+//
+// The server raises a 'command:pass' event which is given 'pass', 'success' and
+// 'failure' arguments. On successful login, 'success' should be called with a
+// username argument. It may also optionally be given a second argument, which
+// should be a dict with keys 'fs' and 'path' containing implementations of
+// the API for Node's 'path' and 'fs' modules. The following must be implemented:
 //
 //     fs
 //         unlink
@@ -60,13 +69,6 @@ util.inherits(FtpConnection, process.EventEmitter);
 //         write
 //     path
 //         exists
-//
-// options.getInitialCwd
-//     a function which, given a username, returns an initial CWD.
-//
-// options.getRoot
-//     a function which, given a username, returns a root directory (user cannot get
-//     outside of this dir).
 // 
 function FtpServer(host, options) {
     var self = this;
@@ -78,10 +80,6 @@ function FtpServer(host, options) {
 
     // make sure host is an IP address, otherwise DATA connections will likely break
     this.server = net.createServer();
-    this.getPathAndFsModules = options.getPathAndFsModules ||
-        (function (fs) {
-            return function () { return { fs: fs, path: PathModule }; };
-        })(require('fs'));
     this.getInitialCwd = options.getInitialCwd || function () { return "/"; };
     this.getUsernameFromUid = options.getUsernameFromUid || function (uid, c) { c(null, "ftp"); };
     this.getGroupFromGid = options.getGroupFromGid || function (gid, c) { c(null, "ftp"); }
@@ -413,9 +411,11 @@ function FtpServer(host, options) {
                                                 lines[li] += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
                                                 lines[li] += file;
                                                 
-                                                ++i; ++count;
-                                                if (i < files.length)
+                                                ++count;
+                                                if (i < files.length) {
                                                     doStat(files[i], i);
+                                                    ++i;
+                                                }
                                                 else if (count == files.length) {
                                                     finishStat();
                                                 }
@@ -537,12 +537,17 @@ function FtpServer(host, options) {
                 conn.emit(
                     "command:pass",
                     commandArg,
-                    function(username) { // implementor should call this on successful password check
+                    function(username, modules) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         conn.username = username;
-                        var m = self.getPathAndFsModules(username);
-                        conn.fs = m.fs;
-                        conn.path = m.path;
+                        if (modules) {
+                            conn.fs = modules.fs;
+                            conn.path = modules.path;
+                        }
+                        else {
+                            conn.fs = FsModule;
+                            conn.path = PathModule;
+                        }
                         conn.cwd = self.getInitialCwd(username);
                         conn.root = self.getRoot(username);
                     },

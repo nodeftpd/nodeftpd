@@ -3,8 +3,6 @@ var fs = require('fs');
 var path = require('path');
 
 var server = new ftpd.FtpServer("127.0.0.1", {
-//    getFsModule: function () { return fs; },
-//    getPathModule: function () { return path; },
 //    getInitialCwd: function () { return "/"; }
     getRoot: function () { return process.cwd(); }
 });
@@ -28,4 +26,4 @@ server.on("client:connected", function(conn) {
     });
 });
 server.debugging = 4;
-server.listen(7002);
+server.listen(7001);
