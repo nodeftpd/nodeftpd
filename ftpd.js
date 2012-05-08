@@ -213,7 +213,8 @@ function FtpServer(host, options) {
         
         socket.addListener("data", function (data) {
             data = (data+'').trim();
-            logIf(2, "FTP command: " + data, conn);
+            // Don't want to include passwords in logs.
+            logIf(2, "FTP command: " + data.toString('utf-8').replace(/^PASS\s+.*/, 'PASS ***'), conn);
 
             var command, arg;
             var index = data.indexOf(" ");
