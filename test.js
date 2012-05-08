@@ -4,7 +4,9 @@ var path = require('path');
 
 var server = new ftpd.FtpServer("127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
-    getRoot: function () { return process.cwd(); }
+    getRoot: function () { return process.cwd(); },
+    pasvPortRangeStart: 1025,
+    pasvPortRangeEnd: 1050
 });
 
 // this event passes in the client socket which emits further events

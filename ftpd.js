@@ -613,6 +613,9 @@ function FtpServer(host, options) {
                 });
                 // Once we're successfully listening, tell the client
                 pasv.addListener("listening", function() {
+                    pasv.removeListener('error', pasv._ehandler);
+                    logIf(3, "Passive data connection beginning to listen", conn);
+
                     var port = pasv.address().port;
                     conn.passive = true; // wait until we're actually listening
                     conn.dataHost = host;
@@ -632,9 +635,23 @@ function FtpServer(host, options) {
                     logIf(3, "Passive data listener closed", conn);
                     if (socket.readable) socket.resume(); // just in case
                 });
-                pasv.listen(0);
+                if (options.pasvPortRangeStart && options.pasvPortRangeEnd) {
+                    // Keep trying ports in the range supplied until either:
+                    //     (i)   It works
+                    //     (ii)  We get an error that's not just EADDRINUSE
+                    //     (iii) We run out of ports to try.
+                    var i = options.pasvPortRangeStart;
+                    pasv.listen(i);
+                    pasv._ehandler = function (e) {
+                        if (e.code == 'EADDRINUSE' && i < options.pasvPortRangeEnd)
+                            pasv.listen(++i);
+                    };
+                    pasv.on('error', pasv._ehandler);
+                }
+                else {
+                    pasv.listen(0);
+                }
                 conn.dataListener = pasv;
-                logIf(3, "Passive data connection beginning to listen", conn);
                 break;
             case "PBSZ":
                 // Protection Buffer Size (RFC 2228)
