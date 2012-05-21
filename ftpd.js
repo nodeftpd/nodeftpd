@@ -826,7 +826,7 @@ function FtpServer(host, options) {
                             var writtenToFile = 0;
                             var doneCallback = function() {
                                 conn.fs.close(fd, function(err) {
-                                    if (err) conn.emit(err);
+                                    if (err) conn.emit('error', err);
                                     else socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
                                 });
                             };
