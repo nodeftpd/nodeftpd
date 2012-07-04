@@ -4,7 +4,107 @@ var events = require('events');
 var PathModule = require('path');
 var FsModule = require('fs');
 var glob = require('./glob');
+var tls = require('tls');
+var crypto = require('crypto');
 require('./date-format');
+
+// Target API:
+//
+//  var s = require('net').createStream(25, 'smtp.example.com');
+//  s.on('connect', function() {
+//   require('starttls')(s, options, function() {
+//      if (!s.authorized) {
+//        s.destroy();
+//        return;
+//      }
+//
+//      s.end("hello world\n");
+//    });
+//  });
+//
+//
+
+function starttls(socket, options, callback) {
+    var sslcontext, pair, cleartext;
+    
+    socket.removeAllListeners("data");
+    sslcontext = require('crypto').createCredentials(options);
+    pair = require('tls').createSecurePair(sslcontext, true);
+    cleartext = pipe(pair, socket);
+
+    pair.on('secure', function() {
+        var verifyError = (pair._ssl || pair.ssl).verifyError();
+
+        if (verifyError) {
+            cleartext.authorized = false;
+            cleartext.authorizationError = verifyError;
+        } else {
+            cleartext.authorized = true;
+        }
+
+        callback(cleartext);
+    });
+
+    cleartext._controlReleased = true;
+    return pair;
+}
+
+function forwardEvents(events, emitterSource, emitterDestination) {
+    var map = [], name, handler;
+    
+    for(var i = 0, len = events.length; i < len; i++) {
+        name = events[i];
+
+        handler = forwardEvent.bind(emitterDestination, name);
+        
+        map.push(name);
+        emitterSource.on(name, handler);
+    }
+    
+    return map;
+}
+
+function forwardEvent() {
+    this.emit.apply(this, arguments);
+}
+
+function removeEvents(map, emitterSource) {
+    for(var i = 0, len = map.length; i < len; i++){
+        emitterSource.removeAllListeners(map[i]);
+    }
+}
+
+function pipe(pair, socket) {
+    pair.encrypted.pipe(socket);
+    socket.pipe(pair.encrypted);
+
+    pair.fd = socket.fd;
+    
+    var cleartext = pair.cleartext;
+  
+    cleartext.socket = socket;
+    cleartext.encrypted = pair.encrypted;
+    cleartext.authorized = false;
+
+    function onerror(e) {
+        if (cleartext._controlReleased) {
+            cleartext.emit('error', e);
+        }
+    }
+
+    var map = forwardEvents(["timeout", "end", "close", "drain", "error"], socket, cleartext);
+  
+    function onclose() {
+        socket.removeListener('error', onerror);
+        socket.removeListener('close', onclose);
+        removeEvents(map,socket);
+    }
+
+    socket.on('error', onerror);
+    socket.on('close', onclose);
+
+    return cleartext;
+}
 
 /*
 TODO:
@@ -53,6 +153,11 @@ util.inherits(FtpConnection, process.EventEmitter);
 // options.slurpFiles
 //     if set to true, files are slurped using readFile before being sent,
 //     rather than being read chunk-by-chunk.
+//
+// options.tlsOptions
+//     if this is set, the server will be FTPS. Value should be a dictionary
+//     which is suitable as the 'options' argument of tls.createServer.
+//
 //
 // The server raises a 'command:pass' event which is given 'pass', 'success' and
 // 'failure' arguments. On successful login, 'success' should be called with a
@@ -110,8 +215,12 @@ function FtpServer(host, options) {
     this.server.on("listening", function() {
         logIf(0, "nodeFTPd server up and ready for connections");
     });
-    this.server.on("connection", function(socket) {
-        var conn = new FtpConnection({
+
+    var socket;
+    var conn;
+    this.server.on('connection', function(socket_) {
+        socket = socket_;
+        conn = new FtpConnection({
             socket: socket,
             passive: false,
             dataHost: null,
@@ -215,7 +324,8 @@ function FtpServer(host, options) {
             socket.write("220 FTP server (nodeftpd) ready\r\n");
         });
         
-        socket.addListener("data", function (data) {
+        socket.addListener("data", dataListener);
+        function dataListener (data) {
             data = (data+'').trim();
             // Don't want to include passwords in logs.
             logIf(2, "FTP command: " + data.toString('utf-8').replace(/^PASS\s+.*/, 'PASS ***'), conn);
@@ -253,8 +363,31 @@ function FtpServer(host, options) {
                 socket.write("202 Not supported\r\n");
                 break;
             case "AUTH":
-                // Authentication/Security Mechanism (RFC 2228)
-                socket.write("202 Not supported\r\n");
+                console.log("AUTH COMMAND ARG", commandArg);
+                if (commandArg != "TLS") {
+                    socket.write("500 Unrecognized\r\n");
+                }
+                else {
+                    socket.write("234 Honored\r\n");
+
+                    // See https://github.com/Cowboy-coder/node-mongolian/blob/d9194809fe3d69842570b47817cfff475706fe6e/lib/connection.js
+                    //     https://github.com/joyent/node/blob/0b0faceb198c68669d078f00ebda0d80c3793866/test/simple/test-securepair-server.js
+                    //     https://github.com/eleith/emailjs/blob/5dc8ab6e8c33ad12ee749b0172b393b5ef20e37e/smtp/tls.js
+                    // (Code cribbed from these, sometimes without full understanding!)
+                    var opts = { };
+                    for (k in options.tlsOptions) {
+                        opts[k] = options.tlsOptions[k];
+                    }
+                    if (! opts.ciphers)
+                        opts.ciphers = 'RC4-SHA:AES128-SHA:AES256-SHA';
+
+                    starttls(socket, opts, function (cleartext) {
+                        console.log("\n\n!!!!! OMG STARTED !!!!!\n\n");
+                        conn.socket = cleartext;
+                        socket = cleartext;
+                        cleartext.addListener('data', dataListener);
+                    });
+                }
                 break;
             case "CCC":
                 // Clear Command Channel (RFC 2228)
@@ -952,15 +1085,17 @@ function FtpServer(host, options) {
                 socket.write("202 Not supported\r\n");
                 break;
             }
-        });
+        }
 
-        socket.addListener("end", function () {
+        socket.addListener("end", endListener);
+        function endListener () {
             logIf(1, "Client connection ended", socket);
-        });
-        socket.addListener("error", function (err) {
+        }
+        socket.addListener("error", errorListener);
+        function errorListener (err) {
             logIf(0, "Client connection error: " + err, socket);
             socket.destroy();
-        });
+        }
     });
 
     this.server.addListener("close", function() {

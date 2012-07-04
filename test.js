@@ -7,12 +7,17 @@ var url = require("url");
 var path = require("path");
 var http = require("http");
 
+console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
 
 var server = new ftpd.FtpServer("127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
     getRoot: function () { return process.cwd(); },
     pasvPortRangeStart: 1025,
-    pasvPortRangeEnd: 1050
+    pasvPortRangeEnd: 1050,
+    tlsOptions: (process.env.KEY_FILE && process.env.CERT_FILE ? {
+        key: fs.readFileSync(process.env.KEY_FILE),
+        cert: fs.readFileSync(process.env.CERT_FILE)
+    } : null)
 });
 
 // this event passes in the client socket which emits further events
