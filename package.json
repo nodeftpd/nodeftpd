@@ -7,7 +7,9 @@
     "async": "~0.1.15",
     "mocha": "~0.12.1",
     "should": "~0.5.1",
-    "jsftp": "*"
+    "jsftp": "*",
+    "multiparter": ">=0.1.4",
+    "mime": ">=1.2.6"
   },
   "scripts": { 
     "test" : "mocha specs/* --globals commandArg" 
