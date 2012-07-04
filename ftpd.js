@@ -50,6 +50,10 @@ util.inherits(FtpConnection, process.EventEmitter);
 //     a function which, given a username, returns a root directory (user cannot get
 //     outside of this dir).
 //
+// options.slurpFiles
+//     if set to true, files are slurped using readFile before being sent,
+//     rather than being read chunk-by-chunk.
+//
 // The server raises a 'command:pass' event which is given 'pass', 'success' and
 // 'failure' arguments. On successful login, 'success' should be called with a
 // username argument. It may also optionally be given a second argument, which
@@ -715,25 +719,69 @@ function FtpServer(host, options) {
                         conn.filename = filename;
                     }
 
-                    conn.fs.readFile(conn.filename, function (err, contents) {
-                        if (err) {
-                            if (err.code == 'ENOENT') {
-                                socket.write("550 Not Found\r\n");
+                    if (options.slurpFiles) {
+                        conn.fs.readFile(conn.filename, function (err, contents) {
+                            if (err) {
+                                if (err.code == 'ENOENT') {
+                                    socket.write("550 Not Found\r\n");
+                                }
+                                else { // Who know's what's going on here...
+                                    socket.write("550 Not Accessible\r\n");
+                                    traceIf(0, "Error at read other than ENOENT " + err, conn);
+                                }
                             }
-                            else { // Who know's what's going on here...
-                                socket.write("550 Not Accessible\r\n");
-                                traceIf(0, "Error at read other than ENOENT " + err, conn);
+                            else {
+                                // TODO: This conditional was in the original code. Seems like there should also be
+                                // an 'else'. What do do here?
+                                socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
+                                if (pasvconn.readyState == 'open') pasvconn.write(contents, conn.mode)
+                                pasvconn.end();
+                                socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
                             }
-                        }
-                        else {
-                            // TODO: This conditional was in the original code. Seems like there should also be
-                            // an 'else'. What do do here?
+                        });
+                    }
+                    else {
+                        conn.fs.open(conn.filename, "r", function (err, fd) {
+                            logIf(0, "DATA file " + conn.filename + " opened", conn);
                             socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
-                            if (pasvconn.readyState == 'open') pasvconn.write(contents, conn.mode)
-                            pasvconn.end();
-                            socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
-                        }
-                    });
+                            function readChunk() {
+                                if (! self.buffer) self.buffer = new Buffer(4096);
+                                conn.fs.read(fd, self.buffer, 0, 4096, null/*pos*/, function(err, bytesRead, buffer) {
+                                    if(err) {
+                                        traceIf(0, "Error reading chunk", conn);
+                                        conn.emit("error", err);
+                                        return;
+                                    }
+                                    if (bytesRead > 0) {
+                                        conn.totsize += bytesRead;
+                                        if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead), conn.mode);
+                                        readChunk();
+                                    }
+                                    else {
+                                        logIf(0, "DATA file " + conn.filename + " closed", conn);
+                                        pasvconn.end();
+                                        socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
+                                        conn.fs.close(fd, function (err) {
+                                            if (err) conn.emit("error", err);
+                                            conn.totsize = 0;
+                                        });
+                                    }
+                                });
+                            }
+                            if(err) {
+                                if (err.code == 'ENOENT') {
+                                    socket.write("550 Not Found\r\n");
+                                }
+                                else { // Who know's what's going on here...
+                                    socket.write("550 Not Accessible\r\n");
+                                    traceIf(0, "Error at read other than ENOENT " + err, conn);
+                                }
+                            }
+                            else {
+                                readChunk();
+                            }
+                        });
+                    }
                 });
                 break;
             case "RMD":
