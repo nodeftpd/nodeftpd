@@ -725,7 +725,7 @@ function FtpServer(host, options) {
                                 if (err.code == 'ENOENT') {
                                     socket.write("550 Not Found\r\n");
                                 }
-                                else { // Who know's what's going on here...
+                                else { // Who knows what's going on here...
                                     socket.write("550 Not Accessible\r\n");
                                     traceIf(0, "Error at read other than ENOENT " + err, conn);
                                 }
