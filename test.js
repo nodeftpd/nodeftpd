@@ -16,7 +16,10 @@ var server = new ftpd.FtpServer("127.0.0.1", {
     pasvPortRangeEnd: 1050,
     tlsOptions: (process.env.KEY_FILE && process.env.CERT_FILE ? {
         key: fs.readFileSync(process.env.KEY_FILE),
-        cert: fs.readFileSync(process.env.CERT_FILE)
+        cert: fs.readFileSync(process.env.CERT_FILE),
+        ca: !process.env.CA_FILES ? null : process.env.CA_FILES.split(':').map(function (f) {
+            return fs.readFileSync(f);
+        })
     } : null)
 });
 
