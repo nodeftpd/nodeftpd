@@ -377,11 +377,11 @@ function FtpServer(host, options) {
                                 var i = 0, count = 0;
                                 var AT_ONCE = options.maxStatsAtOnce || 5;
                                 var lines = new Array(files.length);
-                                function finishStat() {
-                                    pasvconn.write(lines.join('\r\n'));
-                                    // write the last bit, so we can know when it's finished
-                                    pasvconn.write("\r\n", success);
+                                for (; i < AT_ONCE && i < files.length; ++i) {
+                                    doStat(files[i], i);
                                 }
+                                if (files.length == 0) finishStat();
+
                                 function doStat(file, li) {
                                     conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
                                         // An error could conceivably occur here if e.g. the file gets deleted
@@ -424,10 +424,11 @@ function FtpServer(host, options) {
                                         }
                                     });
                                 }
-                                for (; i < AT_ONCE && i < files.length; ++i) {
-                                    doStat(files[i], i);
+                                function finishStat() {
+                                    pasvconn.write(lines.join('\r\n'));
+                                    // write the last bit, so we can know when it's finished
+                                    pasvconn.write("\r\n", success);
                                 }
-                                if (files.length == 0) finishStat();
                             });
                         }
                     });
