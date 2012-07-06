@@ -8,6 +8,8 @@ var tls = require('tls');
 var crypto = require('crypto');
 require('./date-format');
 
+var CIPHERS = 'RC4-SHA:AES128-SHA:AES256-SHA';
+
 // Target API:
 //
 //  var s = require('net').createStream(25, 'smtp.example.com');
@@ -75,6 +77,9 @@ function removeEvents(map, emitterSource) {
 }
 
 function pipe(pair, socket) {
+    console.log(socket);
+    console.log(pair);
+    pair.credentials.context.setCiphers(CIPHERS);
     pair.encrypted.pipe(socket);
     socket.pipe(pair.encrypted);
 
@@ -240,6 +245,20 @@ function FtpServer(host, options) {
             root: null
         });
 
+                    var opts = { };
+                    for (k in options.tlsOptions) {
+                        opts[k] = options.tlsOptions[k];
+                    }
+                    if (! opts.ciphers)
+                        opts.ciphers = CIPHERS;
+
+                    starttls(socket, opts, function (cleartext) {
+                        console.log("\n\n!!!!! OMG STARTED !!!!!\n\n");
+                        conn.socket = cleartext;
+                        socket = cleartext;
+                        cleartext.addListener('data', dataListener);
+                    });
+
         self.emit("client:connected", conn); // pass client info so they can listen for client-specific events
 
         socket.setTimeout(0);
@@ -379,7 +398,7 @@ function FtpServer(host, options) {
                         opts[k] = options.tlsOptions[k];
                     }
                     if (! opts.ciphers)
-                        opts.ciphers = 'RC4-SHA:AES128-SHA:AES256-SHA';
+                        opts.ciphers = CIPHERS;
 
                     starttls(socket, opts, function (cleartext) {
                         console.log("\n\n!!!!! OMG STARTED !!!!!\n\n");
