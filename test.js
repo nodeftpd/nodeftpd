@@ -7,7 +7,12 @@ var url = require("url");
 var path = require("path");
 var http = require("http");
 
-console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
+if (process.env.KEY_FILE && process.env.CERT_FILE) {
+    console.log("Running as FPTS server");
+}
+else {
+    console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
+}
 
 var server = new ftpd.FtpServer("127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
