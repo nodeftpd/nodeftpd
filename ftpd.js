@@ -57,8 +57,8 @@ util.inherits(FtpConnection, process.EventEmitter);
 // The server raises a 'command:pass' event which is given 'pass', 'success' and
 // 'failure' arguments. On successful login, 'success' should be called with a
 // username argument. It may also optionally be given a second argument, which
-// should be a dict with keys 'fs' and 'path' containing implementations of
-// the API for Node's 'path' and 'fs' modules. The following must be implemented:
+// should be an object providing an implementation of the API for Node's 'fs'
+// module. The following must be implemented:
 //
 //     fs
 //         unlink
@@ -71,7 +71,6 @@ util.inherits(FtpConnection, process.EventEmitter);
 //         rename
 //         stat -> { mode, isDirectory, size, mtime }
 //         write
-//     path
 //         exists
 // 
 function FtpServer(host, options) {
@@ -278,7 +277,7 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 var path = withCwd(conn.cwd, commandArg);
                 var fspath = PathModule.join(conn.root, path);
-                conn.path.exists(fspath, function(exists) {
+                conn.fs.exists(fspath, function(exists) {
                     if (!exists) {
                         socket.write("550 Folder not found.\r\n");
                         return;
@@ -543,17 +542,13 @@ function FtpServer(host, options) {
                 conn.emit(
                     "command:pass",
                     commandArg,
-                    function(username, modules) { // implementor should call this on successful password check
+                    function(username, userFsModule) { // implementor should call this on successful password check
                         socket.write("230 Logged on\r\n");
                         conn.username = username;
-                        if (modules) {
-                            conn.fs = modules.fs;
-                            conn.path = modules.path;
-                        }
-                        else {
+                        if (userFsModule)
+                            conn.fs = userFsModule;
+                        else
                             conn.fs = FsModule;
-                            conn.path = PathModule;
-                        }
                         conn.cwd = self.getInitialCwd(username);
                         conn.root = self.getRoot(username);
                     },
@@ -801,7 +796,7 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
                 conn.filefrom = withCwd(conn.cwd, commandArg);
                 logIf(3, "Rename from " + conn.filefrom, socket);
-                conn.path.exists( conn.filefrom, function(exists) {
+                conn.fs.exists( conn.filefrom, function(exists) {
                     if (exists) socket.write("350 File exists, ready for destination name\r\n");
                     else socket.write("350 Command failed, file does not exist\r\n");
                 });
