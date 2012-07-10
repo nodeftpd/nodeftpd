@@ -665,10 +665,6 @@ function FtpServer(host, options) {
                 var createServerFunc = net.createServer;
                 if (conn.secure) {
                     for (k in options.tlsOptions) { opts[k] = options.tlsOptions; }
-                    if (opts.requestCert == null)
-                        opts.requestCert = false;
-                    if (opts.rejectUnauthorized == null)
-                        opts.rejectUnauthorized = false;
                     if (! opts.ciphers)
                         opts.ciphers = starttls.RECOMMENDED_CIPHERS;
 
