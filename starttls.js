@@ -15,21 +15,18 @@
 //
 //
 
-var tls = require('tls'),
-    crypto = require('crypto');
-
 function starttls(socket, options, callback) {
     var sslcontext, pair, cleartext;
-
+    
     socket.removeAllListeners("data");
-    sslcontext = crypto.createCredentials(options);
-    pair = tls.createSecurePair(sslcontext, true);
+    sslcontext = require('crypto').createCredentials(options);
+    pair = require('tls').createSecurePair(sslcontext, true);
     cleartext = pipe(pair, socket);
 
     var erroredOut = false;
     pair.on('secure', function() {
         if (erroredOut) {
-            pair.encrypted.end();
+            pair.end();
             return;
         }
 
