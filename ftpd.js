@@ -660,7 +660,16 @@ function FtpServer(host, options) {
                 // othertime afterwards ... depends on the client and threads
                 socket.pause();
                 var pasvEhandler; // To be set later.
-                var pasv = net.createServer(function(psocket) {
+                var opts = { };
+                var createServerFunc = net.createServer;
+                if (conn.secure) {
+                    for (k in options.tlsOptions) { opts[k] = options.tlsOptions; }
+                    opts.requestCert = false;
+                    opts.rejectUnauthorized = false;
+
+                    createServerFunc = tls.createServer;
+                }
+                var pasv = createServerFunc(opts, function(psocket) {
                     logIf(1, "Incoming passive data connection", conn);
                     psocket.pause();
                     psocket.buffers = [];
