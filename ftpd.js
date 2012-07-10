@@ -808,7 +808,6 @@ function FtpServer(host, options) {
             case "QUIT":
                 // Disconnect.
                 socket.write("221 Goodbye\r\n");
-                throw "FOOOOO!";
                 socket.end();
                 closeDataConnections();
                 break;
