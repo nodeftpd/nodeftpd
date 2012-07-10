@@ -827,8 +827,7 @@ function FtpServer(host, options) {
             case "RETR":
                 // Retrieve (download) a remote file.
                 whenDataWritable( function(pasvconn) {
-                    if (conn.mode != 'binary')
-                        setSocketWriteEncoding(pasvconn, conn.mode);
+                    setSocketWriteEncoding(pasvconn, 'ascii');
                     var filename = PathModule.join(conn.root, commandArg);
                     if(filename != conn.filename)
                     {
@@ -851,7 +850,7 @@ function FtpServer(host, options) {
                                 // TODO: This conditional was in the original code. Seems like there should also be
                                 // an 'else'. What do do here?
                                 socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
-                                if (pasvconn.readyState == 'open') pasvconn.write(contents, conn.mode)
+                                if (pasvconn.readyState == 'open') pasvconn.write(contents)
                                 pasvconn.end();
                                 socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
                             }
@@ -871,7 +870,7 @@ function FtpServer(host, options) {
                                     }
                                     if (bytesRead > 0) {
                                         conn.totsize += bytesRead;
-                                        if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead), conn.mode);
+                                        if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead));
                                         readChunk();
                                     }
                                     else {
