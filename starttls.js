@@ -55,7 +55,7 @@ function starttls(socket, options, callback) {
 
         callback(null, cleartext);
     });
-    pair.on('error', function (err) {
+    pair.once('error', function (err) {
         erroredOut = true;
         callback(err);
     });
