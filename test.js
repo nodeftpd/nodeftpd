@@ -32,7 +32,8 @@ var server = new ftpd.FtpServer("127.0.0.1", {
     getRoot: function () { return process.cwd(); },
     pasvPortRangeStart: 1025,
     pasvPortRangeEnd: 1050,
-    tlsOptions: tlsOptions
+    tlsOptions: tlsOptions,
+    allowUnauthorizedTls: true
 });
 
 // this event passes in the client socket which emits further events

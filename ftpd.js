@@ -86,6 +86,10 @@ function setSocketWriteEncoding(socket, defaultEncoding) {
 //     if this is set, the server will be FTPS. Value should be a dictionary
 //     which is suitable as the 'options' argument of tls.createServer.
 //
+// options.allowUnauthorizedTls
+//     if this is set to true, the server will allow a connection to continue even
+//     if verifyError() returns a non-null value.
+//
 //
 // The server raises a 'command:pass' event which is given 'pass', 'success' and
 // 'failure' arguments. On successful login, 'success' should be called with a
@@ -199,7 +203,6 @@ function FtpServer(host, options) {
 
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
         function whenDataWritable(callback) {
-            setSocketWriteEncoding(pasvconn, conn.mode);
             if (conn.passive) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
@@ -309,9 +312,20 @@ function FtpServer(host, options) {
                             }
                             else if (! cleartext.authorized) {
                                 logIf(0, "Secure socket not authorized: " + util.inspect(cleartext.authorizationError));
-                                socket.end();
+                                if (options.allowUnauthorizedTls) {
+                                    logIf(0, "Allowing unauthorized connection (allowUnauthorizedTls=true)");
+                                    switchToSecure();
+                                }
+                                else {
+                                    logIf(0, "Closing unauthorized connection (allowUnauthorizedTls=false)");
+                                    socket.end();
+                                }
                             }
                             else {
+                                switchToSecure();
+                            }
+
+                            function switchToSecure() {
                                 logIf(0, "Secure connection started");
                                 conn.socket = cleartext;
                                 socket = cleartext;
@@ -784,6 +798,7 @@ function FtpServer(host, options) {
             case "QUIT":
                 // Disconnect.
                 socket.write("221 Goodbye\r\n");
+                throw "FOOOOO!";
                 socket.end();
                 closeDataConnections();
                 break;
@@ -803,6 +818,7 @@ function FtpServer(host, options) {
             case "RETR":
                 // Retrieve (download) a remote file.
                 whenDataWritable( function(pasvconn) {
+                    setSocketWriteEncoding(pasvconn, conn.mode);
                     var filename = PathModule.join(conn.root, commandArg);
                     if(filename != conn.filename)
                     {
