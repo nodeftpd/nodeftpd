@@ -827,7 +827,8 @@ function FtpServer(host, options) {
             case "RETR":
                 // Retrieve (download) a remote file.
                 whenDataWritable( function(pasvconn) {
-                    setSocketWriteEncoding(pasvconn, conn.mode);
+                    if (conn.mode != 'binary')
+                        setSocketWriteEncoding(pasvconn, conn.mode);
                     var filename = PathModule.join(conn.root, commandArg);
                     if(filename != conn.filename)
                     {
