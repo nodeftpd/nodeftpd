@@ -141,7 +141,11 @@ function FtpServer(host, options) {
             fs: null,
             path: null,
             cwd: null,
-            root: null
+            root: null,
+
+            // State for handling TLS upgrades.
+            secure: false,
+            pbszReceived: false
         });
 
         self.emit("client:connected", conn); // pass client info so they can listen for client-specific events
@@ -292,6 +296,7 @@ function FtpServer(host, options) {
                             conn.socket = cleartext;
                             socket = cleartext;
                             cleartext.addListener('data', dataListener);
+                            conn.secure = true;
                         });
                     });
                 }
@@ -362,6 +367,9 @@ function FtpServer(host, options) {
                 // Get the feature list implemented by the server. (RFC 2389)
                 socket.write("211-Features\r\n");
                 socket.write(" SIZE\r\n");
+                socket.write(" AUTH TLS\r\n");
+                socket.write(" PBSZ\r\n");
+                socket.write(" PROT\r\n");
                 socket.write("211 end\r\n");
                 break;
             case "HELP":
@@ -707,8 +715,36 @@ function FtpServer(host, options) {
                 break;
             case "PBSZ":
                 // Protection Buffer Size (RFC 2228)
-                socket.write("202 Not supported\r\n");
+                if (! conn.secure) {
+                    socket.write("503 Secure connection not established\r\n");
+                }
+                else if (parseInt(commandArg) != 0) {
+                    // RFC 2228 specifies that a 200 reply must be sent specifying a more
+                    // satisfactory PBSZ size (0 in our case, since we're using TLS).
+                    // Doubt that this will do any good if the client was already confused
+                    // enough to send a non-zero value, but ok...
+                    conn.pbszReceived = true;
+                    socket.write("200 buffer too big, PBSZ=0\r\n");
+                }
+                else {
+                    conn.pbszReceived = true;
+                    socket.write("200 OK\r\n");
+                }
                 break;
+            case "PROT":
+                if (! conn.pbszReceived) {
+                    socket.write("503 No PBSZ command received\r\n");
+                }
+                else if (commandArg == 'S' || commandArg == 'E' || commandArg == 'C') {
+                    socket.write("536 Not supported\r\n");
+                }
+                else if (commandArg == 'P') {
+                    socket.write("200 OK\r\n");
+                }
+                else {
+                    // Don't even recognize this one...
+                    socket.write("504 Not recognized\r\n");
+                }
             case "PORT":
                 // Specifies an address and port to which the server should connect.
                 if (!authenticated()) break;
