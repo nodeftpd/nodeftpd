@@ -147,7 +147,6 @@ function FtpServer(host, options) {
         self.emit("client:connected", conn); // pass client info so they can listen for client-specific events
 
         socket.setTimeout(0);
-        socket.setEncoding("ascii"); // force data String not Buffer
         socket.setNoDelay();
 
 //        logIf(0, "Base FTP directory: "+conn.fs.cwd());
@@ -230,11 +229,9 @@ function FtpServer(host, options) {
         
         socket.addListener("data", dataListener);
         function dataListener (data) {
-            if (self._ignoreData)
-                return;
+            data = data.toString('utf-8');
 
             data = (data+'').trim();
-            console.log("-- DATA '" + data + "'");
             // Don't want to include passwords in logs.
             logIf(2, "FTP command: " + data.toString('utf-8').replace(/^PASS\s+.*/, 'PASS ***'), conn);
 
@@ -271,37 +268,31 @@ function FtpServer(host, options) {
                 socket.write("202 Not supported\r\n");
                 break;
             case "AUTH":
-                console.log("AUTH COMMAND ARG", commandArg);
                 if (commandArg != "TLS") {
                     socket.write("500 Unrecognized\r\n");
                 }
                 else {
-                    socket.write("234 Honored\r\n");
-
-                    // See https://github.com/Cowboy-coder/node-mongolian/blob/d9194809fe3d69842570b47817cfff475706fe6e/lib/connection.js
-                    //     https://github.com/joyent/node/blob/0b0faceb198c68669d078f00ebda0d80c3793866/test/simple/test-securepair-server.js
-                    //     https://github.com/eleith/emailjs/blob/5dc8ab6e8c33ad12ee749b0172b393b5ef20e37e/smtp/tls.js
-                    // (Code cribbed from these, sometimes without full understanding!)
-                    var opts = { };
-                    for (k in options.tlsOptions) {
-                        opts[k] = options.tlsOptions[k];
-                    }
-                    if (! opts.ciphers) {
-                        opts.ciphers = CIPHERS;
-                    }
-
-                    self._ignoreData = true;
-                    starttls(socket, opts, function (err, cleartext) {
-                        if (err) {
-                            logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
-                            socket.end();
-                            return;
+                    socket.write("234 Honored\r\n", function () {
+                        var opts = { };
+                        for (k in options.tlsOptions) {
+                            opts[k] = options.tlsOptions[k];
                         }
-
-                        console.log("\n\n!!!!! OMG STARTED !!!!!\n\n");
-                        conn.socket = cleartext;
-                        socket = cleartext;
-                        cleartext.addListener('data', dataListener);
+                        if (! opts.ciphers) {
+                            opts.ciphers = CIPHERS;
+                        }
+                        
+                        starttls(socket, opts, function (err, cleartext) {
+                            if (err) {
+                                logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
+                                socket.end();
+                                return;
+                            }
+                            
+                            logIf(0, "Secure connection started");
+                            conn.socket = cleartext;
+                            socket = cleartext;
+                            cleartext.addListener('data', dataListener);
+                        });
                     });
                 }
                 break;
@@ -755,8 +746,6 @@ function FtpServer(host, options) {
             case "RETR":
                 // Retrieve (download) a remote file.
                 whenDataWritable( function(pasvconn) {
-                    pasvconn.setEncoding(conn.mode);
-
                     var filename = PathModule.join(conn.root, commandArg);
                     if(filename != conn.filename)
                     {

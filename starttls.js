@@ -1,3 +1,7 @@
+// Modified slightly from
+// https://github.com/andris9/rai/blob/master/lib/starttls.js
+// (This code is MIT licensed.)
+
 //
 // Target API:
 //
