@@ -15,8 +15,6 @@ TODO:
 - Implement RFC 2428
 - Implement RFC 2228
 - Implement RFC 3659
-- Implement TLS - http://en.wikipedia.org/wiki/FTPS
-
 
 - passive command is for server to determine which port it listens on and report that to the client
 - doesn't necessarily mean it needs to be listening (i guess), but i assume it actually SHOULD be listening
