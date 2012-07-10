@@ -662,29 +662,25 @@ function FtpServer(host, options) {
                 var opts = { };
                 var createServerFunc = net.createServer;
                 if (conn.secure) {
-                    for (k in options.tlsOptions) { opts[k] = options.tlsOptions; }
+                    for (k in options.tlsOptions) { opts[k] = options.tlsOptions[k]; }
                     if (! opts.ciphers)
                         opts.ciphers = starttls.RECOMMENDED_CIPHERS;
 
                     createServerFunc = tls.createServer;
                 }
                 var pasv = createServerFunc(opts, function(psocket) {
-                    logIf(1, "Incoming passive data connection", conn);
-                    psocket.pause();
+                    logIf(1, "Passive data event: connect", conn);
                     psocket.buffers = [];
+                    // Once we have a completed data connection, make note of it
+                    conn.dataSocket = psocket;
+                    if (socket.readable) socket.resume();
+                    // 150 should be sent before we send data on the data connection
+                    //socket.write("150 Connection Accepted\r\n");//, function () {
+                        
                     psocket.on("data", function(data) {
-                        console.log("PASSIVE DATA", data);
                         // should watch out for malicious users uploading large amounts of data outside protocol
                         logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
                         psocket.buffers.push(data);
-                    });
-                    psocket.on("connect", function() {
-                        logIf(1, "Passive data event: connect", conn);
-                        // Once we have a completed data connection, make note of it
-                        conn.dataSocket = psocket;
-                        // 150 should be sent before we send data on the data connection
-                        //socket.write("150 Connection Accepted\r\n");
-                        if (socket.readable) socket.resume();
                     });
                     psocket.on("end", function () {
                         logIf(3, "Passive data event: end", conn);
