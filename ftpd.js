@@ -305,6 +305,7 @@ function FtpServer(host, options) {
                 }
                 else {
                     socket.write("234 Honored\r\n", function () {
+                        logIf(0, "Establishing secure connection...");
                         starttls(socket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
@@ -789,6 +790,7 @@ function FtpServer(host, options) {
                     // Don't even recognize this one...
                     socket.write("504 Not recognized\r\n");
                 }
+                break;
             case "PORT":
                 // Specifies an address and port to which the server should connect.
                 if (!authenticated()) break;
