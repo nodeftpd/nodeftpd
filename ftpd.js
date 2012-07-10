@@ -230,7 +230,11 @@ function FtpServer(host, options) {
         
         socket.addListener("data", dataListener);
         function dataListener (data) {
+            if (self._ignoreData)
+                return;
+
             data = (data+'').trim();
+            console.log("-- DATA '" + data + "'");
             // Don't want to include passwords in logs.
             logIf(2, "FTP command: " + data.toString('utf-8').replace(/^PASS\s+.*/, 'PASS ***'), conn);
 
@@ -282,10 +286,18 @@ function FtpServer(host, options) {
                     for (k in options.tlsOptions) {
                         opts[k] = options.tlsOptions[k];
                     }
-                    if (! opts.ciphers)
+                    if (! opts.ciphers) {
                         opts.ciphers = CIPHERS;
+                    }
 
-                    starttls(socket, opts, function (cleartext) {
+                    self._ignoreData = true;
+                    starttls(socket, opts, function (err, cleartext) {
+                        if (err) {
+                            logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
+                            socket.end();
+                            return;
+                        }
+
                         console.log("\n\n!!!!! OMG STARTED !!!!!\n\n");
                         conn.socket = cleartext;
                         socket = cleartext;

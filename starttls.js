@@ -15,15 +15,24 @@
 //
 //
 
+var tls = require('tls'),
+    crypto = require('crypto');
+
 function starttls(socket, options, callback) {
     var sslcontext, pair, cleartext;
-    
+
     socket.removeAllListeners("data");
-    sslcontext = require('crypto').createCredentials(options);
-    pair = require('tls').createSecurePair(sslcontext, true);
+    sslcontext = crypto.createCredentials(options);
+    pair = tls.createSecurePair(sslcontext, true);
     cleartext = pipe(pair, socket);
 
+    var erroredOut = false;
     pair.on('secure', function() {
+        if (erroredOut) {
+            pair.encrypted.end();
+            return;
+        }
+
         var verifyError = (pair._ssl || pair.ssl).verifyError();
 
         if (verifyError) {
@@ -33,7 +42,11 @@ function starttls(socket, options, callback) {
             cleartext.authorized = true;
         }
 
-        callback(cleartext);
+        callback(null, cleartext);
+    });
+    pair.on('error', function (err) {
+        erroredOut = true;
+        callback(err);
     });
 
     cleartext._controlReleased = true;
@@ -66,8 +79,6 @@ function removeEvents(map, emitterSource) {
 }
 
 function pipe(pair, socket) {
-    console.log(socket);
-    console.log(pair);
     pair.encrypted.pipe(socket);
     socket.pipe(pair.encrypted);
 

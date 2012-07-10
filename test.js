@@ -7,8 +7,13 @@ var url = require("url");
 var path = require("path");
 var http = require("http");
 
+var keyFile, certFile;
 if (process.env.KEY_FILE && process.env.CERT_FILE) {
     console.log("Running as FPTS server");
+    if (process.env.KEY_FILE.charAt(0) != '/')
+        keyFile = path.join(__dirname, process.env.KEY_FILE);
+    if (process.env.CERT_FILE.charAt(0) != '/')
+        certFile = path.join(__dirname, process.env.CERT_FILE);
 }
 else {
     console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
@@ -20,8 +25,8 @@ var server = new ftpd.FtpServer("127.0.0.1", {
     pasvPortRangeStart: 1025,
     pasvPortRangeEnd: 1050,
     tlsOptions: (process.env.KEY_FILE && process.env.CERT_FILE ? {
-        key: fs.readFileSync(process.env.KEY_FILE),
-        cert: fs.readFileSync(process.env.CERT_FILE),
+        key: fs.readFileSync(keyFile),
+        cert: fs.readFileSync(certFile),
         ca: !process.env.CA_FILES ? null : process.env.CA_FILES.split(':').map(function (f) {
             return fs.readFileSync(f);
         })
