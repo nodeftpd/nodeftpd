@@ -514,7 +514,7 @@ function FtpServer(host, options) {
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", conn);
                     
-                    glob.glob(temp, function(err, files) {
+                    glob.glob(temp, conn.fs, function(err, files) {
                         if (err) {
                             logIf(0, "During NLST, error globbing files: " + err, conn);
                             socket.write("451 Read error\r\n");
