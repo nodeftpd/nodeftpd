@@ -19,18 +19,20 @@ else {
     console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
 }
 
+var tlsOptions = (process.env.KEY_FILE && process.env.CERT_FILE ? {
+    key: fs.readFileSync(keyFile),
+    cert: fs.readFileSync(certFile),
+    ca: !process.env.CA_FILES ? null : process.env.CA_FILES.split(':').map(function (f) {
+        return fs.readFileSync(f);
+    })
+} : null);
+console.log(tlsOptions);
 var server = new ftpd.FtpServer("127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
     getRoot: function () { return process.cwd(); },
     pasvPortRangeStart: 1025,
     pasvPortRangeEnd: 1050,
-    tlsOptions: (process.env.KEY_FILE && process.env.CERT_FILE ? {
-        key: fs.readFileSync(keyFile),
-        cert: fs.readFileSync(certFile),
-        ca: !process.env.CA_FILES ? null : process.env.CA_FILES.split(':').map(function (f) {
-            return fs.readFileSync(f);
-        })
-    } : null)
+    tlsOptions: tlsOptions
 });
 
 // this event passes in the client socket which emits further events
