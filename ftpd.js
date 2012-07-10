@@ -306,7 +306,7 @@ function FtpServer(host, options) {
                 else {
                     socket.write("234 Honored\r\n", function () {
                         logIf(0, "Establishing secure connection...");
-                        starttls(socket, options.tlsOptions, function (err, cleartext) {
+                        starttls.starttls(socket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
                                 socket.end();
@@ -314,11 +314,11 @@ function FtpServer(host, options) {
                             else if (! cleartext.authorized) {
                                 logIf(0, "Secure socket not authorized: " + util.inspect(cleartext.authorizationError));
                                 if (options.allowUnauthorizedTls) {
-                                    logIf(0, "Allowing unauthorized connection (allowUnauthorizedTls=true)");
+                                    logIf(0, "Allowing unauthorized connection (allowUnauthorizedTls==true)");
                                     switchToSecure();
                                 }
                                 else {
-                                    logIf(0, "Closing unauthorized connection (allowUnauthorizedTls=false)");
+                                    logIf(0, "Closing unauthorized connection (allowUnauthorizedTls==false)");
                                     socket.end();
                                 }
                             }
@@ -665,8 +665,12 @@ function FtpServer(host, options) {
                 var createServerFunc = net.createServer;
                 if (conn.secure) {
                     for (k in options.tlsOptions) { opts[k] = options.tlsOptions; }
-                    opts.requestCert = false;
-                    opts.rejectUnauthorized = false;
+                    if (opts.requestCert == null)
+                        opts.requestCert = false;
+                    if (opts.rejectUnauthorized == null)
+                        opts.rejectUnauthorized = false;
+                    if (! opts.ciphers)
+                        opts.ciphers = starttls.RECOMMENDED_CIPHERS;
 
                     createServerFunc = tls.createServer;
                 }
@@ -675,6 +679,7 @@ function FtpServer(host, options) {
                     psocket.pause();
                     psocket.buffers = [];
                     psocket.on("data", function(data) {
+                        console.log("PASSIVE DATA", data);
                         // should watch out for malicious users uploading large amounts of data outside protocol
                         logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
                         psocket.buffers.push(data);

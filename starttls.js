@@ -19,7 +19,8 @@
 //
 //
 
-var CIPHERS = 'RC4-SHA:AES128-SHA:AES256-SHA';
+// From Node docs for TLS module.
+var RECOMMENDED_CIPHERS = 'ECDHE-RSA-AES256-SHA:AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM';
 
 function starttls(socket, options, callback) {
     var sslcontext, pair, cleartext;
@@ -29,7 +30,7 @@ function starttls(socket, options, callback) {
         opts[k] = options[k];
     }
     if (! opts.ciphers)
-        opts.ciphers = CIPHERS;
+        opts.ciphers = RECOMMENDED_CIPHERS;
     
     socket.removeAllListeners("data");
     sslcontext = require('crypto').createCredentials(opts);
@@ -120,4 +121,5 @@ function pipe(pair, socket) {
     return cleartext;
 }
 
-module.exports = starttls;
+exports.starttls = starttls;
+exports.RECOMMENDED_CIPHERS = RECOMMENDED_CIPHERS;
