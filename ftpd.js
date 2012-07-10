@@ -45,6 +45,31 @@ function FtpConnection(properties) {
 }
 util.inherits(FtpConnection, process.EventEmitter);
 
+// We don't want to use setEncoding because it screws up TLS, but we
+// also don't want to explicity specify encodings for every call to 'write'.
+// Note that unlike the 'setEncoding' method, this does not remove the
+// need to decode the argument to 'data' events, which will still be a
+// buffer rather than a string.
+function setSocketWriteEncoding(socket, defaultEncoding) {
+    var old = socket.write;
+    socket.write = function (data, encoding, callback) {
+        if (callback == null && encoding == null) {
+            return old.call(this, data, defaultEncoding);
+        }
+        else if (callback == null) {
+            if (typeof(encoding) == "function") {
+                return old.call(this, data, defaultEncoding, encoding);
+            }
+            else {
+                return old.call(this, data, encoding);
+            }
+        }
+        else {
+            return old.call(this, data, encoding, callback);
+        }
+    }
+}
+
 // host
 //     an IP address.
 //
@@ -125,7 +150,7 @@ function FtpServer(host, options) {
     this.server.on('connection', function(socket_) {
         socket = socket_;
         conn = new FtpConnection({
-            socket: socket,
+            socket: socket_,
             passive: false,
             dataHost: null,
             dataPort: 20, // default
@@ -152,6 +177,7 @@ function FtpServer(host, options) {
 
         socket.setTimeout(0);
         socket.setNoDelay();
+        setSocketWriteEncoding(socket, 'ascii');
 
 //        logIf(0, "Base FTP directory: "+conn.fs.cwd());
 
@@ -175,6 +201,7 @@ function FtpServer(host, options) {
 
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
         function whenDataWritable(callback) {
+            setSocketWriteEncoding(pasvconn, conn.mode);
             if (conn.passive) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
@@ -284,7 +311,7 @@ function FtpServer(host, options) {
                         if (! opts.ciphers) {
                             opts.ciphers = CIPHERS;
                         }
-                        
+
                         starttls(socket, opts, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
@@ -295,7 +322,7 @@ function FtpServer(host, options) {
                             logIf(0, "Secure connection started");
                             conn.socket = cleartext;
                             socket = cleartext;
-                            cleartext.addListener('data', dataListener);
+                            socket.addListener('data', dataListener);
                             conn.secure = true;
                         });
                     });
