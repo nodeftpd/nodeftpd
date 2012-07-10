@@ -1,33 +1,37 @@
 var PathModule = require('path'),
-    fs = require('fs'),
-	events = require("events");
+    events = require("events"),
+    fs = require('fs');
 
 // Wildcard directory listing
 
 
 // Should create using "new WildcardList"
-function glob(path, callback) {
+function glob(path, fsm, callback) {
+    if (! callback) {
+        callback = fsm;
+        fsm = fs;
+    }
 
-	var traversing = 0;
-
-	// Use relatve path if doesn't start with slash, riight?
-
-	// Preparation
-	var parts = path.split('/');
-	var base = '/';
-	var results = [];
-	// Internal events
-	var ev = new events.EventEmitter;
-
-	var init = function() {
+    var traversing = 0;
+    
+    // Use relatve path if doesn't start with slash, riight?
+    
+    // Preparation
+    var parts = path.split('/');
+    var base = '/';
+    var results = [];
+    // Internal events
+    var ev = new events.EventEmitter;
+    
+    var init = function() {
         //console.log('got: ' + path);
         var pair = skipNonWildcards(base, parts);
         parts = pair.pop();
         base = pair.pop();
         // Emitted when we start looping over items in a directory
         /*
-        ev.on('begin', function() {
-        });
+          ev.on('begin', function() {
+          });
         */
         // After we're done looping over a directory
         // Check whether we're REALLY done
@@ -43,7 +47,7 @@ function glob(path, callback) {
         // For debugging
         //console.log('Prepared path and wildcard: ' + base + ' ' +  parts);
         walky(base, parts);
-	};
+    };
     
     // Skip the prefix of folders that have no wildcards
     var skipNonWildcards = function(folder, patterns) {
@@ -74,14 +78,14 @@ function glob(path, callback) {
         traversing++;
 
         //console.log('Reading ' + folder);
-        PathModule.exists(folder, function(exists) {
+        fsm.exists(folder, function(exists) {
             if (!exists) {
                 traversing--;
                 ev.emit('end');
                 return;
             }
 
-            fs.readdir(folder, function(err, files) {
+            fsm.readdir(folder, function(err, files) {
                 if (err) {
                     console.trace('Shit: ' + err);
                     return;
@@ -97,7 +101,7 @@ function glob(path, callback) {
                         var pattern = new RegExp(pattern);
                         if (!pattern.test( file )) continue;
                     }
-                    var s = fs.statSync(full);
+                    var s = fsm.statSync(full);
                     if (s.isDirectory()) {
                         if (parts.length) {
                         //console.log('recursing into ' + full);

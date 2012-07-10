@@ -476,6 +476,7 @@ function FtpServer(host, options) {
                                         // pretend that the file doesn't exist in this case.
                                         if (err) {
                                             logIf(0, "Weird failure of 'stat' " + err, conn);
+                                            next();
                                         }
                                         else {
                                             self.getUsernameFromUid(s.uid, function (e1, uname) { self.getGroupFromGid(s.gid, function (e2, gname) {
@@ -498,15 +499,19 @@ function FtpServer(host, options) {
                                                 lines[li] += leftPad(d.format('M d H:i'), 12) + ' '; // need to use a date string formatting lib
                                                 lines[li] += file;
                                                 
-                                                ++count;
-                                                if (i < files.length) {
-                                                    doStat(files[i], i);
-                                                    ++i;
-                                                }
-                                                else if (count == files.length) {
-                                                    finishStat();
-                                                }
+                                                next();
                                             }) });
+                                        }
+
+                                        function next() {
+                                            ++count;
+                                            if (i < files.length) {
+                                                doStat(files[i], i);
+                                                ++i;
+                                            }
+                                            else if (count == files.length) {
+                                                finishStat();
+                                            }
                                         }
                                     });
                                 }
@@ -597,7 +602,7 @@ function FtpServer(host, options) {
                     if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", conn);
                     
-                    glob.glob(temp, function(err, files) {
+                    glob.glob(temp, conn.fs, function(err, files) {
                         if (err) {
                             logIf(0, "During NLST, error globbing files: " + err, conn);
                             socket.write("451 Read error\r\n");
