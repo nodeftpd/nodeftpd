@@ -299,7 +299,7 @@ function FtpServer(host, options) {
                 break;
             case "AUTH":
                 if (commandArg != "TLS") {
-                    socket.write("500 Unrecognized\r\n");
+                    socket.write("500 Not recognized\r\n");
                 }
                 else {
                     socket.write("234 Honored\r\n", function () {
