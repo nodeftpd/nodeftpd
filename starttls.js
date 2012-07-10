@@ -19,11 +19,20 @@
 //
 //
 
+var CIPHERS = 'RC4-SHA:AES128-SHA:AES256-SHA';
+
 function starttls(socket, options, callback) {
     var sslcontext, pair, cleartext;
+
+    var opts = { };
+    for (k in options) {
+        opts[k] = options[k];
+    }
+    if (! opts.ciphers)
+        opts.ciphers = CIPHERS;
     
     socket.removeAllListeners("data");
-    sslcontext = require('crypto').createCredentials(options);
+    sslcontext = require('crypto').createCredentials(opts);
     pair = require('tls').createSecurePair(sslcontext, true);
     cleartext = pipe(pair, socket);
 

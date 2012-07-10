@@ -9,8 +9,6 @@ var crypto = require('crypto');
 var starttls = require('./starttls');
 require('./date-format');
 
-var CIPHERS = 'RC4-SHA:AES128-SHA:AES256-SHA';
-
 /*
 TODO:
 - Implement Full RFC 959
@@ -304,15 +302,7 @@ function FtpServer(host, options) {
                 }
                 else {
                     socket.write("234 Honored\r\n", function () {
-                        var opts = { };
-                        for (k in options.tlsOptions) {
-                            opts[k] = options.tlsOptions[k];
-                        }
-                        if (! opts.ciphers) {
-                            opts.ciphers = CIPHERS;
-                        }
-
-                        starttls(socket, opts, function (err, cleartext) {
+                        starttls(socket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
                                 socket.end();
