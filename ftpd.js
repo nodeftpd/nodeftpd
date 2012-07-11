@@ -265,7 +265,7 @@ function FtpServer(host, options) {
                 // Not sure if this is technically correct, but 'dirname' does in fact just
                 // strip the last component of the path for a UNIX-style path, even if this
                 // has a trailing slash. It also maps "/foo" to "/" and "/" to "/".
-                conn.cwd = PathModule.dirname(cwd);
+                conn.cwd = PathModule.dirname(conn.cwd);
                 socket.write("250 Directory changed to " + conn.cwd + "\r\n");
                 break;
             case "CONF":
