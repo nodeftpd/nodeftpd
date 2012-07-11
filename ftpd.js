@@ -201,9 +201,6 @@ function FtpServer(host, options) {
         };
 
         function createPassiveServer() {
-            // Passive listener needs to pause data because sometimes commands come before a data connection,
-            // othertime afterwards ... depends on the client and threads
-            socket.pause();
             return net.createServer(function (psocket) {
                 logIf(1, "Passive data event: connect", conn);
                 
@@ -242,8 +239,6 @@ function FtpServer(host, options) {
                 
                 function setupPassiveListener() {
                     conn.dataSocket.buffers = [];
-                    if (socket.readable) socket.resume();
-
                     conn.passive.emit('ready');
                     
                     conn.dataSocket.on("data", function(data) {
@@ -256,12 +251,10 @@ function FtpServer(host, options) {
                         logIf(3, "Passive data event: end", conn);
                         // remove pointer
                         conn.dataSocket = null;
-                        if (socket.readable) socket.resume(); // just in case
                     });
                     conn.dataSocket.addListener("error", function(err) {
                         logIf(0, "Passive data event: error: " + err, conn);
                         conn.dataSocket = null;
-                        if (socket.readable) socket.resume();
                     });
                     conn.dataSocket.addListener("close", function(had_error) {
                         logIf(
@@ -269,7 +262,6 @@ function FtpServer(host, options) {
                             "Passive data event: close " + (had_error ? " due to error" : ""),
                             socket
                         );
-                        if (socket.readable) socket.resume();
                     });
                 }
             });
@@ -484,36 +476,34 @@ function FtpServer(host, options) {
                 // Returns information of a file or directory if specified, else information of the current working directory is returned.
                 if (!authenticated()) break;
 
-                whenDataWritable( function(pasvconn) {
-                    var leftPad = function(text, width) {
-                        var out = '';
-                        for (var j = text.length; j < width; j++) out += ' ';
-                        out += text;
-                        return out;
-                    };
-                    // This will be called once data has ACTUALLY written out ... socket.write() is async!
-                    var success = function() {
-                        socket.write("226 Transfer OK\r\n");
-                        pasvconn.end();
-                    };
-                    if (pasvconn.readable) pasvconn.resume();
-                    logIf(3, "Sending file list", conn);
-                    var dir = withCwd(conn.cwd, commandArg);
-                    conn.fs.readdir(PathModule.join(conn.root, dir), function(err, files) {
-                        if (err) {
-                            logIf(0, "While sending file list, reading directory: " + err, conn);
-                            socket.write("550 Not a directory\r\n");
+                socket.write("150 Here comes the directory listing\r\n", function () {
+                    whenDataWritable( function(pasvconn) {
+                        var leftPad = function(text, width) {
+                            var out = '';
+                            for (var j = text.length; j < width; j++) out += ' ';
+                            out += text;
+                            return out;
+                        };
+                        // This will be called once data has ACTUALLY written out ... socket.write() is async!
+                        var success = function() {
+                            socket.write("226 Transfer OK\r\n");
                             pasvconn.end();
-                        } else {
-                            // Wait until acknowledged!
-                            socket.write("150 Here comes the directory listing\r\n", function() {
+                        };
+                        logIf(3, "Sending file list", conn);
+                        var dir = withCwd(conn.cwd, commandArg);
+                        conn.fs.readdir(PathModule.join(conn.root, dir), function(err, files) {
+                            if (err) {
+                                logIf(0, "While sending file list, reading directory: " + err, conn);
+                                socket.write("550 Not a directory\r\n");
+                                pasvconn.end();
+                            } else {
                                 logIf(3, "Directory has " + files.length + " files", conn);
                                 var count = 0;
                                 function writelast() { 
                                     // write the last bit, so we can know when it's finished
                                     pasvconn.write("\r\n", success);
                                 }
-
+                                
                                 // Could use the Seq library here, but since it's not used anywhere else, seems
                                 // a bit unnecessary. This requests file stats in parallel to degree AT_ONCE.
                                 var i = 0, count = 0;
@@ -523,7 +513,7 @@ function FtpServer(host, options) {
                                     doStat(files[i], i);
                                 }
                                 if (files.length == 0) finishStat();
-
+                                
                                 function doStat(file, li) {
                                     conn.fs.stat(PathModule.join(conn.root, dir, file), function (err, s) {
                                         // An error could conceivably occur here if e.g. the file gets deleted
@@ -558,7 +548,7 @@ function FtpServer(host, options) {
                                                 next();
                                             }) });
                                         }
-
+                                        
                                         function next() {
                                             ++count;
                                             if (i < files.length) {
@@ -576,8 +566,8 @@ function FtpServer(host, options) {
                                     // write the last bit, so we can know when it's finished
                                     pasvconn.write("\r\n", success);
                                 }
-                            });
-                        }
+                            }
+                        });
                     });
                 });
                 break;
@@ -655,7 +645,6 @@ function FtpServer(host, options) {
                             temp = withCwd(conn.cwd, commandArg);
                         }
                     } else temp = conn.cwd;
-                    if (pasvconn.readable) pasvconn.resume();
                     logIf(3, "Sending file list", conn);
                     
                     glob.glob(temp, conn.fs, function(err, files) {
@@ -767,7 +756,6 @@ function FtpServer(host, options) {
                 });
                 pasv.on("close", function() {
                     logIf(3, "Passive data listener closed", conn);
-                    if (socket.readable) socket.resume(); // just in case
                 });
                 break;
             case "PBSZ":
@@ -1032,7 +1020,6 @@ function FtpServer(host, options) {
                         });
                         logIf(3, "Told client ok to send file data", socket);
                         socket.write("150 Ok to send data\r\n"); // don't think resume() needs to wait for this to succeed
-                        if (dataSocket.readable) dataSocket.resume();
                     });
                 });
                 break;
