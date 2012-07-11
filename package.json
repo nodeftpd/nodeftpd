@@ -5,7 +5,9 @@
   },
   "name": "ftpd",
   "version": "0.0.1",
-  "dependencies": { },
+  "dependencies": {
+    "dateformat": "1.0.2-1.2.3"
+  },
   "main": "./ftpd.js",
   "devDependencies": {
     "async": "~0.1.15",
