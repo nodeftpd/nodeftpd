@@ -54,7 +54,10 @@ server.on("client:connected", function(conn) {
       else failure();
   });
 
-  conn.on("file:received", function(file) {
+  // This was added as a test in commit 6537c35710 by thomaschaaf to test the new file:received hook.
+  // Commenting it out here since it won't work for people who don't have the relevant http server set up.
+  //
+/*  conn.on("file:received", function(file) {
     var post = "http://localhost/photos";
     var settings = url.parse(post);
     console.log(settings);
@@ -94,7 +97,7 @@ server.on("client:connected", function(conn) {
         console.log(error);
       });
     });
-  });
+  });*/
 });
 server.debugging = 4;
 server.listen(7002);
