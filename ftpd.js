@@ -237,14 +237,14 @@ function FtpServer(host, options) {
                 }
                 
                 function setupPassiveListener() {
-                    conn.dataSocket.buffers = [];
+//                    conn.dataSocket.buffers = [];
                     conn.passive.emit('ready');
                     
-                    conn.dataSocket.on("data", function(data) {
-                        // should watch out for malicious users uploading large amounts of data outside protocol
-                        logIf(3, 'Passive data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
-                        conn.dataSocket.buffers.push(data);
-                    });
+//                    conn.dataSocket.on("data", function(data) {
+//                        // should watch out for malicious users uploading large amounts of data outside protocol
+//                        logIf(3, 'Passive data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
+//                        conn.dataSocket.buffers.push(data);
+//                    });
                     conn.dataSocket.on("end", function () {
                         logIf(3, "Passive data event: end", conn);
                         // remove pointer
@@ -992,38 +992,42 @@ function FtpServer(host, options) {
                 });
 
                 function handleUpload(dataSocket) {
-                    dataSocket.addListener("end", function () {
-                        var writtenToFile = 0;
-                        var doneCallback = function() {
-                            conn.fs.close(fd, function(err) {
-                                if (err) conn.emit('error', err);
-                                else socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
-                            });
-			    conn.emit("file:received", filename);
-                        };
-                        var writeCallback = function(err, written) {
-                            var buf;
+                    var erroredOut = false;
+                    dataSocket.on('data', dataHandler);
+                    function dataHandler (buf) {
+                        conn.fs.write(fd, buf, 0, buf.length, null, function (err) {
                             if (err) {
-                                traceIf(0, "Error writing " + filename + ": " + err, socket);
-                                return;
+                                dataSocket.removeListener('data', dataHandler);
+                                conn.fs.close(fd, function (err) {
+                                    logIf(0, "Error closing file following write error", err);
+                                });
+                                socket.write("426 Connection closed; transfer aborted\r\n");
                             }
-                            writtenToFile += written;
-                            if (!dataSocket.buffers.length) {
-                                doneCallback();
-                                return;
-                            }
-                            buf = dataSocket.buffers.shift();
-                            conn.fs.write(fd, buf, 0, buf.length, null, writeCallback);
-                        };
-                        writeCallback();
-                    });
-                    dataSocket.addListener("error", function(err) {
-                        traceIf(0, "Error transferring " + filename + ": " + err, socket);
-                        // close file handle
-                        conn.fs.close(fd, function (err) {
-                            if (err)
-                                traceIf(0, "Error closing file following data socket error");
                         });
+                    }
+                    dataSocket.once('error', function (buf) {
+                        erroredOut = true;
+                        conn.fs.close(fd, function (err) {
+                            if (err) {
+                                dataSocket.removeListener('data', dataHandler);
+                                logIf(0, "Error closing file following error on dataSocket", err);
+                                socket.write("426 Connection closed; transfer aborted\r\n");
+                            }
+                        });
+                    });
+                    dataSocket.once('end', function (buf) {
+                        dataSocket.removeListener('data', dataHandler);
+                        if (! erroredOut) {
+                            conn.fs.close(fd, function (err) {
+                                if (err) {
+                                    logIf(0, "Error closing file following 'end' message", err);
+                                    socket.write("426 Connection closed; transger aborted\r\n");
+                                    return;
+                                }
+
+                                socket.write("226 Closing data connection\r\n");
+                            });
+                        }
                     });
                 }
                 break;
