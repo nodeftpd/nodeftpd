@@ -167,6 +167,7 @@ function FtpServer(host, options) {
             path: null,
             cwd: null,
             root: null,
+            hasQuit: false,
 
             // State for handling TLS upgrades.
             secure: false,
@@ -305,6 +306,14 @@ function FtpServer(host, options) {
         
         socket.addListener("data", dataListener);
         function dataListener (data) {
+            // Not sure why this is necessary, since we .pause() the socket as soon as we receive QUIT,
+            // but it seems to be. (For some reason, Cyberduck likes to send a NOOP following QUIT
+            // after uploads.)
+            if (conn.hasQuit) {
+                logIf(0, "Ignoring data received following QUIT");
+                return;
+            }
+            
             data = data.toString('utf-8');
 
             data = (data+'').trim();
@@ -804,10 +813,16 @@ function FtpServer(host, options) {
                 socket.write("257 \"" + conn.cwd + "\" is current directory\r\n");
                 break;
             case "QUIT":
+                socket.pause();
+                conn.hasQuit = true;
                 // Disconnect.
-                socket.write("221 Goodbye\r\n");
-                socket.end();
-                closeDataConnections();
+                socket.write("221 Goodbye\r\n", function (err) {
+                    if (err) {
+                        logIf(0, "Error writing 'Goodbye' message following QUIT", err);                       
+                    }
+                    socket.end();
+                    closeDataConnections();
+                });
                 break;
             case "REIN":
                 // Re initializes the connection.
