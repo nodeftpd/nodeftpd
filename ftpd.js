@@ -675,7 +675,7 @@ function FtpServer(host, options) {
                         logIf(1, "Upgrading passive connection to TLS");
                         starttls.starttls(psocket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
-                                logIf(0, "Error upgraing passive connection to TLS:" + util.inspect(err));
+                                logIf(0, "Error upgrading passive connection to TLS:" + util.inspect(err));
                                 psocket.end();
                             }
                             else if (! cleartext.authorized) {
