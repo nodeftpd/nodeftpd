@@ -639,16 +639,12 @@ function FtpServer(host, options) {
                 var pasv = net.createServer(function (psocket) {
                     logIf(1, "Passive data event: connect", conn);
 
-                    // Once we have a completed data connection, make note of it
-                    conn.dataSocket = psocket;
-                    conn.dataSocket.buffers = [];
-
                     if (conn.secure) {
                         logIf(1, "Upgrading passive connection to TLS");
-                        starttls.starttlsServer(conn.dataSocket, options.tlsOptions, function (err, cleartext) {
+                        starttls.starttlsServer(psocket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading passive connection to TLS:" + util.inspect(err));
-                                conn.dataSocket.end();
+                                psocket.end();
                             }
                             else if (! cleartext.authorized) {
                                 if (options.allowUnauthorizedTls) {
@@ -672,10 +668,13 @@ function FtpServer(host, options) {
                         });
                     }
                     else {
+                        conn.dataSocket = psocket;
                         setupPassiveListener();
                     }
 
                     function setupPassiveListener() {
+                        conn.dataSocket.buffers = [];
+
                         if (socket.readable) socket.resume();
 
                         conn.dataSocket.on("data", function(data) {
