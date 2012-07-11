@@ -706,7 +706,7 @@ function FtpServer(host, options) {
                     function setupPassiveListener() {
                         psocket.on("data", function(data) {
                             // should watch out for malicious users uploading large amounts of data outside protocol
-                            logIf(3, 'Data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
+                            logIf(3, 'Passive data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
                             psocket.buffers.push(data);
                         });
                         psocket.on("end", function () {
