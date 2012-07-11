@@ -243,7 +243,6 @@ function FtpServer(host, options) {
                     
                     conn.dataSocket.on("data", function(data) {
                         // should watch out for malicious users uploading large amounts of data outside protocol
-                        console.log(data.toString());
                         logIf(3, 'Passive data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
                         conn.dataSocket.buffers.push(data);
                     });
@@ -268,7 +267,7 @@ function FtpServer(host, options) {
         }
                                         
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
-        function whenDataWritable(callback) {
+        function whenDataReady(callback) {
             if (conn.passive) {
                 // how many data connections are allowed?
                 // should still be listening since we created a server, right?
@@ -477,7 +476,7 @@ function FtpServer(host, options) {
                 if (!authenticated()) break;
 
                 socket.write("150 Here comes the directory listing\r\n", function () {
-                    whenDataWritable( function(pasvconn) {
+                    whenDataReady( function(pasvconn) {
                         var leftPad = function(text, width) {
                             var out = '';
                             for (var j = text.length; j < width; j++) out += ' ';
@@ -629,7 +628,7 @@ function FtpServer(host, options) {
                 */
 
                 socket.write("150 Here comes the directory listing\r\n", function () {
-                    whenDataWritable( function(pasvconn) {
+                    whenDataReady( function(pasvconn) {
                         // This will be called once data has ACTUALLY written out ... socket.write() is async!
                         var success = function() {
                             socket.write("226 Transfer OK\r\n");
@@ -827,7 +826,7 @@ function FtpServer(host, options) {
             case "RETR":
                 // Retrieve (download) a remote file.
                 socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n", function () {
-                    whenDataWritable( function(pasvconn) {
+                    whenDataReady( function(pasvconn) {
                         setSocketWriteEncoding(pasvconn, 'ascii');
                         var filename = PathModule.join(conn.root, commandArg);
                         if(filename != conn.filename)
@@ -975,52 +974,59 @@ function FtpServer(host, options) {
             case "STOR":
                 // Store (upload) a file.
                 if (!authenticated()) break;
-                whenDataWritable( function(dataSocket) {
-                    // dataSocket comes to us paused, so we have a chance to create the file before accepting data
-                    filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
-                    conn.fs.open( filename, 'w', 0644, function(err, fd) {
-                        if(err) {
-                            traceIf(0, 'Error opening/creating file: ' + filename, socket);
-                            socket.write("553 Could not create file\r\n");
-                            dataSocket.end();
-                            return;
-                        }
-                        logIf(3, "File opened/created: " + filename, socket);
+                
+                var filename = PathModule.join(conn.root, withCwd(conn.cwd, commandArg));
+                var fd;
+                conn.fs.open( filename, 'w', 0644, function(err, fd_) {
+                    fd = fd_;
+                    if(err) {
+                        traceIf(0, 'Error opening/creating file: ' + filename, socket);
+                        socket.write("553 Could not create file\r\n");
+                        dataSocket.end();
+                        return;
+                    }
+                    logIf(3, "File opened/created: " + filename, socket);
+                    logIf(3, "Told client ok to send file data", socket);
+                    socket.write("150 Ok to send data\r\n");
 
-                        dataSocket.addListener("end", function () {
-                            var writtenToFile = 0;
-                            var doneCallback = function() {
-                                conn.fs.close(fd, function(err) {
-                                    if (err) conn.emit('error', err);
-                                    else socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
-                                });
-																conn.emit("file:received", filename);
-                            };
-                            var writeCallback = function(err, written) {
-                                var buf;
-                                if (err) {
-                                    traceIf(0, "Error writing " + filename + ": " + err, socket);
-                                    return;
-                                }
-                                writtenToFile += written;
-                                if (!dataSocket.buffers.length) {
-                                    doneCallback();
-                                    return;
-                                }
-                                buf = dataSocket.buffers.shift();
-                                conn.fs.write(fd, buf, 0, buf.length, null, writeCallback);
-                            };
-                            writeCallback();
-                        });
-                        dataSocket.addListener("error", function(err) {
-                            traceIf(0, "Error transferring " + filename + ": " + err, socket);
-                            // close file handle
-                            conn.fs.close(fd);
-                        });
-                        logIf(3, "Told client ok to send file data", socket);
-                        socket.write("150 Ok to send data\r\n"); // don't think resume() needs to wait for this to succeed
-                    });
+                    whenDataReady(handleUpload);
                 });
+
+                function handleUpload(dataSocket) {
+                    dataSocket.addListener("end", function () {
+                        var writtenToFile = 0;
+                        var doneCallback = function() {
+                            conn.fs.close(fd, function(err) {
+                                if (err) conn.emit('error', err);
+                                else socket.write("226 Closing data connection\r\n"); //, recv " + writtenToFile + " bytes\r\n");
+                            });
+			    conn.emit("file:received", filename);
+                        };
+                        var writeCallback = function(err, written) {
+                            var buf;
+                            if (err) {
+                                traceIf(0, "Error writing " + filename + ": " + err, socket);
+                                return;
+                            }
+                            writtenToFile += written;
+                            if (!dataSocket.buffers.length) {
+                                doneCallback();
+                                return;
+                            }
+                            buf = dataSocket.buffers.shift();
+                            conn.fs.write(fd, buf, 0, buf.length, null, writeCallback);
+                        };
+                        writeCallback();
+                    });
+                    dataSocket.addListener("error", function(err) {
+                        traceIf(0, "Error transferring " + filename + ": " + err, socket);
+                        // close file handle
+                        conn.fs.close(fd, function (err) {
+                            if (err)
+                                traceIf(0, "Error closing file following data socket error");
+                        });
+                    });
+                }
                 break;
             case "STOU":
                 // Store file uniquely.
