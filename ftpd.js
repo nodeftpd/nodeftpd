@@ -32,11 +32,7 @@ function withCwd(cwd, p) {
 }
 
 function FtpConnection(properties) {
-    if (false === (this instanceof FtpConnection)) {
-        return new FtpConnection();
-    }
     events.EventEmitter.call(this);
-
     for (k in properties) { this[k] = properties[k]; }
 }
 util.inherits(FtpConnection, process.EventEmitter);
@@ -217,34 +213,11 @@ function FtpServer(host, options) {
                     logIf(3, "Using existing non-passive dataSocket", conn);
                     callback(conn.dataSocket);
                 } else {
-                    logIf(1, "Opening data connection to " + conn.dataHost + ":" + conn.dataPort, conn);
-                    var dataSocket = new net.Socket();
-                    dataSocket.buffers = [];
-                    // Since data may arrive once the connection is made, buffer it
-                    dataSocket.on("data", function(data) {
-                        logIf(3, dataSocket.remoteAddress + ' event: data ; ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'));
-                        dataSocket.buffers.push(data);
-                    });
-                    dataSocket.addListener("connect", function() {
-                        conn.dataSocket = dataSocket;
-                        logIf(3, "Data connection succeeded", conn);
-                        callback(dataSocket);
-                    });
-                    dataSocket.addListener("close", function (hadError) {
-                        conn.dataSocket = null;
-                        if (hadError)
-                            logIf(0, "Data event: close due to error", conn);
-                        else
-                            logIf(3, "Data event: close", conn);
-                    });
-                    dataSocket.addListener("end", function() {
-                        logIf(3, "Data event: end", conn);
-                    });
-                    dataSocket.addListener("error", function(err) {
-                        logIf(0, "Data event: error: " + err, conn);
-                        dataSocket.destroy();
-                    });
-                    dataSocket.connect(conn.dataPort, conn.dataHost);
+                    // This branch of the conditional used to contain code for reopening the passive connection.
+                    // Currently removed because it needs to be updated to handle TLS, and I'm not sure how
+                    // to trigger this branch in testing as of yet. (Maybe it's not even necessary?)
+                    logIf(3, "No passive connection");
+                    socket.write("425 Can't open data connection\r\n");
                 }
             }
         };
@@ -304,7 +277,7 @@ function FtpServer(host, options) {
                 else {
                     socket.write("234 Honored\r\n", function () {
                         logIf(0, "Establishing secure connection...");
-                        starttls.starttls(socket, options.tlsOptions, function (err, cleartext) {
+                        starttls.starttlsServer(socket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading connection to TLS: " + util.inspect(err));
                                 socket.end();
@@ -665,18 +638,17 @@ function FtpServer(host, options) {
                 socket.pause();
                 var pasv = net.createServer(function (psocket) {
                     logIf(1, "Passive data event: connect", conn);
-                    if (socket.readable) socket.resume();
 
                     // Once we have a completed data connection, make note of it
                     conn.dataSocket = psocket;
-                    psocket.buffers = [];
+                    conn.dataSocket.buffers = [];
 
                     if (conn.secure) {
                         logIf(1, "Upgrading passive connection to TLS");
-                        starttls.starttls(psocket, options.tlsOptions, function (err, cleartext) {
+                        starttls.starttlsServer(conn.dataSocket, options.tlsOptions, function (err, cleartext) {
                             if (err) {
                                 logIf(0, "Error upgrading passive connection to TLS:" + util.inspect(err));
-                                psocket.end();
+                                conn.dataSocket.end();
                             }
                             else if (! cleartext.authorized) {
                                 if (options.allowUnauthorizedTls) {
@@ -694,8 +666,8 @@ function FtpServer(host, options) {
 
                             function switchToSecure() {
                                 logIf(1, "Secure passive connection started");
-                                psocket = cleartext;
-                                setupPassiveServer();
+                                conn.dataSocket = cleartext;
+                                setupPassiveListener();
                             }
                         });
                     }
@@ -704,23 +676,26 @@ function FtpServer(host, options) {
                     }
 
                     function setupPassiveListener() {
-                        psocket.on("data", function(data) {
+                        if (socket.readable) socket.resume();
+
+                        conn.dataSocket.on("data", function(data) {
                             // should watch out for malicious users uploading large amounts of data outside protocol
+                            console.log(data.toString());
                             logIf(3, 'Passive data event: received ' + (Buffer.isBuffer(data) ? 'buffer' : 'string'), conn);
-                            psocket.buffers.push(data);
+                            conn.dataSocket.buffers.push(data);
                         });
-                        psocket.on("end", function () {
+                        conn.dataSocket.on("end", function () {
                             logIf(3, "Passive data event: end", conn);
                             // remove pointer
                             conn.dataSocket = null;
                             if (socket.readable) socket.resume(); // just in case
                         });
-                        psocket.addListener("error", function(err) {
+                        conn.dataSocket.addListener("error", function(err) {
                             logIf(0, "Passive data event: error: " + err, conn);
                             conn.dataSocket = null;
                             if (socket.readable) socket.resume();
                         });
-                        psocket.addListener("close", function(had_error) {
+                        conn.dataSocket.addListener("close", function(had_error) {
                             logIf(
                                 (had_error ? 0 : 3),
                                 "Passive data event: close " + (had_error ? " due to error" : ""),
@@ -762,7 +737,7 @@ function FtpServer(host, options) {
                     logIf(3, "Passive data connection beginning to listen", conn);
 
                     var port = pasv.address().port;
-                    conn.passive = true; // wait until we're actually listening
+                    conn.passive = true;
                     conn.dataHost = host;
                     conn.dataPort = port;
                     logIf(3, "Passive data connection listening on port " + port, conn);

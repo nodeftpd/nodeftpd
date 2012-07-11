@@ -22,7 +22,10 @@
 // From Node docs for TLS module.
 var RECOMMENDED_CIPHERS = 'ECDHE-RSA-AES256-SHA:AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM';
 
-function starttls(socket, options, callback) {
+function starttlsServer(socket, options, callback) { return starttls(socket, options, callback, true); }
+function starttlsClient(socket, options, callback) { return starttls(socket, options, callback, false); }
+
+function starttls(socket, options, callback, isServer) {
     var sslcontext, pair, cleartext;
 
     var opts = { };
@@ -34,7 +37,7 @@ function starttls(socket, options, callback) {
     
     socket.removeAllListeners("data");
     sslcontext = require('crypto').createCredentials(opts);
-    pair = require('tls').createSecurePair(sslcontext, true);
+    pair = require('tls').createSecurePair(sslcontext, isServer);
     cleartext = pipe(pair, socket);
 
     var erroredOut = false;
@@ -56,8 +59,10 @@ function starttls(socket, options, callback) {
         callback(null, cleartext);
     });
     pair.once('error', function (err) {
-        erroredOut = true;
-        callback(err);
+        if (! erroredOut) {
+            erroredOut = true;
+            callback(err);
+        }
     });
 
     cleartext._controlReleased = true;
@@ -121,5 +126,6 @@ function pipe(pair, socket) {
     return cleartext;
 }
 
-exports.starttls = starttls;
+exports.starttlsServer = starttlsServer;
+exports.starttlsClient = starttlsClient;
 exports.RECOMMENDED_CIPHERS = RECOMMENDED_CIPHERS;
