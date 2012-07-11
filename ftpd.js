@@ -12,7 +12,7 @@ require('./date-format');
 /*
 TODO:
 - Implement Full RFC 959
-- Implement Full RFC 2228 [ PBSZ and PROT implemented already]
+- Implement Full RFC 2228 [PBSZ and PROT implemented already]
 - Implement RFC 3659
 
 - passive command is for server to determine which port it listens on and report that to the client
