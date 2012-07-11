@@ -1,4 +1,4 @@
-var ftpd = require('./ftpd.js');
+var ftpd = require('./');
 var fs = require('fs');
 var path = require('path');
 var multiparter = require("multiparter");
@@ -33,7 +33,8 @@ var server = new ftpd.FtpServer("127.0.0.1", {
     pasvPortRangeStart: 1025,
     pasvPortRangeEnd: 1050,
     tlsOptions: tlsOptions,
-    allowUnauthorizedTls: true
+    allowUnauthorizedTls: true,
+    uploadMaxSlurpSize: 0
 });
 
 // this event passes in the client socket which emits further events

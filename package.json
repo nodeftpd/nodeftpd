@@ -5,7 +5,7 @@
   },
   "name": "ftpd",
   "version": "0.0.1",
-  "dependencies": {},
+  "dependencies": { },
   "main": "./ftpd.js",
   "devDependencies": {
     "async": "~0.1.15",
