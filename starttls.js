@@ -19,6 +19,9 @@
 //
 //
 
+var tls = require('tls'),
+    crypto = require('crypto');
+
 // From Node docs for TLS module.
 var RECOMMENDED_CIPHERS = 'ECDHE-RSA-AES256-SHA:AES256-SHA:RC4-SHA:RC4:HIGH:!MD5:!aNULL:!EDH:!AESGCM';
 
@@ -36,8 +39,8 @@ function starttls(socket, options, callback, isServer) {
         opts.ciphers = RECOMMENDED_CIPHERS;
     
     socket.removeAllListeners("data");
-    sslcontext = require('crypto').createCredentials(opts);
-    pair = require('tls').createSecurePair(sslcontext, isServer);
+    sslcontext = crypto.createCredentials(opts);
+    pair = tls.createSecurePair(sslcontext, isServer);
     cleartext = pipe(pair, socket);
 
     var erroredOut = false;
