@@ -628,34 +628,33 @@ function FtpServer(host, options) {
                 The server may reject the LIST or NLST request (with code 450 or 550) without first responding with a mark. In this case the server does not touch the data connection.
                 */
 
-                whenDataWritable( function(pasvconn) {
-                    // This will be called once data has ACTUALLY written out ... socket.write() is async!
-                    var success = function() {
-                        socket.write("226 Transfer OK\r\n");
-                        pasvconn.end();
-                    };
-                    // Use temporary filesystem path maker since a path might be sent with NLST
-                    var temp = '';
-                    if (commandArg) {
-                        // Remove double slashes or "up directory"
-                        commandArg = commandArg.replace(/\/{2,}|\.{2}/g, '');
-                        if (commandArg.substr(0, 1) == '/') {
-                            temp = commandArg;
-                        } else {
-                            temp = withCwd(conn.cwd, commandArg);
-                        }
-                    } else temp = conn.cwd;
-                    logIf(3, "Sending file list", conn);
-                    
-                    glob.glob(temp, conn.fs, function(err, files) {
-                        if (err) {
-                            logIf(0, "During NLST, error globbing files: " + err, conn);
-                            socket.write("451 Read error\r\n");
+                socket.write("150 Here comes the directory listing\r\n", function () {
+                    whenDataWritable( function(pasvconn) {
+                        // This will be called once data has ACTUALLY written out ... socket.write() is async!
+                        var success = function() {
+                            socket.write("226 Transfer OK\r\n");
                             pasvconn.end();
-                            return;
-                        }
-                        // Wait until acknowledged!
-                        socket.write("150 Here comes the directory listing\r\n", function() {
+                        };
+                        // Use temporary filesystem path maker since a path might be sent with NLST
+                        var temp = '';
+                        if (commandArg) {
+                            // Remove double slashes or "up directory"
+                            commandArg = commandArg.replace(/\/{2,}|\.{2}/g, '');
+                            if (commandArg.substr(0, 1) == '/') {
+                                temp = commandArg;
+                            } else {
+                                temp = withCwd(conn.cwd, commandArg);
+                            }
+                        } else temp = conn.cwd;
+                        logIf(3, "Sending file list", conn);
+                        
+                        glob.glob(temp, conn.fs, function(err, files) {
+                            if (err) {
+                                logIf(0, "During NLST, error globbing files: " + err, conn);
+                                socket.write("451 Read error\r\n");
+                                pasvconn.end();
+                                return;
+                            }
                             logIf(3, "Directory has " + files.length + " files", conn);
                             pasvconn.write( files.map(PathModule.basename).join("\015\012") + "\015\012", success);
                         });
@@ -827,78 +826,78 @@ function FtpServer(host, options) {
                 break;
             case "RETR":
                 // Retrieve (download) a remote file.
-                whenDataWritable( function(pasvconn) {
-                    setSocketWriteEncoding(pasvconn, 'ascii');
-                    var filename = PathModule.join(conn.root, commandArg);
-                    if(filename != conn.filename)
-                    {
-                        conn.totsize = 0;
-                        conn.filename = filename;
-                    }
-
-                    if (options.slurpFiles) {
-                        conn.fs.readFile(conn.filename, function (err, contents) {
-                            if (err) {
-                                if (err.code == 'ENOENT') {
-                                    socket.write("550 Not Found\r\n");
-                                }
-                                else { // Who knows what's going on here...
-                                    socket.write("550 Not Accessible\r\n");
-                                    traceIf(0, "Error at read other than ENOENT " + err, conn);
-                                }
-                            }
-                            else {
-                                // TODO: This conditional was in the original code. Seems like there should also be
-                                // an 'else'. What do do here?
-                                socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
-                                if (pasvconn.readyState == 'open') pasvconn.write(contents)
-                                pasvconn.end();
-                                socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
-                            }
-                        });
-                    }
-                    else {
-                        conn.fs.open(conn.filename, "r", function (err, fd) {
-                            logIf(0, "DATA file " + conn.filename + " opened", conn);
-                            socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n");
-                            function readChunk() {
-                                if (! self.buffer) self.buffer = new Buffer(4096);
-                                conn.fs.read(fd, self.buffer, 0, 4096, null/*pos*/, function(err, bytesRead, buffer) {
-                                    if(err) {
-                                        traceIf(0, "Error reading chunk", conn);
-                                        conn.emit("error", err);
-                                        return;
+                socket.write("150 Opening " + conn.mode.toUpperCase() + " mode data connection\r\n", function () {
+                    whenDataWritable( function(pasvconn) {
+                        setSocketWriteEncoding(pasvconn, 'ascii');
+                        var filename = PathModule.join(conn.root, commandArg);
+                        if(filename != conn.filename)
+                        {
+                            conn.totsize = 0;
+                            conn.filename = filename;
+                        }
+                        
+                        if (options.slurpFiles) {
+                            conn.fs.readFile(conn.filename, function (err, contents) {
+                                if (err) {
+                                    if (err.code == 'ENOENT') {
+                                        socket.write("550 Not Found\r\n");
                                     }
-                                    if (bytesRead > 0) {
-                                        conn.totsize += bytesRead;
-                                        if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead));
-                                        readChunk();
+                                    else { // Who knows what's going on here...
+                                        socket.write("550 Not Accessible\r\n");
+                                        traceIf(0, "Error at read other than ENOENT " + err, conn);
                                     }
-                                    else {
-                                        logIf(0, "DATA file " + conn.filename + " closed", conn);
-                                        pasvconn.end();
-                                        socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
-                                        conn.fs.close(fd, function (err) {
-                                            if (err) conn.emit("error", err);
-                                            conn.totsize = 0;
-                                        });
+                                }
+                                else {
+                                    // TODO: This conditional was in the original code. Seems like there should also be
+                                    // an 'else'. What do do here?
+                                    if (pasvconn.readyState == 'open') pasvconn.write(contents)
+                                    pasvconn.end();
+                                    socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
+                                }
+                            });
+                        }
+                        else {
+                            conn.fs.open(conn.filename, "r", function (err, fd) {
+                                logIf(0, "DATA file " + conn.filename + " opened", conn);
+                                function readChunk() {
+                                    if (! self.buffer) self.buffer = new Buffer(4096);
+                                    conn.fs.read(fd, self.buffer, 0, 4096, null/*pos*/, function(err, bytesRead, buffer) {
+                                        if(err) {
+                                            traceIf(0, "Error reading chunk", conn);
+                                            conn.emit("error", err);
+                                            return;
+                                        }
+                                        if (bytesRead > 0) {
+                                            conn.totsize += bytesRead;
+                                            if(pasvconn.readyState == "open") pasvconn.write(self.buffer.slice(0, bytesRead));
+                                            readChunk();
+                                        }
+                                        else {
+                                            logIf(0, "DATA file " + conn.filename + " closed", conn);
+                                            pasvconn.end();
+                                            socket.write("226 Closing data connection, sent " + conn.totsize + " bytes\r\n");
+                                            conn.fs.close(fd, function (err) {
+                                                if (err) conn.emit("error", err);
+                                                conn.totsize = 0;
+                                            });
+                                        }
+                                    });
+                                }
+                                if(err) {
+                                    if (err.code == 'ENOENT') {
+                                        socket.write("550 Not Found\r\n");
                                     }
-                                });
-                            }
-                            if(err) {
-                                if (err.code == 'ENOENT') {
-                                    socket.write("550 Not Found\r\n");
+                                    else { // Who know's what's going on here...
+                                        socket.write("550 Not Accessible\r\n");
+                                        traceIf(0, "Error at read other than ENOENT " + err, conn);
+                                    }
                                 }
-                                else { // Who know's what's going on here...
-                                    socket.write("550 Not Accessible\r\n");
-                                    traceIf(0, "Error at read other than ENOENT " + err, conn);
+                                else {
+                                    readChunk();
                                 }
-                            }
-                            else {
-                                readChunk();
-                            }
-                        });
-                    }
+                            });
+                        }
+                    });
                 });
                 break;
             case "RMD":
