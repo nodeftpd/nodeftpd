@@ -275,7 +275,6 @@ function FtpServer(host, options) {
             });
         }
                                         
-                                        
         // Purpose of this is to ensure a valid data connection, and run the callback when it's ready
         function whenDataWritable(callback) {
             if (conn.passive) {
