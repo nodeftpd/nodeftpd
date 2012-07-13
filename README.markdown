@@ -45,6 +45,8 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
   `tls.createServer`.
 * `tlsOnly`: If this is set to `true`, and `tlsOptions` is also set, then the
   server will not allow logins over non-secure connections.
+* `maxStatsAtOnce`: The maximum number of concurrent calls to `fs.stat` which will be
+  made when processing a `LIST` request. Default is 5.
 
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
