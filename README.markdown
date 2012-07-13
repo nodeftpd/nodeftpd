@@ -61,7 +61,7 @@ module. The following must be implemented:
 * `close`
 * `rmdir`
 * `rename`
-* `stat` → `{ mode, isDirectory, size, mtime }`
+* `stat` → `{ mode, isDirectory(), size, mtime }`
 * `write`
 * `exists`
 
