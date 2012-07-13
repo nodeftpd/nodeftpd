@@ -16,7 +16,7 @@ Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
   his/her own virtual file system which is completely isolated from the file
   systems of other users.
 * Provides hooks for handling authentication, etc.
-* Supports TLS with explicit AUTH (though this is still a little buggy in places).
+* Supports TLS with explicit AUTH.
 
 The code assumes that the `exists` function lives in the `fs` module, not the
 `path` module, as in earlier versions of Node. However, monkeypatching `fs`
