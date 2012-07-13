@@ -2,7 +2,7 @@ nodeftpd - a simple FTP server written in node.js
 ====
 
 This started as a fork of https://github.com/alanszlosek/nodeftpd
-(which itself is based on Andrew Johnston's http://github.com/billywhizz/nodeftpd)
+(which itself is based on Andrew Johnston's http://github.com/billywhizz/nodeftpd).
 The code has now diverged quite a bit from the original codebase.
 The old README for Alan Szlosek's version is OldREADME.markdown
 
