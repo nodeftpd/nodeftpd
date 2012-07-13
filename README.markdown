@@ -65,4 +65,5 @@ module. The following must be implemented:
 * `write`
 * `exists`
 
-`FtpServer` has `listen` and `close` methods which behave as expected.
+`FtpServer` has `listen` and `close` methods which behave as expected. It
+emits `close` and `error` events.
