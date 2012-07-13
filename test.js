@@ -33,6 +33,7 @@ var server = new ftpd.FtpServer("127.0.0.1", {
     pasvPortRangeStart: 1025,
     pasvPortRangeEnd: 1050,
     tlsOptions: tlsOptions,
+    tlsOnly: true,
     allowUnauthorizedTls: true,
     uploadMaxSlurpSize: 0
 });

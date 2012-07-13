@@ -12,7 +12,9 @@ Introduction
 Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 
 * Abstracts out the `fs` module, so you can pass in any implemetation
-  you like on a per-user basis.
+  you like on a per-user basis. This makes it possible for each user to have
+  his/her own virtual file system which is completely isolated from the file
+  systems of other users.
 * Provides hooks for handling authentication, etc.
 * Supports TLS with explicit AUTH (though this is still a little buggy in places).
 
@@ -41,6 +43,8 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
 * `tlsOptions`: If this is set, the server will allow explicit TLS authentication.
   Value should be a dictionary which is suitable as the `options` argument of
   `tls.createServer`.
+* `tlsOnly`: If this is set to `true`, and `tlsOptions` is also set, then the
+  server will not allow logins over non-secure connections.
 
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
