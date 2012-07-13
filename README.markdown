@@ -8,12 +8,16 @@ The old README can be found in in OldREADME.markdown
 Introduction
 ----
 
-Nodeftpd is a simple but very configurable FTP(S) server. It:
+Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 
 * Abstracts out the `fs` module, so you can pass in any implemetation
   you like on a per-user basis.
 * Provides hooks for handling authentication, etc.
 * Supports TLS with explicit AUTH (though this is still a little buggy in places).
+
+The code assumes that the `exists` function lives in the `fs` module, not the
+`path` module, as in earlier versions of Node. However, monkeypatching `fs`
+with `exists` should be sufficient to get this working with older Node versions.
 
 Usage
 ----
@@ -37,10 +41,10 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
   Value should be a dictionary which is suitable as the `options` argument of
   `tls.createServer`.
 
-The server raises a 'command:pass' event which is given 'pass', 'success' and
-'failure' arguments. On successful login, 'success' should be called with a
+The server raises a `command:pass` event which is given `pass`, `success` and
+`failure` arguments. On successful login, `success` should be called with a
 username argument. It may also optionally be given a second argument, which
-should be an object providing an implementation of the API for Node's 'fs'
+should be an object providing an implementation of the API for Node's `fs`
 module. The following must be implemented:
 
 * `unlink`
