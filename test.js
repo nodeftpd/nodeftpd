@@ -42,9 +42,6 @@ server.on('error', function (err) {
     console.log("FTP Server error:", err);
 });
 
-// this event passes in the client socket which emits further events
-// but should recommend they don't do socket operations on it
-// so should probably encapsulate and hide it
 server.on("client:connected", function(conn) {
     var username = null;
     console.log("client connected: " + conn.remoteAddress);
