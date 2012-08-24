@@ -26,7 +26,7 @@ var tlsOptions = (process.env.KEY_FILE && process.env.CERT_FILE ? {
         return fs.readFileSync(f);
     })
 } : null);
-console.log(tlsOptions);
+
 var server = new ftpd.FtpServer("127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
     getRoot: function () { return process.cwd(); },
@@ -104,3 +104,5 @@ server.on("client:connected", function(conn) {
 });
 server.debugging = 4;
 server.listen(7002);
+
+console.log("Listening on port 7002");
