@@ -47,6 +47,16 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
   server will not allow logins over non-secure connections.
 * `maxStatsAtOnce`: The maximum number of concurrent calls to `fs.stat` which will be
   made when processing a `LIST` request. Default is 5.
+* `filenameSortFunc`: A function which can be used as the argument of an array's
+  `sort` method. Used to sort filenames for directory listings. If this is not
+  specified, filenames are ordered using `localeCompare`.
+* `filenameSortMap`: A function which is applied to each filename before sorting.
+  By default, this is `function (x) { return x.toUpperCase() }`. If set to `false`,
+  filenames are unaltered.
+* `dontSortFilenames`: If this is set, then filenames are not sorted in responses
+   to the `LIST` and `NLST` commands.
+* `noWildcards`: If set to `true`, then `LIST` and `NLST` treat the characters
+  `?` and `*` as literals instead of as wildcards.
 
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
