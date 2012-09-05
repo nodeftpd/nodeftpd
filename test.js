@@ -16,8 +16,14 @@ if (process.env.KEY_FILE && process.env.CERT_FILE) {
         certFile = path.join(__dirname, process.env.CERT_FILE);
 }
 else {
-    console.log("\n*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) 'CA_FILES' env vars ***\n");
+    console.log(
+        "\n" +
+        "*** To run as FTPS server, set 'KEY_FILE', 'CERT_FILE' and (optionally) ***\n" +
+        "*** 'CA_FILES' env vars. Set 'PORT' to change port that the server      ***\n" +
+        "*** listens on.                                                         ***\n"
+    );
 }
+var listenPort = process.env.PORT || 7002;
 
 var tlsOptions = (process.env.KEY_FILE && process.env.CERT_FILE ? {
     key: fs.readFileSync(keyFile),
@@ -103,6 +109,6 @@ server.on("client:connected", function(conn) {
   });*/
 });
 server.debugging = 4;
-server.listen(7002);
+server.listen(listenPort);
 
-console.log("Listening on port 7002");
+console.log("Listening on port " + listenPort);
