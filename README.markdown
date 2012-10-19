@@ -36,10 +36,12 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
 * `slurpFiles`: If set to `true`, files which the client requests to download
    are slurped using `readFile` before being sent, rather than being read
    chunk-by-chunk.
+* `useWriteFile`: If set to `true`, then files which the client uploads are
+  buffered in memory and then written to disk using `writeFile`.
 * `uploadMaxSlurpSize`: Determines the maximum file size (in bytes) for
-  which uploads are buffered in memory before being written to disk using
-  a single call to 'write'. Bigger uploads are written chunk-by-chunk via
-  multiple calls to 'write'. The default is 0 (all uploads are written chunk-by-chunk).
+  which uploads are buffered in memory before being written to disk. Has an effect
+  only if `useWriteFile` is set to `true`. If `uploadMaxSlurpSize` is not set,
+  then there is no limit on buffer size.
 * `tlsOptions`: If this is set, the server will allow explicit TLS authentication.
   Value should be a dictionary which is suitable as the `options` argument of
   `tls.createServer`.
@@ -68,13 +70,14 @@ module. The following must be implemented:
 * `readdir`
 * `mkdir`
 * `open`
-* `read`
-* `readFile`
+* `read` [if `slurpFiles` option is not set]
+* `readFile` [if `slurpFiles` option is set]
 * `close`
 * `rmdir`
 * `rename`
 * `stat` → `{ mode, isDirectory(), size, mtime }`
-* `write`
+* `createWriteStream` [if `useWriteFile` option is not set]
+* `writeFile` [if `useWriteFile` option is set]
 * `exists`
 
 `FtpServer` has `listen` and `close` methods which behave as expected. It
