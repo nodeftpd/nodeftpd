@@ -33,7 +33,7 @@ var tlsOptions = (process.env.KEY_FILE && process.env.CERT_FILE ? {
     })
 } : null);
 
-var server = new ftpd.FtpServer("127.0.0.1", {
+var server = new ftpd.FtpServer(process.env.IP || "127.0.0.1", {
 //    getInitialCwd: function () { return "/"; }
     getRoot: function () { return process.cwd(); },
     pasvPortRangeStart: 1025,
