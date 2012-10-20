@@ -42,7 +42,7 @@ var server = new ftpd.FtpServer(process.env.IP || "127.0.0.1", {
 //    tlsOnly: true,
     allowUnauthorizedTls: true,
     useWriteFile: false,
-    uploadMaxSlurpSize: 7000
+    uploadMaxSlurpSize: 7000 // N/A unless 'useWriteFile' is true.
 });
 
 server.on('error', function (err) {
