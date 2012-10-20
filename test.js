@@ -63,51 +63,6 @@ server.on("client:connected", function(conn) {
         if (pass) success(username);
         else failure();
     });
-
-  // This was added as a test in commit 6537c35710 by thomaschaaf to test the new file:received hook.
-  // Commenting it out here since it won't work for people who don't have the relevant http server set up.
-  //
-/*  conn.on("file:received", function(file) {
-    var post = "http://localhost/photos";
-    var settings = url.parse(post);
-    console.log(settings);
-    var request = new multiparter.request(http, {
-      host: settings.hostname,
-      port: settings.post, 
-      path: settings.pathname,
-      method: "POST"
-    });
-
-
-    request.addStream(
-      'file', 
-      path.basename(file),
-      mime.lookup(file),
-      fs.statSync(file).size,
-      fs.createReadStream(file));
-
-    request.send(function(error, response) {
-      if (error) {
-        console.log(error);
-      }
-
-      var data = "";
-
-      response.setEncoding("utf8");
-
-      response.on("data", function(chunk) {
-        data += chunk;
-      });
-
-      response.on("end", function() {
-        console.log("Data: " + data);
-      });
-
-      response.on("error", function(error) {
-        console.log(error);
-      });
-    });
-  });*/
 });
 server.debugging = 4;
 server.listen(listenPort);
