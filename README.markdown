@@ -76,8 +76,12 @@ module. The following must be implemented:
 * `rmdir`
 * `rename`
 * `stat` → `{ mode, isDirectory(), size, mtime }`
-* `createWriteStream` [if `useWriteFile` option is not set]
-* `writeFile` [if `useWriteFile` option is set]
+* `createWriteStream` [if `useWriteFile` option is not set or is false]
+* * Requires writable stream: events: 'open', 'error', 'close'; functions: 'write'
+* `writeFile` [if `useWriteFile` option is set to 'true']
+* `createReadStream` [if `useReadFile` option is not set or is false]
+* * Requires readable stream: events: 'error', 'data', 'end'; functions: 'destroy'
+* `readFile` [if `useReadFile` option is set to 'true']
 * `exists`
 
 `FtpServer` has `listen` and `close` methods which behave as expected. It
