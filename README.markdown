@@ -19,7 +19,7 @@ Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 * Supports TLS with explicit AUTH.
 
 The code assumes that the `exists` function lives in the `fs` module, not the
-`path` module, as in earlier versions of Node. However, monkeypatching `fs`
+`path` module, as in versions of Node prior to 0.8.x. However, monkeypatching `fs`
 with `exists` should be sufficient to get this working with older Node versions.
 
 Usage
@@ -38,6 +38,9 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
    chunk-by-chunk.
 * `useWriteFile`: If set to `true`, then files which the client uploads are
   buffered in memory and then written to disk using `writeFile`.
+* `useReadFile`: If set to `true`, then files which the client uploads are
+  buffered in memory by chunking `fs.read` (or with slurp, into slurp with 
+  `fs.readFile`) and then passed to the connection stream.
 * `uploadMaxSlurpSize`: Determines the maximum file size (in bytes) for
   which uploads are buffered in memory before being written to disk. Has an effect
   only if `useWriteFile` is set to `true`. If `uploadMaxSlurpSize` is not set,
@@ -64,7 +67,9 @@ The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
 username argument. It may also optionally be given a second argument, which
 should be an object providing an implementation of the API for Node's `fs`
-module. The following must be implemented:
+module. 
+
+The following must be implemented:
 
 * `unlink`
 * `readdir`
@@ -76,11 +81,13 @@ module. The following must be implemented:
 * `rmdir`
 * `rename`
 * `stat` → `{ mode, isDirectory(), size, mtime }`
-* `createWriteStream` [if `useWriteFile` option is not set or is false]
-* * Requires writable stream: events: 'open', 'error', 'close'; functions: 'write'
+* `createWriteStream` [if `useWriteFile` option is not set or is false] - 
+    _Returns a writable stream, requiring:_ 
+    events: 'open', 'error', 'close'; functions: 'write'
 * `writeFile` [if `useWriteFile` option is set to 'true']
 * `createReadStream` [if `useReadFile` option is not set or is false]
-* * Requires readable stream: events: 'error', 'data', 'end'; functions: 'destroy'
+    _Returns a readable stream, requiring:_
+    events: 'error', 'data', 'end'; functions: 'destroy'
 * `readFile` [if `useReadFile` option is set to 'true']
 * `exists`
 
