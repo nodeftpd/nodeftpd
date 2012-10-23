@@ -33,7 +33,7 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
   username and a callback, calls the callback with an error argument or a root
   directory. The user cannot escape from the root dir. This option must be set
   (there is no default).
- * `useWriteFile`: If set to `true`, then files which the client uploads are
+* `useWriteFile`: If set to `true`, then files which the client uploads are
   buffered in memory and then written to disk using `writeFile`.
 * `useReadFile`: If set to `true`, then files which the client uploads are
   slurped using 'readFile'.
