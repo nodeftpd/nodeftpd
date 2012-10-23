@@ -71,8 +71,7 @@ The following must be implemented:
 * `readdir`
 * `mkdir`
 * `open`
-* `read` [if `slurpFiles` option is not set]
-* `readFile` [if `slurpFiles` option is set]
+* `readFile` [if `useReadFile` option is set]
 * `close`
 * `rmdir`
 * `rename`
