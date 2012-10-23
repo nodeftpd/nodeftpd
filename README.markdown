@@ -18,10 +18,6 @@ Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 * Provides hooks for handling authentication, etc.
 * Supports TLS with explicit AUTH.
 
-The code assumes that the `exists` function lives in the `fs` module, not the
-`path` module, as in versions of Node prior to 0.8.x. However, monkeypatching `fs`
-with `exists` should be sufficient to get this working with older Node versions.
-
 Usage
 ----
 
@@ -88,7 +84,6 @@ The following must be implemented:
     _Returns a readable stream, requiring:_
     events: 'error', 'data', 'end'; functions: 'destroy'
 * `readFile` [if `useReadFile` option is set to 'true']
-* `exists`
 
 `FtpServer` has `listen` and `close` methods which behave as expected. It
 emits `close` and `error` events.
