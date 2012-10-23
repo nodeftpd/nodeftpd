@@ -33,14 +33,10 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
 * `getRoot`: A function which, given a username, returns a root directory (the
   user cannot escape this directory). The default is a function which always
   returns "/".
-* `slurpFiles`: If set to `true`, files which the client requests to download
-   are slurped using `readFile` before being sent, rather than being read
-   chunk-by-chunk.
 * `useWriteFile`: If set to `true`, then files which the client uploads are
   buffered in memory and then written to disk using `writeFile`.
 * `useReadFile`: If set to `true`, then files which the client uploads are
-  buffered in memory by chunking `fs.read` (or with slurp, into slurp with 
-  `fs.readFile`) and then passed to the connection stream.
+  slurped using 'readFile'.
 * `uploadMaxSlurpSize`: Determines the maximum file size (in bytes) for
   which uploads are buffered in memory before being written to disk. Has an effect
   only if `useWriteFile` is set to `true`. If `uploadMaxSlurpSize` is not set,
