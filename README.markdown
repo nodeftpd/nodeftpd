@@ -28,7 +28,7 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
   returns an initial CWD, or (ii), a two-argument function which, given a
   username and a callback, calls the callback with an error argument or an
   initial CWD. This option must be set (there is no default).
-* Either (i), a 0/1-argument function which, given an optional username argument,
+* `getRoot`: Either (i), a 0/1-argument function which, given an optional username argument,
   returns a root directory, or (ii), a two-argument function which, given a
   username and a callback, calls the callback with an error argument or a root
   directory. The user cannot escape from the root dir. This option must be set
