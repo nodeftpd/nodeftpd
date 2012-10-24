@@ -18,29 +18,25 @@ Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 * Provides hooks for handling authentication, etc.
 * Supports TLS with explicit AUTH.
 
-The code assumes that the `exists` function lives in the `fs` module, not the
-`path` module, as in versions of Node prior to 0.8.x. However, monkeypatching `fs`
-with `exists` should be sufficient to get this working with older Node versions.
-
 Usage
 ----
 
 See `test.js` for a simple example. `FtpServer` accepts the following options:
 
 * `host`: An IP address.
-* `getInitialCwd`: A function which, given a username, returns an initial CWD.
-  The default is a function which always returns `"/"`.
-* `getRoot`: A function which, given a username, returns a root directory (the
-  user cannot escape this directory). The default is a function which always
-  returns "/".
-* `slurpFiles`: If set to `true`, files which the client requests to download
-   are slurped using `readFile` before being sent, rather than being read
-   chunk-by-chunk.
+* `getInitialCwd`: Either (i), a 0/1-argument function which, given an optional username argument,
+  returns an initial CWD, or (ii), a two-argument function which, given a
+  username and a callback, calls the callback with an error argument or an
+  initial CWD. This option must be set (there is no default).
+* `getRoot`: Either (i), a 0/1-argument function which, given an optional username argument,
+  returns a root directory, or (ii), a two-argument function which, given a
+  username and a callback, calls the callback with an error argument or a root
+  directory. The user cannot escape from the root dir. This option must be set
+  (there is no default).
 * `useWriteFile`: If set to `true`, then files which the client uploads are
   buffered in memory and then written to disk using `writeFile`.
 * `useReadFile`: If set to `true`, then files which the client uploads are
-  buffered in memory by chunking `fs.read` (or with slurp, into slurp with 
-  `fs.readFile`) and then passed to the connection stream.
+  slurped using 'readFile'.
 * `uploadMaxSlurpSize`: Determines the maximum file size (in bytes) for
   which uploads are buffered in memory before being written to disk. Has an effect
   only if `useWriteFile` is set to `true`. If `uploadMaxSlurpSize` is not set,
@@ -75,8 +71,7 @@ The following must be implemented:
 * `readdir`
 * `mkdir`
 * `open`
-* `read` [if `slurpFiles` option is not set]
-* `readFile` [if `slurpFiles` option is set]
+* `readFile` [if `useReadFile` option is set]
 * `close`
 * `rmdir`
 * `rename`
@@ -89,7 +84,6 @@ The following must be implemented:
     _Returns a readable stream, requiring:_
     events: 'error', 'data', 'end'; functions: 'destroy'
 * `readFile` [if `useReadFile` option is set to 'true']
-* `exists`
 
 `FtpServer` has `listen` and `close` methods which behave as expected. It
 emits `close` and `error` events.
