@@ -6,6 +6,19 @@ This started as a fork of https://github.com/alanszlosek/nodeftpd
 The code has now diverged quite a bit from the original codebase.
 The old README for Alan Szlosek's version is OldREADME.markdown
 
+
+**Table of Contents**  *generated with [DocToc](http://doctoc.herokuapp.com/)*
+
+- [Introduction](#introduction)
+- [Usage](#usage)
+	- [FtpServer options:](#ftpserver-options)
+		- [host (string) - IP Address](#host-string---ip-address)
+		- [options (object) - Configuration](#options-object---configuration)
+			- [Path Configurations](#path-configurations)
+			- [File/handling Configurations](#filehandling-configurations)
+			- [Connectivity settings](#connectivity-settings)
+- [Filesystem Abstraction](#filesystem-abstraction)
+
 ## Introduction
 
 
@@ -20,15 +33,46 @@ Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 
 ## Usage
 
-Create the FTPServer:
+Create the FTPServer (simple example):
 
+```js
     var ftpd = require('ftpd');    
+    
+    var options = {
+        pasvPortRangeStart: 4000,
+        pasvPortRangeEnd: 5000,
+        getInitialCwd: function(user,callback) {
+            var userPath = process.cwd()+"/"+user;
+            fs.exists(userPath, function(exists){
+                exists ? callback(null,userPath) : callback("path does not exist",userPath);
+            });
+        },
+        getRoot: function(user){
+            return "/";
+        }        
+    }
+    
+    var host = "10.0.0.42";
 
     var server = new ftpd.FtpServer(host, options);
     
     server.on("client:connected", function(conn){
+        console.log("Client connected from "+conn.socket.remoteAddress);
         conn.on("command:user", function(user, success, failure) {
-
+            // only allow awesome users
+            conn.username = user;
+            (user == "awesome") ? success() : failure();
+        }
+        conn.on("command:pass", function(pass, success, failure){
+            // checking the pass
+            (pass == "bar") ? success(conn.user) : failure();
+        }
+    }
+    
+    server.listen(21)
+    console.log("FTPD listening on port 21");
+            
+```
 
 ### FtpServer options:
 
@@ -52,13 +96,16 @@ Both these need to be set - there are no defaults.
     - **Examples**:
         - Simplest usage, no callback, just return:
 
+        ```js
                 getInitialCwd: function(user) {
                                    return process.cwd()+"/"+user;
                                }
                 // The users path is hereby limited to the [cwd]/username directory
-        
+        ```        
+
         - Usage with callback:
         
+        ```js
                 getInitialCwd: function(user,callback) {
                                     var userDir = process.cwd()+"/"+user;
                                     fs.exists(userDir, function(exists){
@@ -73,7 +120,8 @@ Both these need to be set - there are no defaults.
                                 }
                 // If the directory exists, callback immediately with that directory
                 // If not, create the directory, and callback possible error + directory
-        
+        ```        
+
         - Typical cases where you would want/need the callback involve retrieving configurations from external datasources and suchlike.
 
 - `getRoot`: Gets the root directory for the user relative to the CWD.  Called after getInitialCwd. 
@@ -84,13 +132,16 @@ Both these need to be set - there are no defaults.
         - callback (function, optional): 
     - **Examples**:
 
+        ```js
                 getRoot: function() {
                            return "/";
                        }
                 // The users will now enter at the "/" level, which is the directory passed to getInitialCwd.
-        
+        ```
+
         - Usage with callback:
-        
+
+        ```js
                 getRoot: function(user,callback) {
                             // This is a slightly silly example and I know it.
                             var rootDir = "/myHome";
@@ -112,7 +163,8 @@ Both these need to be set - there are no defaults.
                 // If the subdir exists, callback immediately with relative path to that directory
                 // If not, create the directory, and callback relative path to the directory
                 // Stupidly, instead of failing, we apparantly want 'worst case' scenario to allow relative root.
-        
+        ```
+
         - Typical cases where you would want/need the callback involve retrieving configurations from external datasources and suchlike.
         - Additionally, you may want to provide emulation of a path, for instance /users/(username)/ftproot.
 
@@ -158,6 +210,11 @@ Both these need to be set - there are no defaults.
 
 
 ## Filesystem Abstraction
+
+Filesystem abstraction seems odd - but is actually quite sexy.  By providing a custom implementation
+one can be able create an FTP server which is directly interfacing with a database rather than the 
+actual filesystem, and from there, the possibilities are limitless.
+
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
 username argument. It may also optionally be given a second argument, which
@@ -170,7 +227,6 @@ The following must be implemented:
 - `readdir`
 - `mkdir`
 - `open`
-- `readFile` [if `useReadFile` option is set]
 - `close`
 - `rmdir`
 - `rename`
