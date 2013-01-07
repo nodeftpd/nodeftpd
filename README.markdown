@@ -6,9 +6,6 @@ This started as a fork of https://github.com/alanszlosek/nodeftpd
 The code has now diverged quite a bit from the original codebase.
 The old README for Alan Szlosek's version is OldREADME.markdown
 
-
-**Table of Contents**  *generated with [DocToc](http://doctoc.herokuapp.com/)*
-
 - [Introduction](#introduction)
 - [Usage](#usage)
 	- [FtpServer options:](#ftpserver-options)
@@ -59,9 +56,7 @@ Create the FTPServer (simple example):
     server.on("client:connected", function(conn){
         console.log("Client connected from "+conn.socket.remoteAddress);
         conn.on("command:user", function(user, success, failure) {
-            // only allow awesome users
-            conn.username = user;
-            (user == "awesome") ? success() : failure();
+            (user == "john") ? success() : failure();
         }
         conn.on("command:pass", function(pass, success, failure){
             // checking the pass
@@ -211,9 +206,9 @@ Both these need to be set - there are no defaults.
 
 ## Filesystem Abstraction
 
-Filesystem abstraction seems odd - but is actually quite sexy.  By providing a custom implementation
-one can be able create an FTP server which is directly interfacing with a database rather than the 
-actual filesystem, and from there, the possibilities are limitless.
+Filesystem makes it possible to
+create an FTP server which interacts directly with a database rather than the 
+actual filesystem.
 
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
