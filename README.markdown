@@ -54,13 +54,15 @@ Create the FTPServer (simple example):
     var server = new ftpd.FtpServer(host, options);
     
     server.on("client:connected", function(conn){
+        var username;
         console.log("Client connected from "+conn.socket.remoteAddress);
         conn.on("command:user", function(user, success, failure) {
+            username = user;
             (user == "john") ? success() : failure();
         }
         conn.on("command:pass", function(pass, success, failure){
             // checking the pass
-            (pass == "bar") ? success(conn.user) : failure();
+            (pass == "bar") ? success(username) : failure();
         }
     }
     
