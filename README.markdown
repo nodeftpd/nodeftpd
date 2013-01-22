@@ -140,7 +140,6 @@ Both these need to be set - there are no defaults.
 
         ```js
                 getRoot: function(user,callback) {
-                            // This is a slightly silly example and I know it.
                             var rootDir = "/myHome";
                             var rootPath = process.cwd()+"/"+user+"/myHome";
                             fs.exists(rootPath, function(exists){
@@ -208,7 +207,7 @@ Both these need to be set - there are no defaults.
 
 ## Filesystem Abstraction
 
-Filesystem makes it possible to
+Filesystem abstraction makes it possible to
 create an FTP server which interacts directly with a database rather than the 
 actual filesystem.
 
