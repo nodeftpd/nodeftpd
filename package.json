@@ -2,7 +2,7 @@
   "name": "ftpd",
   "version": "0.2.3",
   "description": "Node FTP Server",
-  "main": "./ftpd.js",
+  "main": "./lib/ftpd.js",
   "scripts": {
     "test" : "mocha specs/* --globals commandArg"
   },
