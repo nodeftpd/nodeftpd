@@ -21,7 +21,7 @@ The old README for Alan Szlosek's version is OldREADME.markdown
 
 Nodeftpd is a simple but very configurable FTP(S) server. Nodeftpd:
 
-* Abstracts out the `fs` module, so you can pass in any implemetation
+* Abstracts out the `fs` module, so you can pass in any implementation
   you like on a per-user basis. This makes it possible for each user to have
   his/her own virtual file system which is completely isolated from the file
   systems of other users.
@@ -94,8 +94,8 @@ Both these need to be set - there are no defaults.
         - Simplest usage, no callback, just return:
 
         ```js
-                getInitialCwd: function(user) {
-                                   return process.cwd()+"/"+user;
+                getInitialCwd: function(connection) {
+                                   return process.cwd()+"/"+connection.username;
                                }
                 // The users path is hereby limited to the [cwd]/username directory
         ```        
@@ -103,8 +103,8 @@ Both these need to be set - there are no defaults.
         - Usage with callback:
         
         ```js
-                getInitialCwd: function(user,callback) {
-                                    var userDir = process.cwd()+"/"+user;
+                getInitialCwd: function(connection,callback) {
+                                    var userDir = process.cwd()+"/"+connection.username;
                                     fs.exists(userDir, function(exists){
                                         if (exists) {
                                             callback(null,userDir);
@@ -139,9 +139,9 @@ Both these need to be set - there are no defaults.
         - Usage with callback:
 
         ```js
-                getRoot: function(user,callback) {
+                getRoot: function(connection,callback) {
                             var rootDir = "/myHome";
-                            var rootPath = process.cwd()+"/"+user+"/myHome";
+                            var rootPath = process.cwd()+"/"+connection.username+"/myHome";
                             fs.exists(rootPath, function(exists){
                                 if (exists) {
                                     callback(null,rootDir);
@@ -158,7 +158,7 @@ Both these need to be set - there are no defaults.
                         }
                 // If the subdir exists, callback immediately with relative path to that directory
                 // If not, create the directory, and callback relative path to the directory
-                // Stupidly, instead of failing, we apparantly want 'worst case' scenario to allow relative root.
+                // Stupidly, instead of failing, we apparently want 'worst case' scenario to allow relative root.
         ```
 
         - Typical cases where you would want/need the callback involve retrieving configurations from external datasources and suchlike.
