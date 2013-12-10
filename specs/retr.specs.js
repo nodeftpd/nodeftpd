@@ -1,16 +1,18 @@
 require('should');
 var ftpd = require('../ftpd'),
-  Ftp = require("jsftp"),
-  fs = require("fs"),
-  path = require('path');
+    Ftp = require("jsftp"),
+    fs = require("fs"),
+    path = require('path');
 
 
-describe('RETR ftpd command', function(){
+describe('RETR ftpd command', function() {
   var ftp, server;
 
-  beforeEach(function(done){
+  beforeEach(function(done) {
     server = new ftpd.FtpServer("127.0.0.1", {
-      getRoot: function (u) { return fs.realpathSync(path.join(__dirname, '/../fixture', u)); }
+      getRoot: function(u) {
+        return fs.realpathSync(path.join(__dirname, '/../fixture', u));
+      }
     });
     server.on("client:connected", function(cinfo) {
       var username;
@@ -36,22 +38,22 @@ describe('RETR ftpd command', function(){
     });
   });
 
-  it("should send a 150 changing mode before sending the content", function(done){
-    var messages=[];
-    ftp.socket.on("data", function(d){
+  it("should send a 150 changing mode before sending the content", function(done) {
+    var messages = [];
+    ftp.socket.on("data", function(d) {
       messages.push(d);
     });
     ftp.setPassive({
       mode: "A",
       cmd: "RETR " + "/data.txt",
-      pasvCallback: function(err, buffer){
+      pasvCallback: function(err, buffer) {
         messages[3].should.eql("150 Opening ASCII mode data connection\r\n");
         done();
       }
     });
   });
-  
-  afterEach(function(){
+
+  afterEach(function() {
     server.close();
   });
 });
