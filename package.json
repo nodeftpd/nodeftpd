@@ -16,6 +16,15 @@
     "ftpd"
   ],
   "author": "sstur",
+  "contributors": [
+      { "name": "Alex Drummond", "url": "https://github.com/addrummond" },
+      { "name": "Eric Fong", "url": "https://github.com/ericfong" },
+      { "name": "headconnect", "url": "https://github.com/headconnect" },
+      { "name": "Andrew Johnston", "url": "https://github.com/billywhizz" },
+      { "name": "José F. Romaniello", "url": "https://github.com/jfromaniello" },
+      { "name": "Simon Sturmer", "url": "https://github.com/sstur" },
+      { "name": "Alan Szlosek", "url": "https://github.com/alanszlosek" }
+  ],
   "license": "BSD-2-Clause",
   "bugs": {
     "url": "https://github.com/sstur/nodeftpd/issues"
