@@ -1,11 +1,5 @@
 # Simple, Extensible FTP Server in Pure JavaScript
 
-This started as a fork of https://github.com/alanszlosek/nodeftpd
-(which itself is based on Andrew Johnston's http://github.com/billywhizz/nodeftpd).
-
-The code has now diverged significantly from the original codebase, however the
-old README for Alan Szlosek's version can be found in README_OLD.md
-
 - [Introduction](#introduction)
 - [Usage](#usage)
 	- [FtpServer options:](#ftpserver-options)
