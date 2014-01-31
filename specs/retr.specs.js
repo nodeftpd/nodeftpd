@@ -1,59 +1,82 @@
-require('should');
-var ftpd = require('../ftpd'),
-    Ftp = require("jsftp"),
-    fs = require("fs"),
-    path = require('path');
+var Server = require('../').FtpServer,
+  Client = require('jsftp'),
+  fs = require('fs'),
+  path = require('path'),
+  should = require('should');
 
+describe('RETR command', function () {
+  'use strict';
 
-describe('RETR ftpd command', function() {
-  var ftp, server;
+  var client,
+    server,
+    options = {
+      host: '127.0.0.1',
+      port: 2021,
+      user: 'jose',
+      pass: 'esoj',
+      root: '/../fixture'
+    };
 
-  beforeEach(function(done) {
-    server = new ftpd.FtpServer("127.0.0.1", {
-      getRoot: function(u) {
-        return fs.realpathSync(path.join(__dirname, '/../fixture', u));
+  beforeEach(function (done) {
+    server = new Server(options.host, {
+      getRoot: function (connection, callback) {
+        var username = connection.username,
+          root = path.join(__dirname, options.root, username);
+        fs.realpath(root, callback);
+      },
+      getInitialCwd: function () {
+        return path.sep;
       }
     });
-    server.on("client:connected", function(cinfo) {
+    server.on('client:connected', function (connection) {
       var username;
-      cinfo.on("command:user", function(user, success, failure) {
-        if (user) {
+      connection.on('command:user', function (user, success, failure) {
+        if (user === options.user) {
           username = user;
           success();
-        } else failure();
+        } else {
+          failure();
+        }
       });
-
-      cinfo.on("command:pass", function(pass, success, failure) {
-        if (pass) success(username);
-        else failure();
+      connection.on('command:pass', function (pass, success, failure) {
+        if (pass === options.pass) {
+          success(username);
+        } else {
+          failure();
+        }
       });
     });
-    server.listen(2021);
-    ftp = new Ftp({
-      host: "127.0.0.1",
-      port: 2021
+    server.listen(options.port);
+    client = new Client({
+      host: options.host,
+      port: options.port
     });
-    ftp.auth("jose", "esoj", function(err, res) {
+    client.auth(options.user, options.pass, function (error, response) {
+      should.not.exist(error);
+      should.exist(response);
+      response.should.have.property('code', 230);
       done();
     });
   });
 
-  it("should send a 150 changing mode before sending the content", function(done) {
-    var messages = [];
-    ftp.socket.on("data", function(d) {
-      messages.push(d);
-    });
-    ftp.setPassive({
-      mode: "A",
-      cmd: "RETR " + "/data.txt",
-      pasvCallback: function(err, buffer) {
-        messages[3].should.eql("150 Opening ASCII mode data connection\r\n");
+  it('should contain "hola!"', function (done) {
+    var str = '';
+    client.get('/data.txt', function (error, socket) {
+      should.not.exist(error);
+      socket.on('data', function (data) {
+        str += data.toString();
+      });
+      socket.on('close', function (error) {
+        error.should.not.equal(true);
+        str.should.eql('hola!');
         done();
-      }
+      });
+      socket.resume();
     });
   });
 
-  afterEach(function() {
+  afterEach(function () {
     server.close();
   });
 });
+
