@@ -4,7 +4,7 @@
   "description": "Node FTP Server",
   "main": "./lib/ftpd.js",
   "scripts": {
-    "test" : "mocha specs/* --globals commandArg"
+    "test": "mocha specs/* --globals commandArg"
   },
   "repository": {
     "type": "git",
@@ -17,25 +17,49 @@
   ],
   "author": "sstur",
   "contributors": [
-      { "name": "Alex Drummond", "url": "https://github.com/addrummond" },
-      { "name": "Eric Fong", "url": "https://github.com/ericfong" },
-      { "name": "headconnect", "url": "https://github.com/headconnect" },
-      { "name": "Andrew Johnston", "url": "https://github.com/billywhizz" },
-      { "name": "José F. Romaniello", "url": "https://github.com/jfromaniello" },
-      { "name": "Simon Sturmer", "url": "https://github.com/sstur" },
-      { "name": "Alan Szlosek", "url": "https://github.com/alanszlosek" },
-      { "name": "asylumfunk", "url": "https://github.com/asylumfunk" }
+    {
+      "name": "Alex Drummond",
+      "url": "https://github.com/addrummond"
+    },
+    {
+      "name": "Eric Fong",
+      "url": "https://github.com/ericfong"
+    },
+    {
+      "name": "headconnect",
+      "url": "https://github.com/headconnect"
+    },
+    {
+      "name": "Andrew Johnston",
+      "url": "https://github.com/billywhizz"
+    },
+    {
+      "name": "José F. Romaniello",
+      "url": "https://github.com/jfromaniello"
+    },
+    {
+      "name": "Simon Sturmer",
+      "url": "https://github.com/sstur"
+    },
+    {
+      "name": "Alan Szlosek",
+      "url": "https://github.com/alanszlosek"
+    },
+    {
+      "name": "asylumfunk",
+      "url": "https://github.com/asylumfunk"
+    }
   ],
   "license": "BSD-2-Clause",
   "bugs": {
     "url": "https://github.com/sstur/nodeftpd/issues"
   },
   "dependencies": {
-      "dateformat": "1.0.7-1.2.3"
+    "dateformat": "1.0.7-1.2.3"
   },
   "devDependencies": {
     "async": "~0.1.15",
-    "mocha": "~0.12.1",
+    "mocha": "~1.17.1",
     "should": "~0.5.1",
     "jsftp": "*",
     "multiparter": ">=0.1.4",
