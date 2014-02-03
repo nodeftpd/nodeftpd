@@ -31,6 +31,14 @@ describe('PWD command', function () {
         });
       });
 
+      it('should reject parameters', function (done) {
+        client.raw.pwd(directory, function (error, reply) {
+          error.code.should.equal(501);
+          reply.code.should.equal(501);
+          done();
+        });
+      });
+
       afterEach(function () {
         server.close();
       });
