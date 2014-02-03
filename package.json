@@ -4,7 +4,7 @@
   "description": "Node FTP Server",
   "main": "./lib/ftpd.js",
   "scripts": {
-    "test": "mocha specs/* --globals commandArg"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
