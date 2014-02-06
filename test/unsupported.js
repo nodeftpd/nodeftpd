@@ -9,7 +9,6 @@ describe('UNSUPPORTED commands', function () {
       //RFC959
       'ABOR',
       'ACCT',
-      'ALLO',
       'HELP',
       'MODE',
       'REIN',
