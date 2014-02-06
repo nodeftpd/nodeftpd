@@ -13,7 +13,9 @@ var Server = require('../').FtpServer,
 
 module.exports = {
   'should': should,
-  'server': function () {
+  'server': function (customOptions) {
+    'use strict';
+    customOptions = customOptions || {};
     return new Server(options.host, {
       getRoot: function (connection, callback) {
         var username = connection.username,
@@ -21,7 +23,7 @@ module.exports = {
         fs.realpath(root, callback);
       },
       getInitialCwd: function () {
-        return path.sep;
+        return customOptions.cwd || path.sep;
       }
     }).on('client:connected', function (connection) {
       var username;
@@ -42,6 +44,7 @@ module.exports = {
     }).listen(options.port);
   },
   'client': function (done) {
+    'use strict';
     var client = new Client({
         host: options.host,
         port: options.port
