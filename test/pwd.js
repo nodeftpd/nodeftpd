@@ -22,7 +22,9 @@ describe('PWD command', function () {
     describe('CWD = "' + directory + '"', function () {
       beforeEach(function (done) {
         server = common.server({
-          cwd: directory
+          getInitialCwd: function () {
+            return directory;
+          }
         });
         client = common.client(done);
       });
@@ -54,7 +56,9 @@ describe('PWD command', function () {
     describe('CWD = "' + directory + '"', function () {
       beforeEach(function (done) {
         server = common.server({
-          cwd: directory
+          getInitialCwd: function () {
+            return directory;
+          }
         });
         client = common.client(done);
       });
