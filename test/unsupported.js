@@ -8,7 +8,6 @@ describe('UNSUPPORTED commands', function () {
     commands = [
       //RFC959
       'ABOR',
-      'ACCT',
       'HELP',
       'MODE',
       'REIN',
