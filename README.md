@@ -35,6 +35,7 @@ Create the FTPServer (simple example):
 
 ```js
     var ftpd = require('ftpd');
+    var fs = require('fs');
 
     var options = {
       pasvPortRangeStart: 4000,
