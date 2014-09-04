@@ -40,8 +40,8 @@ Create the FTPServer (simple example):
     var options = {
       pasvPortRangeStart: 4000,
       pasvPortRangeEnd: 5000,
-      getInitialCwd: function(user, callback) {
-        var userPath = process.cwd() + '/' + user;
+      getInitialCwd: function(connection, callback) {
+        var userPath = process.cwd() + '/' + connection.username;
         fs.exists(userPath, function(exists) {
           exists ? callback(null, userPath) : callback('path does not exist', userPath);
         });
