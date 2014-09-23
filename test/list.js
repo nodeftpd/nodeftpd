@@ -13,7 +13,7 @@ describe('LIST command', function () {
 
   it('should return "-" as first character for files', function (done) {
     client.list('/', function (error, directoryListing) {
-      common.should.not.exist(error);
+      common.should(error).not.be.ok;
       directoryListing = directoryListing
         .split('\r\n')
         .filter(function (line) {
