@@ -1,6 +1,6 @@
 {
   "name": "ftpd",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "Node FTP Server",
   "main": "./lib/ftpd.js",
   "scripts": {
@@ -48,6 +48,10 @@
     {
       "name": "asylumfunk",
       "url": "https://github.com/asylumfunk"
+    },
+	{
+      "name": "fabiengb",
+      "url": "https://github.com/fabiengb"
     }
   ],
   "license": "BSD-2-Clause",
