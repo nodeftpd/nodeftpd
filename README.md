@@ -31,47 +31,7 @@ This is a simple but very configurable FTP server. Notable features include:
 
 ## Usage
 
-Create the FTPServer (simple example):
-
-```js
-    var ftpd = require('ftpd');
-    var fs = require('fs');
-
-    var options = {
-      pasvPortRangeStart: 4000,
-      pasvPortRangeEnd: 5000,
-      getInitialCwd: function(connection, callback) {
-        var userPath = process.cwd() + '/' + connection.username;
-        fs.exists(userPath, function(exists) {
-          exists ? callback(null, userPath) : callback('path does not exist', userPath);
-        });
-      },
-      getRoot: function(user) {
-        return '/';
-      }
-    };
-
-    var host = '10.0.0.42';
-
-    var server = new ftpd.FtpServer(host, options);
-
-    server.on('client:connected', function(conn) {
-      var username;
-      console.log('Client connected from ' + conn.socket.remoteAddress);
-      conn.on('command:user', function(user, success, failure) {
-        username = user;
-        (user == 'john') ? success() : failure();
-      });
-      conn.on('command:pass', function(pass, success, failure) {
-        // check the password
-        (pass == 'bar') ? success(username) : failure();
-      });
-    });
-
-    server.listen(21);
-    console.log('FTPD listening on port 21');
-            
-```
+See example code in `test.js`
 
 ### FtpServer options:
 
@@ -88,25 +48,25 @@ See `test.js` for a simple example. `FtpServer` accepts the following options:
 Both these need to be set - there are no defaults.
 
 - `getInitialCwd`: Gets the initial working directory for the user.  Called after user is authenticated.
+This path is relative to the root directory. The user may escape their initial cwd.
     - **Pattern**: `function(username, [callback(err, path)])`
     - **Arguments**:
         - username (string): the username to get CWD for
-        - callback (function, optional): 
+        - callback (function, optional):
     - **Examples**:
         - Simplest usage, no callback, just return:
 
         ```js
             getInitialCwd: function(connection) {
-              return process.cwd() + "/" + connection.username;
+              return "/" + connection.username;
             }
-            // The user's path is hereby limited to the [cwd]/username directory
         ```
 
         - Usage with callback:
-        
+
         ```js
             getInitialCwd: function(connection, callback) {
-              var userDir = process.cwd() + '/' + connection.username;
+              var userDir = '/' + connection.username;
               fs.exists(userDir, function(exists) {
                 if (exists) {
                   callback(null, userDir);
@@ -123,17 +83,17 @@ Both these need to be set - there are no defaults.
 
         - Typical cases where you would want/need the callback involve retrieving configurations from external datasources and suchlike.
 
-- `getRoot`: Gets the root directory for the user relative to the CWD.  Called after getInitialCwd. 
-    The user is not able to escape this directory.
+- `getRoot`: Gets the root directory for the user. This directory has the path '/' from the point of view of the user.
+The user is not able to escape this directory.
     - **Pattern**: `function(username, [callback(err, rootPath)])`
     - **Arguments**:
         - username (string): the username to get root for
-        - callback (function, optional): 
+        - callback (function, optional):
     - **Examples**:
 
         ```js
             getRoot: function() {
-              return '/';
+              return process.cwd();
             }
             // The users will now enter at the '/' level, which is the directory passed to getInitialCwd.
         ```
@@ -142,17 +102,16 @@ Both these need to be set - there are no defaults.
 
         ```js
             getRoot: function(connection, callback) {
-              var rootDir = '/my_home';
-              var rootPath = process.cwd() + '/' + connection.username + '/my_home';
+	          var rootPath = process.cwd() + '/' + connection.username;
               fs.exists(rootPath, function(exists) {
                 if (exists) {
-                  callback(null, rootDir);
+                  callback(null, rootPath);
                 } else {
                   fs.mkDir(userDir, function(err) {
                     if (err) {
                       callback(null, '/'); // default to root
                     } else {
-                      callback(err, rootDir);
+                      callback(err, rootPath);
                     }
                   });
                 }
@@ -169,14 +128,14 @@ Both these need to be set - there are no defaults.
 ##### File/handling Configurations
 
 - `useWriteFile`: _(default: false)_
-    - If set to `true`, then files which the client uploads are buffered in memory and then written to disk using `writeFile`. 
+    - If set to `true`, then files which the client uploads are buffered in memory and then written to disk using `writeFile`.
     - If `false`, files are written using writeStream.
 - `useReadFile`: _(default: false)_
     - If set to `true`, then files which the client uploads are slurped using 'readFile'.
     - If `false`, files are read using readStream.
 - `uploadMaxSlurpSize`: _(default: unlimited)_
-    - Determines the maximum file size (in bytes) for which uploads are buffered in memory before being written to disk. 
-    - Has an effect only if `useWriteFile` is set to `true`. 
+    - Determines the maximum file size (in bytes) for which uploads are buffered in memory before being written to disk.
+    - Has an effect only if `useWriteFile` is set to `true`.
     - If `uploadMaxSlurpSize` is not set, then there is no limit on buffer size.
 - `maxStatsAtOnce`: _(default: 5)_
     - The maximum number of concurrent calls to `fs.stat` which will be
@@ -210,14 +169,14 @@ Both these need to be set - there are no defaults.
 ## Filesystem Abstraction
 
 Filesystem abstraction makes it possible to
-create an FTP server which interacts directly with a database rather than the 
+create an FTP server which interacts directly with a database rather than the
 actual filesystem.
 
 The server raises a `command:pass` event which is given `pass`, `success` and
 `failure` arguments. On successful login, `success` should be called with a
 username argument. It may also optionally be given a second argument, which
 should be an object providing an implementation of the API for Node's `fs`
-module. 
+module.
 
 The following must be implemented:
 
@@ -228,14 +187,14 @@ The following must be implemented:
 - `close`
 - `rmdir`
 - `rename`
-- `stat` → 
+- `stat` →
     - specific object properties: `{ mode, isDirectory(), size, mtime }`
 - if `useWriteFile` option is not set or is false
     - `createWriteStream`: _Returns a writable stream, requiring:_
-        - events: 'open', 'error', 'close' 
+        - events: 'open', 'error', 'close'
         - functions: 'write'
 - if `useWriteFile` option is set to 'true'
-    - `writeFile` 
+    - `writeFile`
 - if `useReadFile` option is not set or is false
     - `createReadStream`:  _Returns a readable stream, requiring:_
         - events: 'error', 'data', 'end'
