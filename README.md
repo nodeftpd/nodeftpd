@@ -85,9 +85,9 @@ This path is relative to the root directory. The user may escape their initial c
 
 - `getRoot`: Gets the root directory for the user. This directory has the path '/' from the point of view of the user.
 The user is not able to escape this directory.
-    - **Pattern**: `function(username, [callback(err, rootPath)])`
+    - **Pattern**: `function(connection, [callback(err, rootPath)])`
     - **Arguments**:
-        - username (string): the username to get root for
+        - connection (object): the connection for which to get root
         - callback (function, optional):
     - **Examples**:
 
