@@ -131,7 +131,7 @@ The user is not able to escape this directory.
     - If set to `true`, then files which the client uploads are buffered in memory and then written to disk using `writeFile`.
     - If `false`, files are written using writeStream.
 - `useReadFile`: _(default: false)_
-    - If set to `true`, then files which the client uploads are slurped using 'readFile'.
+    - If set to `true`, then files which the client downloads are slurped using 'readFile'.
     - If `false`, files are read using readStream.
 - `uploadMaxSlurpSize`: _(default: unlimited)_
     - Determines the maximum file size (in bytes) for which uploads are buffered in memory before being written to disk.
