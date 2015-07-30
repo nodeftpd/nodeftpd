@@ -6,27 +6,44 @@ describe('RETR command', function () {
   var client,
     server;
 
-  beforeEach(function (done) {
-    server = common.server();
-    client = common.client(done);
-  });
+  //run tests both ways
+  [true, false].forEach(function(useReadFile){
 
-  it('should contain "hola!"', function (done) {
-    var str = '';
-    client.get('/data.txt', function (error, socket) {
-      common.should.not.exist(error);
-      socket.on('data', function (data) {
-        str += data.toString();
-      }).on('close', function (error) {
-        error.should.not.equal(true);
-        str.should.eql('hola!');
-        done();
-      }).resume();
+    describe('with useReadFile = ' + useReadFile, function(){
+
+      beforeEach(function (done) {
+        server = common.server({useReadFile:useReadFile});
+        client = common.client(done);
+      });
+
+      it('should contain "hola!"', function (done) {
+        var str = '';
+        client.get('/data.txt', function (error, socket) {
+          common.should.not.exist(error);
+          socket.on('data', function (data) {
+            str += data.toString();
+          }).on('close', function (error) {
+            error.should.not.equal(true);
+            str.should.eql('hola!');
+            done();
+          }).resume();
+        });
+      });
+
+      it('should fail when file not found', function (done) {
+        client.get('/bad.file', function (error, socket) {
+          common.should.exist(error);
+          done();
+        });
+      });
+
+      afterEach(function () {
+        server.close();
+      });
+
     });
+
   });
 
-  afterEach(function () {
-    server.close();
-  });
+
 });
-
