@@ -1,10 +1,10 @@
 {
   "name": "ftpd",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "Node FTP Server",
   "main": "./lib/ftpd.js",
   "engines": {
-    "node" : ">=0.10.0"
+    "node": ">=0.10.0"
   },
   "scripts": {
     "test": "node_modules/.bin/istanbul test _mocha"
