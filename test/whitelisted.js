@@ -3,9 +3,9 @@ var common = require('./common');
 describe('Whitelisted commands', function () {
   'use strict';
 
-  var client,
-    server,
-    options = {
+  var client;
+  var server;
+  var options = {
       'allowedCommands': [
         'USER',
         'PASS',
