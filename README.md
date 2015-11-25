@@ -151,6 +151,10 @@ The user is not able to escape this directory.
 - `noWildcards`: _(default: false)_
     - If set to `true`, then `LIST` and `NLST` treat the characters `?` and `*` as literals instead of as wildcards.
 
+##### Command configuration
+
+- `allowedCommands`: _(default: undefined)_
+    - List of strings, the server will respond to only commands contained in this list, all other commands will result in a 502 unimplemented error.
 
 ##### Connectivity settings
 
