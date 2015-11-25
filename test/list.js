@@ -25,8 +25,21 @@ describe('LIST command', function () {
     });
   });
 
+  it('should list single files', function (done) {
+    client.list('/data.txt', function (error, fileListing) {
+      common.should(error).not.be.ok;
+      fileListing = fileListing
+        .split('\r\n')
+        .filter(function (line) {
+          return line.indexOf(' data.txt') !== -1;
+        });
+      fileListing.should.have.lengthOf(1);
+      fileListing[0].should.startWith('-');
+      done();
+    });
+  });
+
   afterEach(function () {
     server.close();
   });
 });
-
