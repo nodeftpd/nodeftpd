@@ -137,6 +137,8 @@ The user is not able to escape this directory.
     - Determines the maximum file size (in bytes) for which uploads are buffered in memory before being written to disk.
     - Has an effect only if `useWriteFile` is set to `true`.
     - If `uploadMaxSlurpSize` is not set, then there is no limit on buffer size.
+- `hideDotFiles`: _(default: false)_
+    - Hides files beginning with a dot (UNIX hidden files) on `LIST` commands.
 - `maxStatsAtOnce`: _(default: 5)_
     - The maximum number of concurrent calls to `fs.stat` which will be
   made when processing a `LIST` request.
