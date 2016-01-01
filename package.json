@@ -62,6 +62,7 @@
   },
   "devDependencies": {
     "async": "~0.1.15",
+    "collect-stream": "^1.1.1",
     "mocha": "~1.17.1",
     "should": "~3.1.2",
     "jsftp": "git://github.com/sergi/jsftp.git#master",
