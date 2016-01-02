@@ -1,36 +1,36 @@
 var common = require('./common');
 
-describe('UNSUPPORTED commands', function () {
+describe('UNSUPPORTED commands', function() {
   'use strict';
 
-  var client,
-    server,
-    commands = [
-      //RFC959
-      'ABOR',
-      'HELP',
-      'MODE',
-      'REIN',
-      'REST',
-      'SITE',
-      'SMNT',
-      'STOU',
-      'STRU',
-      //Fake
-      'FAKE',
-      'COMMAND',
-      'LS',
-      'CD'
-    ];
+  var client;
+  var server;
+  var commands = [
+    //RFC959
+    'ABOR',
+    'HELP',
+    'MODE',
+    'REIN',
+    'REST',
+    'SITE',
+    'SMNT',
+    'STOU',
+    'STRU',
+    //Fake
+    'FAKE',
+    'COMMAND',
+    'LS',
+    'CD'
+  ];
 
-  beforeEach(function (done) {
+  beforeEach(function(done) {
     server = common.server();
     client = common.client(done);
   });
 
-  commands.forEach(function (command) {
-    it('should reply 502 to ' + command, function (done) {
-      var callback = function (error) {
+  commands.forEach(function(command) {
+    it('should reply 502 to ' + command, function(done) {
+      var callback = function(error) {
         error.code.should.eql(502);
         done();
       };
@@ -43,8 +43,7 @@ describe('UNSUPPORTED commands', function () {
     });
   });
 
-  afterEach(function () {
+  afterEach(function() {
     server.close();
   });
 });
-

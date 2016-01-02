@@ -6,28 +6,28 @@ var common = require('./common');
 var async = require('async');
 var collectStream = require('collect-stream');
 
-describe('RETR command', function () {
-  var client,
-    server;
+describe('RETR command', function() {
+  var client;
+  var server;
 
   //run tests both ways
-  [true, false].forEach(function (useReadFile) {
+  [true, false].forEach(function(useReadFile) {
 
-    describe('with useReadFile = ' + useReadFile, function () {
+    describe('with useReadFile = ' + useReadFile, function() {
 
-      beforeEach(function (done) {
-        server = common.server({ useReadFile: useReadFile });
+      beforeEach(function(done) {
+        server = common.server({useReadFile: useReadFile});
         client = common.client(done);
       });
 
-      it('should cope with unusual paths', function (done) {
-        var coolGlasses = '\uD83D\uDE0E',
-          trickyName = "b\\\\s\\l, \"\"q'u\"o\"te''; pi|p|e & ^up^",
-          dirPath = 'tricky_paths/' + trickyName,
-          expectedData = 'good ' + coolGlasses + '\nfilesystem.\n';
+      it('should cope with unusual paths', function(done) {
+        var coolGlasses = '\uD83D\uDE0E';
+        var trickyName = "b\\\\s\\l, \"\"q'u\"o\"te''; pi|p|e & ^up^";
+        var dirPath = 'tricky_paths/' + trickyName;
+        var expectedData = 'good ' + coolGlasses + '\nfilesystem.\n';
 
-        function receive_and_compare(socket, nxt) {
-          collectStream(socket, function (error, receivedData) {
+        function receiveAndCompare(socket, nxt) {
+          collectStream(socket, function(error, receivedData) {
             common.should.not.exist(error);
             String(receivedData).should.eql(expectedData);
             nxt();
@@ -36,41 +36,41 @@ describe('RETR command', function () {
         }
 
         async.waterfall([
-          function strange_path_redundant_escape(nxt) {
+          function strangePathRedundantEscape(nxt) {
             var dirRfcQuoted = dirPath.replace(/"/g, '""');
-            client.raw('CWD', dirRfcQuoted, function (error) {
+            client.raw('CWD', dirRfcQuoted, function(error) {
               common.should.exist(error);
               error.code.should.equal(550);
               nxt();
             });
           },
-          function strange_path_cwd(nxt) {
+          function strangePathCwd(nxt) {
             client.raw('CWD', dirPath, nxt);
           },
-          function check_response(response, nxt) {
+          function checkResponse(response, nxt) {
             response.code.should.equal(250);
             if (response.code !== 250) {
               return nxt(new Error('failed to CWD to unusual path'));
             }
             nxt();
           },
-          function strange_path_retr(nxt) {
+          function strangePathRetr(nxt) {
             var filename = trickyName + '.txt';
             client.get(filename, nxt);
           },
-          receive_and_compare,
-          function strange_path_retr(nxt) {
+          receiveAndCompare,
+          function strangePathRetr(nxt) {
             var filename = 'cool-glasses.' + coolGlasses + '.txt';
             client.get(filename, nxt);
           },
-          receive_and_compare,
+          receiveAndCompare
         ], function finished(error) {
           common.should.not.exist(error);
           done();
         });
       });
 
-      afterEach(function () {
+      afterEach(function() {
         server.close();
       });
 
