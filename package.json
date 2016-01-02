@@ -67,7 +67,7 @@
     "eslint": "^1.10.3",
     "istanbul": "~0.2.4",
     "jsftp": "git://github.com/sergi/jsftp.git#master",
-    "mocha": "~1.17.1",
+    "mocha": "^2.3.4",
     "should": "~3.1.2"
   }
 }
