@@ -7,7 +7,8 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "node_modules/.bin/istanbul test _mocha"
+    "test": "eslint --max-warnings 0 . && ./node_modules/.bin/istanbul test _mocha",
+    "lint": "eslint --max-warnings 0 ."
   },
   "repository": {
     "type": "git",
@@ -68,9 +69,5 @@
     "jsftp": "git://github.com/sergi/jsftp.git#master",
     "mocha": "~1.17.1",
     "should": "~3.1.2"
-  },
-  "scripts": {
-    "test": "mocha test/*.js",
-    "lint": "eslint ."
   }
 }
