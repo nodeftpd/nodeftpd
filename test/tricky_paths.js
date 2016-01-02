@@ -1,4 +1,4 @@
-﻿/*jslint indent: 2, maxlen: 80, node: true */
+﻿/*jslint indent: 2, maxlen: 80, node: true, white: true, vars: true */
 /*globals describe, it, beforeEach, afterEach */
 'use strict';
 
@@ -6,7 +6,7 @@ var common = require('./common');
 var async = require('async');
 var collectStream = require('collect-stream');
 
-describe('RETR command', function() {
+describe('Tricky paths', function() {
   var client;
   var server;
 
@@ -38,6 +38,8 @@ describe('RETR command', function() {
         async.waterfall([
           function strangePathRedundantEscape(nxt) {
             var dirRfcQuoted = dirPath.replace(/"/g, '""');
+            server.suppressExpecteErrMsgs.push(
+              /^ERROR: CWD [\S\s]+: Error: ENOENT, stat 'fixture:/);
             client.raw('CWD', dirRfcQuoted, function(error) {
               common.should.exist(error);
               error.code.should.equal(550);
