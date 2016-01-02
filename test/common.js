@@ -4,15 +4,15 @@ var Server = require('../').FtpServer;
 var Client = require('jsftp');
 var should = require('should');
 var options = {
-  'host': process.env.IP || '127.0.0.1',
-  'port': process.env.port || 7002,
-  'user': 'jose',
-  'pass': 'esoj',
-  'tlsOnly': false,
-  'getInitialCwd': function() {
+  host: process.env.IP || '127.0.0.1',
+  port: process.env.port || 7002,
+  user: 'jose',
+  pass: 'esoj',
+  tlsOnly: false,
+  getInitialCwd: function() {
     return options.cwd;
   },
-  'getRoot': function(connection, callback) {
+  getRoot: function(connection, callback) {
     var username = connection.username;
     var root = path.join(__dirname, '../fixture', username);
     fs.realpath(root, callback);
@@ -20,8 +20,8 @@ var options = {
 };
 
 module.exports = {
-  'should': should,
-  'server': function(customOptions) {
+  should: should,
+  server: function(customOptions) {
     'use strict';
     customOptions = customOptions || {};
     Object.keys(options).forEach(function(key) {
@@ -48,7 +48,7 @@ module.exports = {
         });
       }).listen(customOptions.port);
   },
-  'client': function(done, customOptions) {
+  client: function(done, customOptions) {
     'use strict';
     customOptions = customOptions || {};
     Object.keys(options).forEach(function(key) {

@@ -7,10 +7,10 @@ describe('PASS command', function() {
   var client;
   var server;
   var options = {
-    'host': '127.0.0.1',
-    'port': 7002,
-    'user': 'jose',
-    'pass': 'esoj'
+    host: '127.0.0.1',
+    port: 7002,
+    user: 'jose',
+    pass: 'esoj'
   };
 
   beforeEach(function(done) {

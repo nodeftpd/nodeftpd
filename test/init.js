@@ -7,10 +7,10 @@ describe('initialization', function() {
   var client;
   var server;
   var options = {
-    'host': '127.0.0.1',
-    'port': 7002,
-    'user': 'jose',
-    'pass': 'esoj'
+    host: '127.0.0.1',
+    port: 7002,
+    user: 'jose',
+    pass: 'esoj'
   };
 
   beforeEach(function(done) {
@@ -19,7 +19,7 @@ describe('initialization', function() {
 
   it('should getRoot synchronously', function(done) {
     server = common.server({
-      'getRoot': function() {
+      getRoot: function() {
         return '../fixture/';
       }
     });
@@ -28,7 +28,7 @@ describe('initialization', function() {
 
   it('should getRoot asynchronously', function(done) {
     server = common.server({
-      'getRoot': function(connection, callback) {
+      getRoot: function(connection, callback) {
         callback(null, '../fixture/');
       }
     });
@@ -37,7 +37,7 @@ describe('initialization', function() {
 
   it('should bail if getRoot fails', function(done) {
     server = common.server({
-      'getRoot': function(connection, callback) {
+      getRoot: function(connection, callback) {
         callback(new Error('intentional failure'));
       }
     });
@@ -52,7 +52,7 @@ describe('initialization', function() {
     var fail = false;
     try {
       server = common.server({
-        'getRoot': null
+        getRoot: null
       });
     } catch (error) {
       server = common.server();
@@ -64,7 +64,7 @@ describe('initialization', function() {
 
   it('should getInitialCwd synchronously', function(done) {
     server = common.server({
-      'getInitialCwd': function() {
+      getInitialCwd: function() {
         return '/';
       }
     });
@@ -73,7 +73,7 @@ describe('initialization', function() {
 
   it('should getInitialCwd asynchronously', function(done) {
     server = common.server({
-      'getInitialCwd': function(connection, callback) {
+      getInitialCwd: function(connection, callback) {
         callback(null, '/');
       }
     });
@@ -82,7 +82,7 @@ describe('initialization', function() {
 
   it('should bail if getInitialCwd fails', function(done) {
     server = common.server({
-      'getInitialCwd': function(connection, callback) {
+      getInitialCwd: function(connection, callback) {
         callback(new Error('intentional failure'));
       }
     });
@@ -97,7 +97,7 @@ describe('initialization', function() {
     var fail = false;
     try {
       server = common.server({
-        'getInitialCwd': null
+        getInitialCwd: null
       });
     } catch (error) {
       server = common.server();

@@ -6,7 +6,7 @@ describe('Whitelisted commands', function() {
   var client;
   var server;
   var options = {
-    'allowedCommands': [
+    allowedCommands: [
       'USER',
       'PASS',
       'PASV',
