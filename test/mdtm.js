@@ -20,7 +20,7 @@ describe('MDTM command', function() {
   });
 
   it('should respond 550 for an invalid file', function(done) {
-    client.raw('MDTM', '/data2.txt', function(error) {
+    client.raw('MDTM', '/data-something.txt', function(error) {
       error.code.should.equal(550);
       done();
     });

@@ -17,9 +17,9 @@ describe('LIST command', function() {
       directoryListing = directoryListing
         .split('\r\n')
         .filter(function(line) {
-          return line.indexOf(' data.txt') !== -1;
+          return line.indexOf(' data') !== -1;
         });
-      directoryListing.should.have.lengthOf(1);
+      directoryListing.should.have.lengthOf(6);
       directoryListing[0].should.startWith('-');
       done();
     });
