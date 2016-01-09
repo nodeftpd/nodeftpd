@@ -39,7 +39,8 @@ describe('Tricky paths', function() {
           function strangePathRedundantEscape(nxt) {
             var dirRfcQuoted = dirPath.replace(/"/g, '""');
             server.suppressExpecteErrMsgs.push(
-              /^ERROR: CWD [\S\s]+: Error: ENOENT, stat 'fixture:/);
+              /^ERROR: CWD [\S\s]+: Error: ENOENT/
+            );
             client.raw('CWD', dirRfcQuoted, function(error) {
               common.should.exist(error);
               error.code.should.equal(550);

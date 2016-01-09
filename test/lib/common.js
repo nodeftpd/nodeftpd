@@ -56,6 +56,10 @@ module.exports = {
     origLogIf = srv._logIf;
     srv.suppressExpecteErrMsgs = [];
     srv._logIf = function logIfNotExpected(verbosity, msg, conn, isErr) {
+      // TODO: remove this when we implement better noise control for logging.
+      if (msg === 'Client connection closed') {
+        return;
+      }
       var xpct = srv.suppressExpecteErrMsgs;
       msg = String(msg);
       msg = msg.replace(new RegExp(fixturesPath.replace(/(\W)/g, '\\$1'),
