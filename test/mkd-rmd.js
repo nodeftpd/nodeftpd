@@ -1,4 +1,4 @@
-var common = require('./common');
+var common = require('./lib/common');
 
 describe('MKD/RMD commands', function() {
   'use strict';

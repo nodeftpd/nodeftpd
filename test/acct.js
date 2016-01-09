@@ -1,4 +1,4 @@
-var common = require('./common');
+var common = require('./lib/common');
 
 describe('ACCT command', function() {
   'use strict';

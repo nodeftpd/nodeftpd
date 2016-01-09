@@ -2,7 +2,7 @@
 /*globals describe, it, beforeEach, afterEach */
 'use strict';
 
-var common = require('./common');
+var common = require('./lib/common');
 var async = require('async');
 var collectStream = require('collect-stream');
 

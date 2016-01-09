@@ -1,9 +1,9 @@
 var path = require('path');
 var fs = require('fs');
-var Server = require('../').FtpServer;
+var Server = require('../../').FtpServer;
 var Client = require('jsftp');
 var should = require('should');
-var fixturesPath = path.join(__dirname, '../fixture');
+var fixturesPath = path.join(__dirname, '../../fixture');
 var options = {
   host: process.env.IP || '127.0.0.1',
   port: process.env.port || 7002,
