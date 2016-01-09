@@ -10,7 +10,7 @@ describe('USER command', function() {
     host: '127.0.0.1',
     port: 7002,
     user: 'jose',
-    pass: 'esoj'
+    pass: 'esoj',
   };
 
   beforeEach(function(done) {
@@ -19,7 +19,7 @@ describe('USER command', function() {
 
   it('should reject non-secure USER when tlsOnly', function(done) {
     server = common.server({
-      tlsOnly: true
+      tlsOnly: true,
     });
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {

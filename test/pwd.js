@@ -10,12 +10,12 @@ describe('PWD command', function() {
     path.sep,
     path.join(path.sep, 'public_html'),
     path.join(path.sep, 'public_html', 'tmp'),
-    path.join(path.sep, 'tmp')
+    path.join(path.sep, 'tmp'),
   ];
   var falseyDirectories = [
     '',
     null,
-    undefined
+    undefined,
   ];
 
   directories.forEach(function(directory) {
@@ -24,7 +24,7 @@ describe('PWD command', function() {
         server = common.server({
           getInitialCwd: function() {
             return directory;
-          }
+          },
         });
         client = common.client(done);
       });
@@ -58,7 +58,7 @@ describe('PWD command', function() {
         server = common.server({
           getInitialCwd: function() {
             return directory;
-          }
+          },
         });
         client = common.client(done);
       });

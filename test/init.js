@@ -10,7 +10,7 @@ describe('initialization', function() {
     host: '127.0.0.1',
     port: 7002,
     user: 'jose',
-    pass: 'esoj'
+    pass: 'esoj',
   };
 
   beforeEach(function(done) {
@@ -21,7 +21,7 @@ describe('initialization', function() {
     server = common.server({
       getRoot: function() {
         return '../fixture/';
-      }
+      },
     });
     client = common.client(done);
   });
@@ -30,7 +30,7 @@ describe('initialization', function() {
     server = common.server({
       getRoot: function(connection, callback) {
         callback(null, '../fixture/');
-      }
+      },
     });
     client = common.client(done);
   });
@@ -41,7 +41,7 @@ describe('initialization', function() {
         server.suppressExpecteErrMsgs.push(
           'getRoot signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
-      }
+      },
     });
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {
@@ -54,7 +54,7 @@ describe('initialization', function() {
     var fail = false;
     try {
       server = common.server({
-        getRoot: null
+        getRoot: null,
       });
     } catch (error) {
       server = common.server();
@@ -68,7 +68,7 @@ describe('initialization', function() {
     server = common.server({
       getInitialCwd: function() {
         return '/';
-      }
+      },
     });
     client = common.client(done);
   });
@@ -77,7 +77,7 @@ describe('initialization', function() {
     server = common.server({
       getInitialCwd: function(connection, callback) {
         callback(null, '/');
-      }
+      },
     });
     client = common.client(done);
   });
@@ -88,7 +88,7 @@ describe('initialization', function() {
         server.suppressExpecteErrMsgs.push(
           'getInitialCwd signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
-      }
+      },
     });
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {
@@ -101,7 +101,7 @@ describe('initialization', function() {
     var fail = false;
     try {
       server = common.server({
-        getInitialCwd: null
+        getInitialCwd: null,
       });
     } catch (error) {
       server = common.server();

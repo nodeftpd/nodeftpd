@@ -65,7 +65,7 @@ describe('Tricky paths', function() {
             var filename = 'cool-glasses.' + coolGlasses + '.txt';
             client.get(filename, nxt);
           },
-          receiveAndCompare
+          receiveAndCompare,
         ], function finished(error) {
           common.should.not.exist(error);
           done();

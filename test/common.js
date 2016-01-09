@@ -17,7 +17,7 @@ var options = {
     var username = connection.username;
     var root = path.join(fixturesPath, username);
     fs.realpath(root, callback);
-  }
+  },
 };
 
 module.exports = {
@@ -95,7 +95,7 @@ module.exports = {
     });
     var client = new Client({
       host: customOptions.host,
-      port: customOptions.port
+      port: customOptions.port,
     });
     client.auth(customOptions.user, customOptions.pass,
       function(error, response) {
@@ -105,5 +105,5 @@ module.exports = {
         done();
       });
     return client;
-  }
+  },
 };

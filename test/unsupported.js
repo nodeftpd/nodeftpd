@@ -20,7 +20,7 @@ describe('UNSUPPORTED commands', function() {
     'FAKE',
     'COMMAND',
     'LS',
-    'CD'
+    'CD',
   ];
 
   beforeEach(function(done) {

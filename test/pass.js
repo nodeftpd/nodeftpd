@@ -10,7 +10,7 @@ describe('PASS command', function() {
     host: '127.0.0.1',
     port: 7002,
     user: 'jose',
-    pass: 'esoj'
+    pass: 'esoj',
   };
 
   beforeEach(function(done) {

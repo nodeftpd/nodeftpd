@@ -6,7 +6,9 @@
     "no-cond-assign": 1,             // disallow assignment in conditional expressions
     "no-console": 0,                 // disallow use of console: should use nuclide-logging instead
     "no-constant-condition": 1,      // disallow use of constant expressions in conditions
-    "comma-dangle": [1, "never"],    // disallow trailing commas in object and array literals
+    "comma-dangle": [                // disallow trailing commas in object and array literals
+      1, "always-multiline"
+    ],
     "no-control-regex": 1,           // disallow control characters in regular expressions
     "no-debugger": 1,                // disallow use of debugger
     "no-dupe-keys": 1,               // disallow duplicate keys when creating object literals

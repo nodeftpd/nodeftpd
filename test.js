@@ -7,7 +7,7 @@ var server;
 var options = {
   host: process.env.IP || '127.0.0.1',
   port: process.env.PORT || 7002,
-  tls: null
+  tls: null,
 };
 
 if (process.env.KEY_FILE && process.env.CERT_FILE) {
@@ -25,7 +25,7 @@ if (process.env.KEY_FILE && process.env.CERT_FILE) {
       .split(':')
       .map(function(f) {
         return fs.readFileSync(f);
-      })
+      }),
   };
 } else {
   console.log();
@@ -48,7 +48,7 @@ server = new ftpd.FtpServer(options.host, {
   allowUnauthorizedTls: true,
   useWriteFile: false,
   useReadFile: false,
-  uploadMaxSlurpSize: 7000 // N/A unless 'useWriteFile' is true.
+  uploadMaxSlurpSize: 7000, // N/A unless 'useWriteFile' is true.
 });
 
 server.on('error', function(error) {

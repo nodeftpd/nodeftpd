@@ -11,8 +11,8 @@ describe('Whitelisted commands', function() {
       'PASS',
       'PASV',
       'LIST',
-      'NOOP'
-    ]
+      'NOOP',
+    ],
   };
 
   beforeEach(function(done) {
