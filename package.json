@@ -59,7 +59,8 @@
     "url": "https://github.com/sstur/nodeftpd/issues"
   },
   "dependencies": {
-    "dateformat": "1.0.7-1.2.3"
+    "dateformat": "1.0.7-1.2.3",
+    "stat-mode": "^0.2.1"
   },
   "devDependencies": {
     "async": "~0.1.15",
