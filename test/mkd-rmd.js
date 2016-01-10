@@ -23,7 +23,7 @@ describe('MKD/RMD commands', function() {
 
     it('should not create a duplicate directory', function(done) {
       server.suppressExpecteErrMsgs.push(
-        /^ERROR: MKD \S+: Error: EEXIST/
+        /^MKD \S+: Error: EEXIST/
       );
       client.raw('MKD', directory, function(error) {
         error.code.should.equal(550);
@@ -43,7 +43,7 @@ describe('MKD/RMD commands', function() {
 
     it('should not delete a non-existent directory', function(done) {
       server.suppressExpecteErrMsgs.push(
-        /^ERROR: RMD \S+: Error: ENOENT/);
+        /^RMD \S+: Error: ENOENT/);
       client.raw('RMD', directory, function(error) {
         error.code.should.equal(550);
         done();

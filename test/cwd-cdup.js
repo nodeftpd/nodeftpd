@@ -42,7 +42,7 @@ describe('CWD/CDUP commands', function() {
       client.raw('CWD', pathExisting, function(error, response) {
         response.code.should.equal(250);
         server.suppressExpecteErrMsgs.push(
-          /^ERROR: CWD \S+: Error: ENOENT/
+          /^CWD \S+: Error: ENOENT/
         );
         client.raw('CWD', pathExisting, function(error) {
           error.code.should.equal(550);
