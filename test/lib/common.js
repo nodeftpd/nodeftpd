@@ -1,4 +1,5 @@
 var path = require('path');
+var util = require('util');
 var fs = require('fs');
 var Server = require('../../').FtpServer;
 var Client = require('jsftp');
@@ -20,7 +21,7 @@ var options = {
   },
 };
 
-module.exports = {
+var common = module.exports = {
   should: should,
   fixturesPath: function() {
     return fixturesPath;
@@ -109,5 +110,39 @@ module.exports = {
         done();
       });
     return client;
+  },
+  genFilterFuncFrom: function(filter) {
+    if (!filter) {
+      return function() {
+        return true;
+      };
+    }
+    if ((typeof filter) === 'function') {
+      return filter;
+    }
+    if ((typeof filter) === 'string') {
+      return function(item) {
+        return String(item).indexOf(filter) !== -1;
+      };
+    }
+    if ((typeof filter.test) === 'function') {
+      // ^-- includes (filter instanceof RegExp)
+      return filter.test.bind(filter);
+    }
+    throw new Error('unsupported filter precursor: ' + util.inspect(filter));
+  },
+  splitResponseLines: function(resp, filter) {
+    var respType = typeof resp;
+    respType.should.equal('string');
+    resp = String(resp);
+    var badEOL = (resp.replace(/\r\n/g, '').match(/[\r\n]+/) || false);
+    badEOL.should.equal(false);
+    resp.should.endWith('\r\n');
+    resp = resp.replace(/\r\n$/, '').split(/\r\n/);
+    if (!filter) {
+      return resp;
+    }
+    resp = resp.filter(common.genFilterFuncFrom(filter));
+    return resp;
   },
 };
