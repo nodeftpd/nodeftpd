@@ -31,7 +31,7 @@ describe('UTF8 support', function() {
         str += data.toString();
       }).on('close', function(error) {
         error.should.not.equal(true);
-        str.should.eql('1234');
+        str.should.eql('1234\n');
         done();
       }).resume();
     });
