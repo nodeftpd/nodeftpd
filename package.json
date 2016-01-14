@@ -1,6 +1,6 @@
 {
   "name": "ftpd",
-  "version": "0.2.12",
+  "version": "0.2.14",
   "description": "Node FTP Server",
   "main": "./lib/ftpd.js",
   "engines": {
@@ -26,6 +26,34 @@
       "url": "https://github.com/addrummond"
     },
     {
+      "name": "Alan Szlosek",
+      "url": "https://github.com/alanszlosek"
+    },
+    {
+      "name": "asylumfunk",
+      "url": "https://github.com/asylumfunk"
+    },
+    {
+      "name": "Andrew Johnston",
+      "url": "https://github.com/billywhizz"
+    },
+    {
+      "name": "Mark Bogdanoff",
+      "url": "https://github.com/bog"
+    },
+    {
+      "name": "Gordon Barrs",
+      "url": "https://github.com/britebit"
+    },
+    {
+      "name": "Indra Gunawan",
+      "url": "https://github.com/coderbuzz"
+    },
+    {
+      "name": "Eric Newton",
+      "url": "https://github.com/eric-newton"
+    },
+    {
       "name": "Eric Fong",
       "url": "https://github.com/ericfong"
     },
@@ -34,24 +62,48 @@
       "url": "https://github.com/headconnect"
     },
     {
-      "name": "Andrew Johnston",
-      "url": "https://github.com/billywhizz"
-    },
-    {
       "name": "José F. Romaniello",
       "url": "https://github.com/jfromaniello"
+    },
+    {
+      "name": "Joshua Hull",
+      "url": "https://github.com/joshbuddy"
+    },
+    {
+      "name": "Ernesto Méndez",
+      "url": "https://github.com/mendezcode"
+    },
+    {
+      "name": "M.K.",
+      "url": "https://github.com/mk-pmb"
+    },
+    {
+      "name": "Phillip Green II",
+      "url": "https://github.com/phillipgreenii"
+    },
+    {
+      "name": "Oleksiy Krivoshey",
+      "url": "https://github.com/oleksiyk"
+    },
+    {
+      "name": "Alan Wong",
+      "url": "https://github.com/pye2k"
+    },
+    {
+      "name": "Rogier Schouten",
+      "url": "https://github.com/rogierschouten"
+    },
+    {
+      "name": "Sean Lang",
+      "url": "https://github.com/slang800"
     },
     {
       "name": "Simon Sturmer",
       "url": "https://github.com/sstur"
     },
     {
-      "name": "Alan Szlosek",
-      "url": "https://github.com/alanszlosek"
-    },
-    {
-      "name": "asylumfunk",
-      "url": "https://github.com/asylumfunk"
+      "name": "Thomas Schaaf",
+      "url": "https://github.com/thomaschaaf"
     }
   ],
   "license": "BSD-2-Clause",
