@@ -49,6 +49,10 @@ var common = module.exports = {
     return fixturesPath;
   },
 
+  defaultOptions: function() {
+    return options;
+  },
+
   server: function(customOptions) {
     customOptions = customOptions || {};
     Object.keys(options).forEach(function(key) {
