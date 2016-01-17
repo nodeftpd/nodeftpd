@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import net from 'net';
 import util from 'util';
 import {EventEmitter} from 'events';
@@ -21,8 +19,9 @@ import leftPad from './helpers/leftPad';
 var {
   // Use LOG for brevity.
   LOG_LEVELS: LOG,
-  DOES_NOT_REQUIRE_AUTH,
-  REQUIRES_CONFIGURED_DATA,
+  COMMANDS_SUPPORTED,
+  COMMANDS_NO_AUTH,
+  COMMANDS_REQUIRE_DATA_SOCKET,
 } = Constants;
 
 class FtpConnection extends EventEmitter {
@@ -249,51 +248,45 @@ class FtpConnection extends EventEmitter {
       commandArg = '';
     }
 
-    const checkData = () => {
-      if (REQUIRES_CONFIGURED_DATA[command] && !this.dataConfigured) {
-        this.respond('425 Data connection not configured; send PASV or PORT');
-        return;
-      }
-      this[m](commandArg, command);
-    };
-
-    var m = '_command_' + command;
-    if (this[m]) {
-      if (this.allowedCommands != null && this.allowedCommands[command] !== true) {
-        this.respond('502 ' + command + ' not implemented.');
-      } else if (DOES_NOT_REQUIRE_AUTH[command]) {
-        this[m](commandArg, command);
-      } else {
-        // If 'tlsOnly' option is set, all commands which require user authentication will only
-        // be permitted over a secure connection. See RFC4217 regarding error code.
-        if (!this.secure && this.server.options.tlsOnly) {
-          this.respond('522 Protection level not sufficient; send AUTH TLS');
-        } else if (this._authenticated()) {
-          checkData();
-        } else {
-          this.respond('530 Not logged in.');
-        }
-      }
-
-    } else {
+    var methodName = '__' + command;
+    if (
+      COMMANDS_SUPPORTED[command] !== true ||
+      (this.allowedCommands != null && this.allowedCommands[command] !== true)
+    ) {
       this.respond('502 Command not implemented.');
+    } else if (COMMANDS_NO_AUTH[command] === true) {
+      this[methodName](commandArg, command);
+    } else {
+      // If 'tlsOnly' option is set, all commands which require user authentication will only
+      // be permitted over a secure connection. See RFC4217 regarding error code.
+      if (!this.secure && this.server.options.tlsOnly) {
+        this.respond('522 Protection level not sufficient; send AUTH TLS');
+      } else if (this._authenticated()) {
+        if (COMMANDS_REQUIRE_DATA_SOCKET[command] === true && !this.dataConfigured) {
+          this.respond('425 Data connection not configured; send PASV or PORT');
+        } else {
+          this[methodName](commandArg, command);
+        }
+      } else {
+        this.respond('530 Not logged in.');
+      }
     }
     this.previousCommand = command;
   }
 
   // Specify the user's account (superfluous)
-  _command_ACCT() {
+  __ACCT() {
     this.respond('202 Command not implemented, superfluous at this site.');
     return this;
   }
 
   // Allocate storage space (superfluous)
-  _command_ALLO() {
+  __ALLO() {
     this.respond('202 Command not implemented, superfluous at this site.');
     return this;
   }
 
-  _command_AUTH(commandArg) {
+  __AUTH(commandArg) {
     if (!this.server.options.tlsOptions || commandArg !== 'TLS') {
       return this.respond('502 Command not implemented');
     }
@@ -329,7 +322,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Change working directory to parent directory
-  _command_CDUP() {
+  __CDUP() {
     var pathServer = pathModule.dirname(this.cwd);
     var pathEscaped = pathEscape(pathServer);
     this.cwd = pathServer;
@@ -338,7 +331,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Change working directory
-  _command_CWD(pathRequest) {
+  __CWD(pathRequest) {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathFs = pathModule.join(this.root, pathServer);
     var pathEscaped = pathEscape(pathServer);
@@ -357,7 +350,7 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  _command_DELE(commandArg) {
+  __DELE(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
     this.fs.unlink(pathModule.join(this.root, filename), (err) => {
       if (err) {
@@ -370,7 +363,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_FEAT() {
+  __FEAT() {
     // Get the feature list implemented by the server. (RFC 2389)
     this.respond(
         '211-Features\r\n' +
@@ -387,7 +380,7 @@ class FtpConnection extends EventEmitter {
     );
   }
 
-  _command_OPTS(commandArg) {
+  __OPTS(commandArg) {
     // http://tools.ietf.org/html/rfc2389#section-4
     if (commandArg.toUpperCase() === 'UTF8 ON') {
       this.respond('200 OK');
@@ -397,7 +390,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Print the file modification time
-  _command_MDTM(file) {
+  __MDTM(file) {
     file = withCwd(this.cwd, file);
     file = pathModule.join(this.root, file);
     this.fs.stat(file, (err, stats) => {
@@ -410,15 +403,15 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  _command_LIST(commandArg) {
+  __LIST(commandArg) {
     this._LIST(commandArg, true/*detailed*/, 'LIST');
   }
 
-  _command_NLST(commandArg) {
+  __NLST(commandArg) {
     this._LIST(commandArg, false/*!detailed*/, 'NLST');
   }
 
-  _command_STAT(commandArg) {
+  __STAT(commandArg) {
     if (commandArg) {
       this._LIST(commandArg, true/*detailed*/, 'STAT');
     } else {
@@ -612,7 +605,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Create a directory
-  _command_MKD(pathRequest) {
+  __MKD(pathRequest) {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathEscaped = pathEscape(pathServer);
     var pathFs = pathModule.join(this.root, pathServer);
@@ -628,16 +621,16 @@ class FtpConnection extends EventEmitter {
   }
 
   // Perform a no-op (used to keep-alive connection)
-  _command_NOOP() {
+  __NOOP() {
     this.respond('200 OK');
     return this;
   }
 
-  _command_PORT(x, y) {
+  __PORT(x, y) {
     this._PORT(x, y);
   }
 
-  _command_EPRT(x, y) {
+  __EPRT(x, y) {
     this._PORT(x, y);
   }
 
@@ -694,11 +687,11 @@ class FtpConnection extends EventEmitter {
     this.respond('200 OK');
   }
 
-  _command_PASV(x, y) {
+  __PASV(x, y) {
     this._PASV(x, y);
   }
 
-  _command_EPSV(x, y) {
+  __EPSV(x, y) {
     this._PASV(x, y);
   }
 
@@ -796,7 +789,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_PBSZ(commandArg) {
+  __PBSZ(commandArg) {
     if (!this.server.options.tlsOptions) {
       return this.respond('202 Not supported');
     }
@@ -817,7 +810,7 @@ class FtpConnection extends EventEmitter {
     }
   }
 
-  _command_PROT(commandArg) {
+  __PROT(commandArg) {
     if (!this.server.options.tlsOptions) {
       return this.respond('202 Not supported');
     }
@@ -835,7 +828,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Print the current working directory.
-  _command_PWD(commandArg) {
+  __PWD(commandArg) {
     var pathEscaped = pathEscape(this.cwd);
     if (commandArg === '') {
       this.respond('257 "' + pathEscaped + '" is current directory');
@@ -845,7 +838,7 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  _command_QUIT() {
+  __QUIT() {
     this.hasQuit = true;
     this.respond('221 Goodbye', (err) => {
       if (err) {
@@ -856,7 +849,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_RETR(commandArg) {
+  __RETR(commandArg) {
     var filename = pathModule.join(this.root, withCwd(this.cwd, commandArg));
 
     if (this.server.options.useReadFile) {
@@ -1000,7 +993,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Remove a directory
-  _command_RMD(pathRequest) {
+  __RMD(pathRequest) {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathFs = pathModule.join(this.root, pathServer);
     this.fs.rmdir(pathFs, (err) => {
@@ -1014,13 +1007,13 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  _command_RNFR(commandArg) {
+  __RNFR(commandArg) {
     this.filefrom = withCwd(this.cwd, commandArg);
     this._logIf(LOG.DEBUG, 'Rename from ' + this.filefrom);
     this.respond('350 Ready for destination name');
   }
 
-  _command_RNTO(commandArg) {
+  __RNTO(commandArg) {
     var fileto = withCwd(this.cwd, commandArg);
     this.fs.rename(pathModule.join(this.root, this.filefrom), pathModule.join(this.root, fileto), (err) => {
       if (err) {
@@ -1032,7 +1025,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_SIZE(commandArg) {
+  __SIZE(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
     this.fs.stat(pathModule.join(this.root, filename), (err, s) => {
       if (err) {
@@ -1044,7 +1037,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_TYPE(commandArg) {
+  __TYPE(commandArg) {
     if (commandArg === 'I' || commandArg === 'A') {
       this.respond('200 OK');
     } else {
@@ -1052,11 +1045,11 @@ class FtpConnection extends EventEmitter {
     }
   }
 
-  _command_SYST() {
+  __SYST() {
     this.respond('215 UNIX Type: I');
   }
 
-  _command_STOR(commandArg) {
+  __STOR(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
 
     if (this.server.options.useWriteFile) {
@@ -1262,7 +1255,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _command_APPE(commandArg) {
+  __APPE(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
     if (this.server.options.useWriteFile) {
       this._STOR_usingWriteFile(filename, 'a');
@@ -1272,7 +1265,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Specify a username for login
-  _command_USER(username) {
+  __USER(username) {
     if (this.server.options.tlsOnly && !this.secure) {
       this.respond(
         '530 This server does not permit login over ' +
@@ -1296,7 +1289,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // Specify a password for login
-  _command_PASS(password) {
+  __PASS(password) {
     if (this.previousCommand !== 'USER') {
       this.respond('503 Bad sequence of commands.');
     } else {
