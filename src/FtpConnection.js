@@ -274,129 +274,15 @@ class FtpConnection extends EventEmitter {
     this.previousCommand = command;
   }
 
-  _LIST(commandArg, detailed, cmd) {
-    /*
-     Normally the server responds with a mark using code 150. It then stops accepting new connections, attempts to send the contents of the directory over the data connection, and closes the data connection. Finally it
-
-     accepts the LIST or NLST request with code 226 if the entire directory was successfully transmitted;
-     rejects the LIST or NLST request with code 425 if no TCP connection was established;
-     rejects the LIST or NLST request with code 426 if the TCP connection was established but then broken by the client or by network failure; or
-     rejects the LIST or NLST request with code 451 if the server had trouble reading the directory from disk.
-
-     The server may reject the LIST or NLST request (with code 450 or 550) without first responding with a mark. In this case the server does not touch the data connection.
-     */
-
-    // LIST may be passed options (-a in particular). We just ignore any of these.
-    // (In the particular case of -a, we show hidden files anyway.)
-    var dirname = stripOptions(commandArg);
-    var dir = withCwd(this.cwd, dirname);
-
-    // TODO: this is bad practice, use a class if options are required: new Glob({maxConcurrency: 5}).glob()
-    glob.setMaxStatsAtOnce(this.server.options.maxStatsAtOnce);
-    glob.glob(pathModule.join(this.root, dir), this.fs, (err, files) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
-        this.respond('550 Not a directory');
-        return;
-      }
-
-      const handleFile = (ii) => {
-        if (i >= files.length) {
-          return i === files.length + j ? finished() : null;
-        }
-        this.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
-          this.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
-            if (e1 || e2) {
-              this._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
-              fileInfos.push({
-                file: files[ii],
-                uname: null,
-                gname: null,
-              });
-            } else {
-              fileInfos.push({
-                file: files[ii],
-                uname: uname,
-                gname: gname,
-              });
-            }
-            handleFile(++i);
-          });
-        });
-      };
-
-      const finished = () => {
-        // Sort file names.
-        if (!this.server.options.dontSortFilenames) {
-          if (this.server.options.filenameSortMap !== false) {
-            var sm = (
-              this.server.options.filenameSortMap ||
-              ((x) => x.toUpperCase())
-            );
-            for (var i = 0; i < fileInfos.length; ++i) {
-              fileInfos[i]._s = sm(detailed ? fileInfos[i].file.name : fileInfos[i].name);
-            }
-          }
-
-          var sf = (this.server.options.filenameSortFunc ||
-            ((x, y) => x.localeCompare(y))
-          );
-          fileInfos = fileInfos.sort((x, y) => {
-            if (this.server.options.filenameSortMap !== false) {
-              return sf(x._s, y._s);
-            } else if (detailed) {
-              return sf(x.file.name, y.file.name);
-            } else {
-              return sf(x.name, y.name);
-            }
-          });
-        }
-
-        this._listFiles(fileInfos, detailed, cmd);
-      };
-
-      if (this.server.options.hideDotFiles) {
-        files = files.filter((file) => (
-          (file.name && file.name[0] !== '.') ? true : false
-        ));
-      }
-
-      this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
-      if (files.length === 0) {
-        return this._listFiles([], detailed, cmd);
-      }
-
-      var fileInfos; // To contain list of files with info for each.
-
-      if (!detailed) {
-        // We're not doing a detailed listing, so we don't need to get username
-        // and group name.
-        fileInfos = files;
-        return finished();
-      }
-
-      // Now we need to get username and group name for each file from user/group ids.
-      fileInfos = [];
-
-      var CONC = this.server.options.maxStatsAtOnce;
-      var j = 0;
-      for (var i = 0; i < files.length && i < CONC; ++i) {
-        handleFile(i);
-      }
-      j = --i;
-
-    }, this.server.options.noWildcards);
-  }
-
-  _listFiles(fileInfos, detailed, cmd) {
+  _listFiles(fileInfos, isDetailed, command) {
     const whenReady = (listconn) => {
       const success = (err) => {
         if (err) {
           this.respond('550 Error listing files');
         } else {
-          this.respond(END_MSGS[cmd]);
+          this.respond(END_MSGS[command]);
         }
-        if (cmd !== 'STAT') {
+        if (command !== 'STAT') {
           this._closeSocket(listconn);
         }
       };
@@ -413,7 +299,7 @@ class FtpConnection extends EventEmitter {
         var line = '';
         var file;
 
-        if (!detailed) {
+        if (!isDetailed) {
           file = fileInfo;
           line += file.name + '\r\n';
         } else {
@@ -449,8 +335,8 @@ class FtpConnection extends EventEmitter {
       LIST: m, NLST: m, STAT: '213 End of status',
     };
 
-    this.respond(BEGIN_MSGS[cmd], () => {
-      if (cmd === 'STAT') {
+    this.respond(BEGIN_MSGS[command], () => {
+      if (command === 'STAT') {
         whenReady(this.socket);
       } else {
         this._whenDataReady(whenReady);
@@ -1047,17 +933,142 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  __LIST(commandArg) {
-    this._LIST(commandArg, true/*detailed*/, 'LIST');
+  __LIST(commandArg, command) {
+    let isDetailed = (command === 'LIST' || command === 'STAT');
+    /*
+     Normally the server responds with a mark using code 150. It then stops
+     accepting new connections, attempts to send the contents of the directory
+     over the data connection, and closes the data connection.
+     Finally it:
+      - accepts the LIST or NLST request with code 226 if the entire directory
+        was successfully transmitted
+      - rejects the LIST or NLST request with code 425 if no TCP connection was
+        established
+      - rejects the LIST or NLST request with code 426 if the TCP connection was
+        established but then broken by the client or by network failure
+      - rejects the LIST or NLST request with code 451 if the server had trouble
+        reading the directory from disk
+
+     The server may reject the LIST or NLST request (with code 450 or 550)
+     without first responding with a mark. In this case the server does not
+     touch the data connection.
+     */
+
+    // LIST may be passed options (-a in particular). We just ignore any of these.
+    // (In the particular case of -a, we show hidden files anyway.)
+    let dirname = stripOptions(commandArg);
+    let dir = withCwd(this.cwd, dirname);
+
+    // TODO: this is bad practice, use a class if options are required:
+    // new Glob({maxConcurrency: 5}).glob()
+    glob.setMaxStatsAtOnce(this.server.options.maxStatsAtOnce);
+    glob.glob(
+      pathModule.join(this.root, dir),
+      this.fs,
+      (err, files) => {
+        if (err) {
+          this._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
+          this.respond('550 Not a directory');
+          return;
+        }
+
+        const handleFile = (ii) => {
+          if (i >= files.length) {
+            return i === files.length + j ? finished() : null;
+          }
+          this.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
+            this.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
+              if (e1 || e2) {
+                this._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
+                fileInfos.push({
+                  file: files[ii],
+                  uname: null,
+                  gname: null,
+                });
+              } else {
+                fileInfos.push({
+                  file: files[ii],
+                  uname: uname,
+                  gname: gname,
+                });
+              }
+              handleFile(++i);
+            });
+          });
+        };
+
+        const finished = () => {
+          // Sort file names.
+          if (!this.server.options.dontSortFilenames) {
+            if (this.server.options.filenameSortMap !== false) {
+              var sm = (
+                this.server.options.filenameSortMap ||
+                ((x) => x.toUpperCase())
+              );
+              for (var i = 0; i < fileInfos.length; ++i) {
+                fileInfos[i]._s = sm(isDetailed ? fileInfos[i].file.name : fileInfos[i].name);
+              }
+            }
+
+            var sf = (this.server.options.filenameSortFunc ||
+              ((x, y) => x.localeCompare(y))
+            );
+            fileInfos = fileInfos.sort((x, y) => {
+              if (this.server.options.filenameSortMap !== false) {
+                return sf(x._s, y._s);
+              } else if (isDetailed) {
+                return sf(x.file.name, y.file.name);
+              } else {
+                return sf(x.name, y.name);
+              }
+            });
+          }
+
+          this._listFiles(fileInfos, isDetailed, command);
+        };
+
+        if (this.server.options.hideDotFiles) {
+          files = files.filter((file) => (
+            (file.name && file.name[0] !== '.') ? true : false
+          ));
+        }
+
+        this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
+        if (files.length === 0) {
+          return this._listFiles([], isDetailed, command);
+        }
+
+        var fileInfos; // To contain list of files with info for each.
+
+        if (!isDetailed) {
+          // We're not doing a detailed listing, so we don't need to get username
+          // and group name.
+          fileInfos = files;
+          return finished();
+        }
+
+        // Now we need to get username and group name for each file from user/group ids.
+        fileInfos = [];
+
+        var CONC = this.server.options.maxStatsAtOnce;
+        var j = 0;
+        for (var i = 0; i < files.length && i < CONC; ++i) {
+          handleFile(i);
+        }
+        j = --i;
+
+      },
+      this.server.options.noWildcards
+    );
   }
 
-  __NLST(commandArg) {
-    this._LIST(commandArg, false/*!detailed*/, 'NLST');
+  __NLST(commandArg, command) {
+    this.__LIST(commandArg, command);
   }
 
-  __STAT(commandArg) {
+  __STAT(commandArg, command) {
     if (commandArg) {
-      this._LIST(commandArg, true/*detailed*/, 'STAT');
+      this.__LIST(commandArg, command);
     } else {
       this.respond('211 FTP Server Status OK');
     }
