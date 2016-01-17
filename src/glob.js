@@ -1,28 +1,24 @@
-var PathModule = require('path');
+import pathModule from 'path';
+import Constants from './Constants';
 
-var CONC = 5;
-function setMaxStatsAtOnce(n) {
-  CONC = n;
-}
+const {CONCURRENT_STAT_CALLS} = Constants;
+
+// TODO: this is bad practice, use a class if options are required: new Glob({maxConcurrency: 5}).glob()
+let concurrentStatCalls = CONCURRENT_STAT_CALLS;
+export const setMaxStatsAtOnce = (n) => {
+  concurrentStatCalls = n;
+};
 
 // Wildcard directory listing. There is no way that a client should
 // use wildcards in directory names unless they're identifying a
 // unique directory to be listed. So this can be pretty simple.
 
-function statList(fsm, list, callback) {
-  if (list.length === 0) {
-    return callback(null, []);
-  }
+const statList = (fsm, list, callback) => {
+  const handleFile = () => {
+    const finished = () => {
+      callback(null, stats);
+    };
 
-  var stats = [];
-  var total = list.length;
-  for (var i = 0; i < CONC; ++i) {
-    handleFile();
-  }
-
-  var erroredOut = false;
-
-  function handleFile() {
     if (erroredOut) {
       return;
     }
@@ -34,26 +30,34 @@ function statList(fsm, list, callback) {
     }
 
     var path = list.shift();
-    fsm.stat(path, function(err, st) {
+    fsm.stat(path, (err, st) => {
       if (err) {
         erroredOut = true;
         callback(err);
       } else {
         stats.push({
-          name: PathModule.basename(path),
+          name: pathModule.basename(path),
           stats: st,
         });
         handleFile();
       }
     });
+  };
+
+  if (list.length === 0) {
+    return callback(null, []);
   }
 
-  function finished() {
-    callback(null, stats);
+  var stats = [];
+  var total = list.length;
+  for (var i = 0; i < concurrentStatCalls; ++i) {
+    handleFile();
   }
-}
 
-function matchPattern(pattern, string) {
+  var erroredOut = false;
+};
+
+export const matchPattern = (pattern, string) => {
   var pi = 0;
   var si = 0;
   for (; si < string.length && pi < pattern.length; ++si) {
@@ -81,19 +85,19 @@ function matchPattern(pattern, string) {
   }
 
   return (pi === pattern.length || (pi === pattern.length - 1 && pattern.charAt(pi) === '*')) && si === string.length;
-}
+};
 
-function glob(path, fsm, callback, noWildcards) {
+export const glob = (path, fsm, callback, noWildcards) => {
   var w;
   for (w = 0; !noWildcards && w < path.length && path.charAt(w) !== '*' && path.charAt(w) !== '?'; ++w) {
 
   }
 
   if (w === path.length) { // There are no wildcards.
-    fsm.readdir(path, function(err, contents) {
+    fsm.readdir(path, (err, contents) => {
       if (err) {
         if (err.code === 'ENOTDIR') {
-          statList(fsm, [path], function(err, list) {
+          statList(fsm, [path], (err, list) => {
             if (err) {
               return callback(err);
             }
@@ -110,10 +114,8 @@ function glob(path, fsm, callback, noWildcards) {
       } else {
         statList(
           fsm,
-          contents.map(function(p) {
-            return PathModule.join(path, p);
-          }),
-          function(err, list) {
+          contents.map((p) => pathModule.join(path, p)),
+          (err, list) => {
             if (err) {
               callback(err);
             } else {
@@ -163,9 +165,22 @@ function glob(path, fsm, callback, noWildcards) {
     // We now have the base path in 'base' (possibly the empty string)
     // and the wildcard filename pattern in 'pattern'.
 
-    readTheDir(false);
-    function readTheDir(listingSingleDir) {
-      fsm.readdir(base, function(err, contents) {
+    const readTheDir = (listingSingleDir) => {
+      fsm.readdir(base, (err, contents) => {
+        const doTheNormalThing = () => {
+          statList(
+            fsm,
+            matches.map((p) => pathModule.join(base, p)),
+            (err, list) => {
+              if (err) {
+                callback(err);
+              } else {
+                callback(null, list);
+              }
+            }
+          );
+        };
+
         if (err) {
           if (err.code === 'ENOTDIR' || err.code === 'ENOENT') {
             callback(null, []);
@@ -175,9 +190,7 @@ function glob(path, fsm, callback, noWildcards) {
         } else {
           var matches;
           if (!listingSingleDir) {
-            matches = contents.filter(function(n) {
-              return matchPattern(pattern, n);
-            });
+            matches = contents.filter((n) => matchPattern(pattern, n));
           } else {
             matches = contents;
           }
@@ -187,8 +200,8 @@ function glob(path, fsm, callback, noWildcards) {
           // to identify mutliple directories using wildcards and then list all of their
           // contents over FTP!)
           if (!listingSingleDir && matches.length === 1) {
-            var dir = PathModule.join(base, matches[0]);
-            fsm.stat(dir, function(err, st) {
+            var dir = pathModule.join(base, matches[0]);
+            fsm.stat(dir, (err, st) => {
               if (err) {
                 return callback(err);
               }
@@ -204,27 +217,10 @@ function glob(path, fsm, callback, noWildcards) {
             doTheNormalThing();
           }
 
-          function doTheNormalThing() {
-            statList(
-              fsm,
-              matches.map(function(p) {
-                return PathModule.join(base, p);
-              }),
-              function(err, list) {
-                if (err) {
-                  callback(err);
-                } else {
-                  callback(null, list);
-                }
-              }
-            );
-          }
         }
       });
-    }
-  }
-}
+    };
 
-exports.glob = glob;
-exports.matchPattern = matchPattern;
-exports.setMaxStatsAtOnce = setMaxStatsAtOnce;
+    readTheDir(false);
+  }
+};
