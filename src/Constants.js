@@ -1,4 +1,5 @@
-module.exports = {
+const Constants = {
+  CONCURRENT_STAT_CALLS: 5,
   // Whitelist of commands which don't require authentication.
   // All other commands sent by unauthorized users will be rejected by default.
   DOES_NOT_REQUIRE_AUTH: {
@@ -29,3 +30,5 @@ module.exports = {
     TRACE: 4,
   },
 };
+
+export default Constants;
