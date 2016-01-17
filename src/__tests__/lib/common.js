@@ -1,30 +1,29 @@
-'use strict';
+import path from 'path';
+import util from 'util';
+import fs from 'fs';
+import Server from '../../FtpServer';
+import Constants from '../../Constants';
+import Client from 'jsftp';
+import should from 'should';
 
-var path = require('path');
-var util = require('util');
-var fs = require('fs');
-var ftpd = require('../../');
-var Client = require('jsftp');
-var should = require('should');
-
-var Server = ftpd.FtpServer;
-var LogLevels = ftpd.LOG_LEVELS;
-var LogLevelNames = Object.keys(LogLevels).reduce(function(map, name) {
-  var value = LogLevels[name];
+var {LOG_LEVELS} = Constants;
+// TODO: replace this stuff with github.com/rauschma/enumify
+var LogLevelNames = Object.keys(LOG_LEVELS).reduce((map, name) => {
+  var value = LOG_LEVELS[name];
   map[value] = name;
   return map;
 }, {});
 
-var fixturesPath = path.join(__dirname, '../../fixture');
+var fixturesPath = path.join(__dirname, '../../../fixture');
 
-function toString(value) {
+const toString = (value) => {
   var isPrimitive = Object(value) !== value;
   if (isPrimitive) {
     return JSON.stringify(value);
   } else {
     return ('toString' in value) ? value.toString() : Object.prototype.toString(value);
   }
-}
+};
 
 var options = {
   host: process.env.IP || '127.0.0.1',
@@ -32,38 +31,38 @@ var options = {
   user: 'jose',
   pass: 'esoj',
   tlsOnly: false,
-  getInitialCwd: function() {
+  getInitialCwd() {
     return options.cwd;
   },
-  getRoot: function(connection, callback) {
+  getRoot(connection, callback) {
     var username = connection.username;
     var root = path.join(fixturesPath, username);
     fs.realpath(root, callback);
   },
 };
 
-var common = module.exports = {
+const common = {
   should: should,
 
-  fixturesPath: function() {
+  fixturesPath() {
     return fixturesPath;
   },
 
-  defaultOptions: function() {
+  defaultOptions() {
     return options;
   },
 
-  server: function(customOptions) {
+  server(customOptions) {
     customOptions = customOptions || {};
-    Object.keys(options).forEach(function(key) {
+    Object.keys(options).forEach((key) => {
       if (!customOptions.hasOwnProperty(key)) {
         customOptions[key] = options[key];
       }
     });
     var server = new Server(customOptions.host, customOptions);
-    server.on('client:connected', function(connection) {
+    server.on('client:connected', (connection) => {
       var username;
-      connection.on('command:user', function(user, success, failure) {
+      connection.on('command:user', (user, success, failure) => {
         if (user === customOptions.user) {
           username = user;
           success();
@@ -71,7 +70,7 @@ var common = module.exports = {
           failure();
         }
       });
-      connection.on('command:pass', function(pass, success, failure) {
+      connection.on('command:pass', (pass, success, failure) => {
         if (pass === customOptions.pass) {
           success(username);
         } else {
@@ -81,10 +80,10 @@ var common = module.exports = {
     });
     var origLogIf = server._logIf;
     server.suppressExpecteErrMsgs = [];
-    server._logIf = function logIfNotExpected(verbosity, message, conn) {
+    server._logIf = (verbosity, message, conn) => {
       var expecteErrMsgs = server.suppressExpecteErrMsgs;
       message = String(message).split(fixturesPath).join('fixture:/');
-      if ((expecteErrMsgs.length > 0) && (verbosity < LogLevels.LOG_INFO)) {
+      if ((expecteErrMsgs.length > 0) && (verbosity < LOG_LEVELS.INFO)) {
         var expected = expecteErrMsgs.shift();
         if (message === expected) {
           return;
@@ -105,15 +104,15 @@ var common = module.exports = {
           );
         }
       }
-      return origLogIf.call(this, verbosity, message, conn);
+      return origLogIf.call(server, verbosity, message, conn);
     };
     server.listen(customOptions.port);
     return server;
   },
 
-  client: function(done, customOptions) {
+  client(done, customOptions) {
     customOptions = customOptions || {};
-    Object.keys(options).forEach(function(key) {
+    Object.keys(options).forEach((key) => {
       if (!customOptions.hasOwnProperty(key)) {
         customOptions[key] = options[key];
       }
@@ -125,7 +124,7 @@ var common = module.exports = {
     client.auth(
       customOptions.user,
       customOptions.pass,
-      function(error, response) {
+      (error, response) => {
         should.not.exist(error);
         should.exist(response);
         response.should.have.property('code', 230);
@@ -134,9 +133,9 @@ var common = module.exports = {
     );
     return client;
   },
-  genFilterFuncFrom: function(filter) {
+  genFilterFuncFrom(filter) {
     if (!filter) {
-      return function() {
+      return () => {
         return true;
       };
     }
@@ -144,7 +143,7 @@ var common = module.exports = {
       return filter;
     }
     if ((typeof filter) === 'string') {
-      return function(item) {
+      return (item) => {
         return String(item).indexOf(filter) !== -1;
       };
     }
@@ -154,7 +153,7 @@ var common = module.exports = {
     }
     throw new Error('unsupported filter precursor: ' + util.inspect(filter));
   },
-  splitResponseLines: function(resp, filter) {
+  splitResponseLines(resp, filter) {
     var respType = typeof resp;
     respType.should.equal('string');
     resp = String(resp);
@@ -169,3 +168,5 @@ var common = module.exports = {
     return resp;
   },
 };
+
+module.exports = common;

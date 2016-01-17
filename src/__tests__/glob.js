@@ -1,10 +1,10 @@
-var glob = require('../lib/glob');
+var glob = require('../glob');
 var assert = require('assert');
 
 var matchPattern = glob.matchPattern;
 
-describe('glob.matchPattern', function() {
-  it('should match ? and * glob characters', function() {
+describe('glob.matchPattern', () => {
+  it('should match ? and * glob characters', () => {
     assert.equal(matchPattern('foo*', 'foooxx'), true);
     assert.equal(matchPattern('foo*', 'foo'), true);
     assert.equal(matchPattern('foo*', 'fo'), false);

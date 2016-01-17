@@ -3,20 +3,20 @@ var FtpClient = require('ftp');
 var path = require('path');
 var fs = require('fs');
 
-describe('APPE command', function() {
+describe('APPE command', () => {
   'use strict';
 
   var client = new FtpClient();
   var server;
 
   //run tests both ways
-  [true, false].forEach(function(useWriteFile) {
+  [true, false].forEach((useWriteFile) => {
 
-    describe('with useWriteFile = ' + useWriteFile, function() {
+    describe('with useWriteFile = ' + useWriteFile, () => {
 
-      beforeEach(function(done) {
-        server = common.server({useWriteFile:useWriteFile});
-        client.once('ready', function() {
+      beforeEach((done) => {
+        server = common.server({useWriteFile: useWriteFile});
+        client.once('ready', () => {
           done();
         });
         client.connect({
@@ -27,27 +27,32 @@ describe('APPE command', function() {
         });
       });
 
-      it('should append data to existing file', function(done) {
+      it('should append data to existing file', (done) => {
         var basename = path.basename(__filename);
         var fileSize = fs.statSync(__filename).size;
-        client.put(__filename, '/uploads/' + basename, function(err) {
+        client.put(__filename, '/uploads/' + basename, (err) => {
           common.should.not.exist(err);
-          client.append(__filename, '/uploads/' + basename, function(err) {
+          client.append(__filename, '/uploads/' + basename, (err) => {
             common.should.not.exist(err);
-            var newSize = fs.statSync(path.join(common.fixturesPath(), common.defaultOptions().user, 'uploads', basename)).size;
+            var filePath = path.join(
+              common.fixturesPath(),
+              common.defaultOptions().user,
+              'uploads',
+              basename
+            );
+            var newSize = fs.statSync(filePath).size;
             newSize.should.be.eql(fileSize * 2);
             done();
           });
         });
       });
 
-      afterEach(function() {
+      afterEach(() => {
         server.close();
       });
 
     });
 
   });
-
 
 });

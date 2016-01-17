@@ -1,12 +1,12 @@
 var common = require('./lib/common');
 
-describe('LIST command', function() {
+describe('LIST command', () => {
   'use strict';
 
   var client;
   var server;
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     server = common.server();
     client = common.client(done);
   });
@@ -15,8 +15,8 @@ describe('LIST command', function() {
     return String(rgx).replace(/^\/|\/$/g, '');
   }
 
-  it('should return "-" as first character for files', function(done) {
-    client.list('/', function(error, listing) {
+  it('should return "-" as first character for files', (done) => {
+    client.list('/', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, / data\d*\.txt$/);
       listing.should.have.lengthOf(6);
@@ -25,8 +25,8 @@ describe('LIST command', function() {
     });
   });
 
-  it('should return "d" as first character for directories', function(done) {
-    client.list('/', function(error, listing) {
+  it('should return "d" as first character for directories', (done) => {
+    client.list('/', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, / usr$/);
       listing.should.have.lengthOf(1);
@@ -35,14 +35,14 @@ describe('LIST command', function() {
     });
   });
 
-  it('should list files similar to ls -l', function(done) {
-    client.list('/usr', function(error, listing) {
+  it('should list files similar to ls -l', (done) => {
+    client.list('/usr', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing);
       listing.should.have.lengthOf(1);
       var lsLongRgx = [
         /($# file modes: ___|)[d-]([r-][w-][x-]){3}/,
-        /($# ?¿?¿? inodes?: |)\d+/,
+        /($# ?ï¿½?ï¿½? inodes?: |)\d+/,
         /($# owner name: ___|)\S+/,
         /($# owner group: __|)\S+/,
         /($# size in bytes: |)\d+/,
@@ -58,9 +58,9 @@ describe('LIST command', function() {
     });
   });
 
-  it('should list a single file', function(done) {
+  it('should list a single file', (done) => {
     var filename = 'data.txt';
-    client.list('/' + filename, function(error, listing) {
+    client.list('/' + filename, (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, ' ' + filename);
       listing.should.have.lengthOf(1);
@@ -69,8 +69,8 @@ describe('LIST command', function() {
     });
   });
 
-  it('should list a subdirectory', function(done) {
-    client.list('/usr', function(error, listing) {
+  it('should list a subdirectory', (done) => {
+    client.list('/usr', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing);
       listing.should.have.lengthOf(1);
@@ -80,7 +80,7 @@ describe('LIST command', function() {
     });
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });

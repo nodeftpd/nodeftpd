@@ -1,19 +1,19 @@
 var common = require('./lib/common');
 
-describe('UTF8 support', function() {
+describe('UTF8 support', () => {
   'use strict';
 
   var client;
   var server;
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     server = common.server();
     client = common.client(done);
   });
 
-  it('should support UTF8 in LIST command', function(done) {
+  it('should support UTF8 in LIST command', (done) => {
     var filename = 'привіт.txt';
-    client.list('/' + filename, function(error, listing) {
+    client.list('/' + filename, (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, ' ' + filename);
       listing.should.have.lengthOf(1);
@@ -22,14 +22,14 @@ describe('UTF8 support', function() {
     });
   });
 
-  it('should RETR file with UTF8 in filename', function(done) {
+  it('should RETR file with UTF8 in filename', (done) => {
     var filename = 'привіт.txt';
     var str = '';
-    client.get('/' + filename, function(error, socket) {
+    client.get('/' + filename, (error, socket) => {
       common.should.not.exist(error);
-      socket.on('data', function(data) {
+      socket.on('data', (data) => {
         str += data.toString();
-      }).on('close', function(error) {
+      }).on('close', (error) => {
         error.should.not.equal(true);
         str.should.eql('1234\n');
         done();
@@ -37,7 +37,7 @@ describe('UTF8 support', function() {
     });
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });

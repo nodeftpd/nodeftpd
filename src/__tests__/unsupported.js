@@ -1,6 +1,6 @@
 var common = require('./lib/common');
 
-describe('UNSUPPORTED commands', function() {
+describe('UNSUPPORTED commands', () => {
   'use strict';
 
   var client;
@@ -23,14 +23,14 @@ describe('UNSUPPORTED commands', function() {
     'CD',
   ];
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     server = common.server();
     client = common.client(done);
   });
 
-  commands.forEach(function(command) {
-    it('should reply 502 to ' + command, function(done) {
-      var callback = function(error) {
+  commands.forEach((command) => {
+    it('should reply 502 to ' + command, (done) => {
+      var callback = (error) => {
         error.code.should.eql(502);
         done();
       };
@@ -43,7 +43,7 @@ describe('UNSUPPORTED commands', function() {
     });
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });

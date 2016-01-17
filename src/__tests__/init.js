@@ -1,7 +1,7 @@
 var common = require('./lib/common');
 var Client = require('jsftp');
 
-describe('initialization', function() {
+describe('initialization', () => {
   'use strict';
 
   var client;
@@ -13,44 +13,44 @@ describe('initialization', function() {
     pass: 'esoj',
   };
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     done();
   });
 
-  it('should getRoot synchronously', function(done) {
+  it('should getRoot synchronously', (done) => {
     server = common.server({
-      getRoot: function() {
+      getRoot: () => {
         return '../fixture/';
       },
     });
     client = common.client(done);
   });
 
-  it('should getRoot asynchronously', function(done) {
+  it('should getRoot asynchronously', (done) => {
     server = common.server({
-      getRoot: function(connection, callback) {
+      getRoot: (connection, callback) => {
         callback(null, '../fixture/');
       },
     });
     client = common.client(done);
   });
 
-  it('should bail if getRoot fails', function(done) {
+  it('should bail if getRoot fails', (done) => {
     server = common.server({
-      getRoot: function(connection, callback) {
+      getRoot: (connection, callback) => {
         server.suppressExpecteErrMsgs.push(
           'getRoot signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },
     });
     client = new Client(options);
-    client.auth(options.user, options.pass, function(error) {
+    client.auth(options.user, options.pass, (error) => {
       error.code.should.eql(421);
       done();
     });
   });
 
-  it('should throw if getRoot is null', function(done) {
+  it('should throw if getRoot is null', (done) => {
     var fail = false;
     try {
       server = common.server({
@@ -64,40 +64,40 @@ describe('initialization', function() {
     done();
   });
 
-  it('should getInitialCwd synchronously', function(done) {
+  it('should getInitialCwd synchronously', (done) => {
     server = common.server({
-      getInitialCwd: function() {
+      getInitialCwd: () => {
         return '/';
       },
     });
     client = common.client(done);
   });
 
-  it('should getInitialCwd asynchronously', function(done) {
+  it('should getInitialCwd asynchronously', (done) => {
     server = common.server({
-      getInitialCwd: function(connection, callback) {
+      getInitialCwd: (connection, callback) => {
         callback(null, '/');
       },
     });
     client = common.client(done);
   });
 
-  it('should bail if getInitialCwd fails', function(done) {
+  it('should bail if getInitialCwd fails', (done) => {
     server = common.server({
-      getInitialCwd: function(connection, callback) {
+      getInitialCwd: (connection, callback) => {
         server.suppressExpecteErrMsgs.push(
           'getInitialCwd signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },
     });
     client = new Client(options);
-    client.auth(options.user, options.pass, function(error) {
+    client.auth(options.user, options.pass, (error) => {
       error.code.should.eql(421);
       done();
     });
   });
 
-  it('should throw if getInitialCwd is null', function(done) {
+  it('should throw if getInitialCwd is null', (done) => {
     var fail = false;
     try {
       server = common.server({
@@ -111,7 +111,7 @@ describe('initialization', function() {
     done();
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });

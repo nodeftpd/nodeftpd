@@ -1,25 +1,25 @@
 var common = require('./lib/common');
 
-describe('ACCT command', function() {
+describe('ACCT command', () => {
   'use strict';
 
   var client;
   var server;
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     server = common.server();
     client = common.client(done);
   });
 
-  it('should reply 202', function(done) {
-    client.execute('ACCT', function(error, reply) {
+  it('should reply 202', (done) => {
+    client.execute('ACCT', (error, reply) => {
       common.should.not.exist(error);
       reply.code.should.equal(202);
       done();
     });
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });

@@ -1,7 +1,7 @@
 var common = require('./lib/common');
 var Client = require('jsftp');
 
-describe('PASS command', function() {
+describe('PASS command', () => {
   'use strict';
 
   var client;
@@ -13,19 +13,19 @@ describe('PASS command', function() {
     pass: 'esoj',
   };
 
-  beforeEach(function(done) {
+  beforeEach((done) => {
     server = common.server(options);
     done();
   });
 
-  it('should reject invalid password', function(done) {
+  it('should reject invalid password', (done) => {
     var badPass = options.pass + '_invalid';
     client = new Client(options);
-    client.auth(options.user, badPass, function(error) {
+    client.auth(options.user, badPass, (error) => {
       error.code.should.eql(530);
-      client.raw.user(options.user, function(error, reply) {
+      client.raw.user(options.user, (error, reply) => {
         reply.code.should.eql(331);
-        client.raw.pass(badPass, function(error) {
+        client.raw.pass(badPass, (error) => {
           error.code.should.eql(530);
           done();
         });
@@ -33,15 +33,15 @@ describe('PASS command', function() {
     });
   });
 
-  it('should reject PASS without USER', function(done) {
+  it('should reject PASS without USER', (done) => {
     client = new Client(options);
-    client.raw.pass(options.pass, function(error) {
+    client.raw.pass(options.pass, (error) => {
       error.code.should.eql(503);
       done();
     });
   });
 
-  afterEach(function() {
+  afterEach(() => {
     server.close();
   });
 });
