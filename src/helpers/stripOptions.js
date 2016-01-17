@@ -1,5 +1,5 @@
 // Currently used for stripping options from beginning of argument to LIST and NLST.
-function stripOptions(str) {
+const stripOptions = (str) => {
   var IN_SPACE = 0;
   var IN_DASH = 1;
   var state = IN_SPACE;
@@ -18,6 +18,6 @@ function stripOptions(str) {
     }
   }
   return '';
-}
+};
 
-module.exports = stripOptions;
+export default stripOptions;
