@@ -1,27 +1,25 @@
 /* eslint-disable camelcase */
 
-var net = require('net');
-var util = require('util');
-var events = require('events');
-var pathModule = require('path');
-var fsModule = require('fs');
-var StatMode = require('stat-mode');
-var dateformat = require('dateformat');
+import net from 'net';
+import util from 'util';
+import {EventEmitter} from 'events';
+import pathModule from 'path';
+import fsModule from 'fs';
+import StatMode from 'stat-mode';
+import dateformat from 'dateformat';
 
-var glob = require('./glob');
-var starttls = require('./starttls');
-var Constants = require('./Constants');
-var PassiveListener = require('./PassiveListener');
+import * as glob from './glob';
+import starttls from './starttls';
+import Constants from './Constants';
+import PassiveListener from './PassiveListener';
 
-var pathEscape = require('./helpers/pathEscape');
-var withCwd = require('./helpers/withCwd');
-var stripOptions = require('./helpers/stripOptions');
-var leftPad = require('./helpers/leftPad');
+import pathEscape from './helpers/pathEscape';
+import withCwd from './helpers/withCwd';
+import stripOptions from './helpers/stripOptions';
+import leftPad from './helpers/leftPad';
 
-var EventEmitter = events.EventEmitter;
-
-// Use LOG for brevity.
 var {
+  // Use LOG for brevity.
   LOG_LEVELS: LOG,
   DOES_NOT_REQUIRE_AUTH,
   REQUIRES_CONFIGURED_DATA,
@@ -78,9 +76,46 @@ class FtpConnection extends EventEmitter {
       // TODO: Should we keep track of *all* connections, or enforce just one?
       this._logIf(LOG.INFO, 'Passive data event: connect');
 
+      const setupPassiveListener = () => {
+        if (this.dataListener) {
+          this.dataListener.emit('ready');
+        } else {
+          this._logIf(LOG.WARN, 'Passive connection initiated, but no data listener');
+        }
+
+        const allOver = (ename) => {
+          return (err) => {
+            this._logIf(
+                (err ? LOG.ERROR : LOG.DEBUG),
+                'Passive data event: ' + ename + (err ? ' due to error' : '')
+            );
+            this.dataSocket = null;
+          };
+        };
+
+        // Responses are not guaranteed to have an 'end' event
+        // (https://github.com/joyent/node/issues/728), but we want to set
+        // dataSocket to null as soon as possible, so we handle both events.
+        this.dataSocket.on('close', allOver('close'));
+        this.dataSocket.on('end', allOver('end'));
+
+        this.dataSocket.on('error', (err) => {
+          this._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
+          // TODO: Can we can rely on self.dataSocket having been closed?
+          this.dataSocket = null;
+          this.dataConfigured = false;
+        });
+      };
+
       if (this.secure) {
         this._logIf(LOG.INFO, 'Upgrading passive connection to TLS');
         starttls.starttlsServer(psocket, this.server.options.tlsOptions, (err, cleartext) => {
+          const switchToSecure = () => {
+            this._logIf(LOG.INFO, 'Secure passive connection started');
+            // TODO: Check for existing dataSocket.
+            this.dataSocket = cleartext;
+            setupPassiveListener();
+          };
           if (err) {
             this._logIf(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
             this._closeSocket(psocket, true);
@@ -97,48 +132,11 @@ class FtpConnection extends EventEmitter {
           } else {
             switchToSecure();
           }
-
-          function switchToSecure() {
-            this._logIf(LOG.INFO, 'Secure passive connection started');
-            // TODO: Check for existing dataSocket.
-            this.dataSocket = cleartext;
-            setupPassiveListener();
-          }
         });
       } else {
         // TODO: Check for existing dataSocket.
         this.dataSocket = psocket;
         setupPassiveListener();
-      }
-
-      function setupPassiveListener() {
-        if (this.dataListener) {
-          this.dataListener.emit('ready');
-        } else {
-          this._logIf(LOG.WARN, 'Passive connection initiated, but no data listener');
-        }
-
-        // Responses are not guaranteed to have an 'end' event
-        // (https://github.com/joyent/node/issues/728), but we want to set
-        // dataSocket to null as soon as possible, so we handle both events.
-        this.dataSocket.on('close', allOver('close'));
-        this.dataSocket.on('end', allOver('end'));
-        function allOver(ename) {
-          return (err) => {
-            this._logIf(
-                (err ? LOG.ERROR : LOG.DEBUG),
-                'Passive data event: ' + ename + (err ? ' due to error' : '')
-            );
-            this.dataSocket = null;
-          };
-        }
-
-        this.dataSocket.on('error', (err) => {
-          this._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
-          // TODO: Can we can rely on self.dataSocket having been closed?
-          this.dataSocket = null;
-          this.dataConfigured = false;
-        });
       }
     });
   }
@@ -180,15 +178,15 @@ class FtpConnection extends EventEmitter {
       this.dataSocket = sock;
       callback(sock);
     });
-    sock.on('end', allOver);
-    sock.on('close', allOver);
-    function allOver(err) {
+    const allOver = (err) => {
       this.dataSocket = null;
       this._logIf(
         err ? LOG.ERROR : LOG.DEBUG,
         'Non-passive data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
       );
-    }
+    };
+    sock.on('end', allOver);
+    sock.on('close', allOver);
 
     sock.on('error', (err) => {
       this._closeSocket(sock, true);
@@ -251,6 +249,14 @@ class FtpConnection extends EventEmitter {
       commandArg = '';
     }
 
+    const checkData = () => {
+      if (REQUIRES_CONFIGURED_DATA[command] && !this.dataConfigured) {
+        this.respond('425 Data connection not configured; send PASV or PORT');
+        return;
+      }
+      this[m](commandArg, command);
+    };
+
     var m = '_command_' + command;
     if (this[m]) {
       if (this.allowedCommands != null && this.allowedCommands[command] !== true) {
@@ -269,14 +275,6 @@ class FtpConnection extends EventEmitter {
         }
       }
 
-      function checkData() {
-        if (REQUIRES_CONFIGURED_DATA[command] && !this.dataConfigured) {
-          this.respond('425 Data connection not configured; send PASV or PORT');
-          return;
-        }
-
-        this[m](commandArg, command);
-      }
     } else {
       this.respond('502 Command not implemented.');
     }
@@ -303,6 +301,14 @@ class FtpConnection extends EventEmitter {
     this.respond('234 Honored', () => {
       this._logIf(LOG.INFO, 'Establishing secure connection...');
       starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
+        const switchToSecure = () => {
+          this._logIf(LOG.INFO, 'Secure connection started');
+          this.socket = cleartext;
+          this.socket.on('data', (data) => {
+            this._onData(data);
+          });
+          this.secure = true;
+        };
         if (err) {
           this._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
           this._closeSocket(this.socket, true);
@@ -317,15 +323,6 @@ class FtpConnection extends EventEmitter {
           }
         } else {
           switchToSecure();
-        }
-
-        function switchToSecure() {
-          this._logIf(LOG.INFO, 'Secure connection started');
-          this.socket = cleartext;
-          this.socket.on('data', (data) => {
-            this._onData(data);
-          });
-          this.secure = true;
         }
       });
     });
@@ -446,6 +443,7 @@ class FtpConnection extends EventEmitter {
     var dirname = stripOptions(commandArg);
     var dir = withCwd(this.cwd, dirname);
 
+    // TODO: this is bad practice, use a class if options are required: new Glob({maxConcurrency: 5}).glob()
     glob.setMaxStatsAtOnce(this.server.options.maxStatsAtOnce);
     glob.glob(pathModule.join(this.root, dir), this.fs, (err, files) => {
       if (err) {
@@ -454,43 +452,10 @@ class FtpConnection extends EventEmitter {
         return;
       }
 
-      if (this.server.options.hideDotFiles) {
-        files = files.filter((file) => {
-          if (file.name && file.name[0] !== '.') {
-            return true;
-          }
-        });
-      }
-
-      this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
-      if (files.length === 0) {
-        return this._listFiles([], detailed, cmd);
-      }
-
-      var fileInfos; // To contain list of files with info for each.
-
-      if (!detailed) {
-        // We're not doing a detailed listing, so we don't need to get username
-        // and group name.
-        fileInfos = files;
-        return finished();
-      }
-
-      // Now we need to get username and group name for each file from user/group ids.
-      fileInfos = [];
-
-      var CONC = this.server.options.maxStatsAtOnce;
-      var j = 0;
-      for (var i = 0; i < files.length && i < CONC; ++i) {
-        handleFile(i);
-      }
-      j = --i;
-
-      function handleFile(ii) {
+      const handleFile = (ii) => {
         if (i >= files.length) {
           return i === files.length + j ? finished() : null;
         }
-
         this.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
           this.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
             if (e1 || e2) {
@@ -510,9 +475,9 @@ class FtpConnection extends EventEmitter {
             handleFile(++i);
           });
         });
-      }
+      };
 
-      function finished() {
+      const finished = () => {
         // Sort file names.
         if (!this.server.options.dontSortFilenames) {
           if (this.server.options.filenameSortMap !== false) {
@@ -540,11 +505,93 @@ class FtpConnection extends EventEmitter {
         }
 
         this._listFiles(fileInfos, detailed, cmd);
+      };
+
+      if (this.server.options.hideDotFiles) {
+        files = files.filter((file) => (
+          (file.name && file.name[0] !== '.') ? true : false
+        ));
       }
+
+      this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
+      if (files.length === 0) {
+        return this._listFiles([], detailed, cmd);
+      }
+
+      var fileInfos; // To contain list of files with info for each.
+
+      if (!detailed) {
+        // We're not doing a detailed listing, so we don't need to get username
+        // and group name.
+        fileInfos = files;
+        return finished();
+      }
+
+      // Now we need to get username and group name for each file from user/group ids.
+      fileInfos = [];
+
+      var CONC = this.server.options.maxStatsAtOnce;
+      var j = 0;
+      for (var i = 0; i < files.length && i < CONC; ++i) {
+        handleFile(i);
+      }
+      j = --i;
+
     }, this.server.options.noWildcards);
   }
 
   _listFiles(fileInfos, detailed, cmd) {
+    const whenReady = (listconn) => {
+      const success = (err) => {
+        if (err) {
+          this.respond('550 Error listing files');
+        } else {
+          this.respond(END_MSGS[cmd]);
+        }
+        if (cmd !== 'STAT') {
+          this._closeSocket(listconn);
+        }
+      };
+
+      if (fileInfos.length === 0) {
+        return success();
+      }
+
+      this._logIf(LOG.DEBUG, 'Sending file list');
+
+      for (var i = 0; i < fileInfos.length; ++i) {
+        var fileInfo = fileInfos[i];
+
+        var line = '';
+        var file;
+
+        if (!detailed) {
+          file = fileInfo;
+          line += file.name + '\r\n';
+        } else {
+          file = fileInfo.file;
+          var s = file.stats;
+          var allModes = (new StatMode({mode: s.mode})).toString();
+          var rwxModes = allModes.substr(1, 9);
+          line += (s.isDirectory() ? 'd' : '-') + rwxModes;
+          // ^-- Clients don't need to know about special files and pipes
+          line += ' 1 ' +
+            (fileInfo.uname || 'ftp') + ' ' +
+            (fileInfo.gname === null ? 'ftp' : fileInfo.gname) + ' ';
+          line += leftPad(s.size.toString(), 12) + ' ';
+          var d = new Date(s.mtime);
+          line += leftPad(dateformat(d, 'mmm dd HH:MM'), 12) + ' ';
+          line += file.name;
+          line += '\r\n';
+        }
+        this._writeText(
+          listconn,
+          line,
+          (i === fileInfos.length - 1 ? success : undefined)
+        );
+      }
+    };
+
     var m = '150 Here comes the directory listing';
     var BEGIN_MSGS = {
       LIST: m, NLST: m, STAT: '213-Status follows',
@@ -561,56 +608,6 @@ class FtpConnection extends EventEmitter {
         this._whenDataReady(whenReady);
       }
 
-      function whenReady(listconn) {
-        if (fileInfos.length === 0) {
-          return success();
-        }
-
-        function success(err) {
-          if (err) {
-            this.respond('550 Error listing files');
-          } else {
-            this.respond(END_MSGS[cmd]);
-          }
-          if (cmd !== 'STAT') {
-            this._closeSocket(listconn);
-          }
-        }
-
-        this._logIf(LOG.DEBUG, 'Sending file list');
-
-        for (var i = 0; i < fileInfos.length; ++i) {
-          var fileInfo = fileInfos[i];
-
-          var line = '';
-          var file;
-
-          if (!detailed) {
-            file = fileInfo;
-            line += file.name + '\r\n';
-          } else {
-            file = fileInfo.file;
-            var s = file.stats;
-            var allModes = (new StatMode({mode: s.mode})).toString();
-            var rwxModes = allModes.substr(1, 9);
-            line += (s.isDirectory() ? 'd' : '-') + rwxModes;
-            // ^-- Clients don't need to know about special files and pipes
-            line += ' 1 ' +
-              (fileInfo.uname || 'ftp') + ' ' +
-              (fileInfo.gname === null ? 'ftp' : fileInfo.gname) + ' ';
-            line += leftPad(s.size.toString(), 12) + ' ';
-            var d = new Date(s.mtime);
-            line += leftPad(dateformat(d, 'mmm dd HH:MM'), 12) + ' ';
-            line += file.name;
-            line += '\r\n';
-          }
-          this._writeText(
-            listconn,
-            line,
-            (i === fileInfos.length - 1 ? success : undefined)
-          );
-        }
-      }
     });
   }
 
@@ -746,14 +743,14 @@ class FtpConnection extends EventEmitter {
     var pasv = this._createPassiveServer();
     var portRangeErrorHandler;
 
-    function normalErrorHandler(e) {
+    const normalErrorHandler = (e) => {
       this._logIf(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
       this.respond('421 Server was unable to open passive connection listener');
       this.dataConfigured = false;
       this.dataListener = null;
       this.dataSocket = null;
       this.pasv = null;
-    }
+    };
 
     if (this.server.options.pasvPortRangeStart != null && this.server.options.pasvPortRangeEnd != null) {
       // Keep trying ports in the range supplied until either:
@@ -878,10 +875,9 @@ class FtpConnection extends EventEmitter {
       sTime: startTime,
     });
 
-    function afterOk(callback) {
+    const afterOk = (callback) => {
       this.respond('150 Opening ' + this.mode.toUpperCase() + ' mode data connection', callback);
-    }
-
+    };
 
     this.fs.open(filename, 'r', (err, fd) => {
       if (err) {
@@ -956,9 +952,9 @@ class FtpConnection extends EventEmitter {
       sTime: startTime,
     });
 
-    function afterOk(callback) {
+    const afterOk = (callback) => {
       this.respond('150 Opening ' + this.mode.toUpperCase() + ' mode data connection', callback);
-    }
+    };
 
     this.fs.readFile(filename, (err, contents) => {
       if (err) {
@@ -1086,6 +1082,35 @@ class FtpConnection extends EventEmitter {
       });
     }
 
+    const handleUpload = (dataSocket) => {
+      var isPaused = false;
+      dataSocket.on('data', (buff) => {
+        var result = storeStream.write(buff);
+        // Handle back-pressure
+        if (result === false) {
+          dataSocket.pause();
+          isPaused = true;
+          storeStream.once('drain', () => {
+            dataSocket.resume();
+            isPaused = false;
+          });
+        }
+      });
+      dataSocket.once('error', () => {
+        notErr = false;
+        storeStream.end();
+      });
+      dataSocket.once('finish', () => {
+        if (isPaused) {
+          storeStream.once('drain', () => {
+            storeStream.end();
+          });
+        } else {
+          storeStream.end();
+        }
+      });
+    };
+
     this._whenDataReady(handleUpload);
 
     storeStream.on('open', () => {
@@ -1135,35 +1160,6 @@ class FtpConnection extends EventEmitter {
         this._closeSocket(this.dataSocket);
       }
     });
-
-    function handleUpload(dataSocket) {
-      var isPaused = false;
-      dataSocket.on('data', (buff) => {
-        var result = storeStream.write(buff);
-        // Handle back-pressure
-        if (result === false) {
-          dataSocket.pause();
-          isPaused = true;
-          storeStream.once('drain', () => {
-            dataSocket.resume();
-            isPaused = false;
-          });
-        }
-      });
-      dataSocket.once('error', () => {
-        notErr = false;
-        storeStream.end();
-      });
-      dataSocket.once('finish', () => {
-        if (isPaused) {
-          storeStream.once('drain', () => {
-            storeStream.end();
-          });
-        } else {
-          storeStream.end();
-        }
-      });
-    }
   }
 
   _STOR_usingWriteFile(filename, flag) {
@@ -1178,17 +1174,7 @@ class FtpConnection extends EventEmitter {
       time: startTime,
     });
 
-    this.respond('150 Ok to send data', () => {
-      this._whenDataReady(handleUpload);
-    });
-
-    function handleUpload() {
-      this.dataSocket.on('data', dataHandler);
-      this.dataSocket.once('close', closeHandler);
-      this.dataSocket.once('error', errorHandler);
-    }
-
-    function dataHandler(buf) {
+    const dataHandler = (buf) => {
       if (this.server.options.uploadMaxSlurpSize != null &&
           totalBytes + buf.length > this.server.options.uploadMaxSlurpSize) {
         // Give up trying to slurp it -- it's too big.
@@ -1224,9 +1210,9 @@ class FtpConnection extends EventEmitter {
         buf.copy(slurpBuf, totalBytes, 0, buf.length);
         totalBytes += buf.length;
       }
-    }
+    };
 
-    function closeHandler() {
+    const closeHandler = () => {
       if (erroredOut) {
         return;
       }
@@ -1259,11 +1245,21 @@ class FtpConnection extends EventEmitter {
           this._closeSocket(this.dataSocket);
         }
       });
-    }
+    };
 
-    function errorHandler() {
+    const errorHandler = () => {
       erroredOut = true;
-    }
+    };
+
+    const handleUpload = () => {
+      this.dataSocket.on('data', dataHandler);
+      this.dataSocket.once('close', closeHandler);
+      this.dataSocket.once('error', errorHandler);
+    };
+
+    this.respond('150 Ok to send data', () => {
+      this._whenDataReady(handleUpload);
+    });
   }
 
   _command_APPE(commandArg) {
@@ -1309,17 +1305,17 @@ class FtpConnection extends EventEmitter {
         password,
         // success callback
         (username, userFsModule) => {
-          function panic(error, method) {
+          const panic = (error, method) => {
             this._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
             this.respond('421 Service not available, closing control connection.', () => {
               this._closeSocket(this.socket, true);
             });
-          }
-          function setCwd(cwd) {
-            function setRoot(root) {
+          };
+          const setCwd = (cwd) => {
+            const setRoot = (root) => {
               this.root = root;
               this.respond('230 User logged in, proceed.');
-            }
+            };
 
             this.cwd = cwd;
             if (this.server.getRoot.length <= 1) {
@@ -1333,7 +1329,7 @@ class FtpConnection extends EventEmitter {
                 }
               });
             }
-          }
+          };
           this.username = username;
           this.fs = userFsModule || fsModule;
           if (this.server.getInitialCwd.length <= 1) {
@@ -1375,4 +1371,4 @@ class FtpConnection extends EventEmitter {
   }
 }
 
-module.exports = FtpConnection;
+export default FtpConnection;
