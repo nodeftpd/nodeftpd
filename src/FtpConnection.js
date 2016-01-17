@@ -73,101 +73,97 @@ class FtpConnection extends EventEmitter {
   }
 
   _createPassiveServer() {
-    var self = this;
-
     return net.createServer((psocket) => {
       // This is simply a connection listener.
       // TODO: Should we keep track of *all* connections, or enforce just one?
-      self._logIf(LOG.INFO, 'Passive data event: connect');
+      this._logIf(LOG.INFO, 'Passive data event: connect');
 
-      if (self.secure) {
-        self._logIf(LOG.INFO, 'Upgrading passive connection to TLS');
-        starttls.starttlsServer(psocket, self.server.options.tlsOptions, (err, cleartext) => {
+      if (this.secure) {
+        this._logIf(LOG.INFO, 'Upgrading passive connection to TLS');
+        starttls.starttlsServer(psocket, this.server.options.tlsOptions, (err, cleartext) => {
           if (err) {
-            self._logIf(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
-            self._closeSocket(psocket, true);
-            self.dataConfigured = false;
+            this._logIf(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
+            this._closeSocket(psocket, true);
+            this.dataConfigured = false;
           } else if (!cleartext.authorized) {
-            if (self.server.options.allowUnauthorizedTls) {
-              self._logIf(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
+            if (this.server.options.allowUnauthorizedTls) {
+              this._logIf(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
               switchToSecure();
             } else {
-              self._logIf(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
-              self._closeSocket(self.socket, true);
-              self.dataConfigured = false;
+              this._logIf(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
+              this._closeSocket(this.socket, true);
+              this.dataConfigured = false;
             }
           } else {
             switchToSecure();
           }
 
           function switchToSecure() {
-            self._logIf(LOG.INFO, 'Secure passive connection started');
+            this._logIf(LOG.INFO, 'Secure passive connection started');
             // TODO: Check for existing dataSocket.
-            self.dataSocket = cleartext;
+            this.dataSocket = cleartext;
             setupPassiveListener();
           }
         });
       } else {
         // TODO: Check for existing dataSocket.
-        self.dataSocket = psocket;
+        this.dataSocket = psocket;
         setupPassiveListener();
       }
 
       function setupPassiveListener() {
-        if (self.dataListener) {
-          self.dataListener.emit('ready');
+        if (this.dataListener) {
+          this.dataListener.emit('ready');
         } else {
-          self._logIf(LOG.WARN, 'Passive connection initiated, but no data listener');
+          this._logIf(LOG.WARN, 'Passive connection initiated, but no data listener');
         }
 
         // Responses are not guaranteed to have an 'end' event
         // (https://github.com/joyent/node/issues/728), but we want to set
         // dataSocket to null as soon as possible, so we handle both events.
-        self.dataSocket.on('close', allOver('close'));
-        self.dataSocket.on('end', allOver('end'));
+        this.dataSocket.on('close', allOver('close'));
+        this.dataSocket.on('end', allOver('end'));
         function allOver(ename) {
           return (err) => {
-            self._logIf(
+            this._logIf(
                 (err ? LOG.ERROR : LOG.DEBUG),
                 'Passive data event: ' + ename + (err ? ' due to error' : '')
             );
-            self.dataSocket = null;
+            this.dataSocket = null;
           };
         }
 
-        self.dataSocket.on('error', (err) => {
-          self._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
+        this.dataSocket.on('error', (err) => {
+          this._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
           // TODO: Can we can rely on self.dataSocket having been closed?
-          self.dataSocket = null;
-          self.dataConfigured = false;
+          this.dataSocket = null;
+          this.dataConfigured = false;
         });
       }
     });
   }
 
   _whenDataReady(callback) {
-    var self = this;
-
-    if (self.dataListener) {
+    if (this.dataListener) {
       // how many data connections are allowed?
       // should still be listening since we created a server, right?
-      if (self.dataSocket) {
-        self._logIf(LOG.DEBUG, 'A data connection exists');
-        callback(self.dataSocket);
+      if (this.dataSocket) {
+        this._logIf(LOG.DEBUG, 'A data connection exists');
+        callback(this.dataSocket);
       } else {
-        self._logIf(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
-        self.dataListener.once('ready', () => {
-          self._logIf(LOG.DEBUG, '...client has connected now');
-          callback(self.dataSocket);
+        this._logIf(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
+        this.dataListener.once('ready', () => {
+          this._logIf(LOG.DEBUG, '...client has connected now');
+          callback(this.dataSocket);
         });
       }
     } else {
       // Do we need to open the data connection?
-      if (self.dataSocket) { // There really shouldn't be an existing connection
-        self._logIf(LOG.DEBUG, 'Using existing non-passive dataSocket');
-        callback(self.dataSocket);
+      if (this.dataSocket) { // There really shouldn't be an existing connection
+        this._logIf(LOG.DEBUG, 'Using existing non-passive dataSocket');
+        callback(this.dataSocket);
       } else {
-        self._initiateData((sock) => {
+        this._initiateData((sock) => {
           callback(sock);
         });
       }
@@ -175,32 +171,30 @@ class FtpConnection extends EventEmitter {
   }
 
   _initiateData(callback) {
-    var self = this;
-
-    if (self.dataSocket) {
-      return callback(self.dataSocket);
+    if (this.dataSocket) {
+      return callback(this.dataSocket);
     }
 
-    var sock = net.connect(self.dataPort, self.dataHost || self.socket.remoteAddress);
+    var sock = net.connect(this.dataPort, this.dataHost || this.socket.remoteAddress);
     sock.on('connect', () => {
-      self.dataSocket = sock;
+      this.dataSocket = sock;
       callback(sock);
     });
     sock.on('end', allOver);
     sock.on('close', allOver);
     function allOver(err) {
-      self.dataSocket = null;
-      self._logIf(
+      this.dataSocket = null;
+      this._logIf(
         err ? LOG.ERROR : LOG.DEBUG,
         'Non-passive data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
       );
     }
 
     sock.on('error', (err) => {
-      self._closeSocket(sock, true);
-      self._logIf(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
-      self.dataSocket = null;
-      self.dataConfigured = false;
+      this._closeSocket(sock, true);
+      this._logIf(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
+      this.dataSocket = null;
+      this.dataConfigured = false;
     });
   }
 
@@ -234,16 +228,14 @@ class FtpConnection extends EventEmitter {
   }
 
   _onData(data) {
-    var self = this;
-
-    if (self.hasQuit) {
+    if (this.hasQuit) {
       return;
     }
 
     data = data.toString('utf-8').trim();
-    self._logIf(LOG.TRACE, '<< ' + data);
+    this._logIf(LOG.TRACE, '<< ' + data);
     // Don't want to include passwords in logs.
-    self._logIf(LOG.INFO, 'FTP command: ' +
+    this._logIf(LOG.INFO, 'FTP command: ' +
       data.replace(/^PASS [\s\S]*$/i, 'PASS ***')
     );
 
@@ -260,35 +252,35 @@ class FtpConnection extends EventEmitter {
     }
 
     var m = '_command_' + command;
-    if (self[m]) {
-      if (self.allowedCommands != null && self.allowedCommands[command] !== true) {
-        self.respond('502 ' + command + ' not implemented.');
+    if (this[m]) {
+      if (this.allowedCommands != null && this.allowedCommands[command] !== true) {
+        this.respond('502 ' + command + ' not implemented.');
       } else if (DOES_NOT_REQUIRE_AUTH[command]) {
-        self[m](commandArg, command);
+        this[m](commandArg, command);
       } else {
         // If 'tlsOnly' option is set, all commands which require user authentication will only
         // be permitted over a secure connection. See RFC4217 regarding error code.
-        if (!self.secure && self.server.options.tlsOnly) {
-          self.respond('522 Protection level not sufficient; send AUTH TLS');
-        } else if (self._authenticated()) {
+        if (!this.secure && this.server.options.tlsOnly) {
+          this.respond('522 Protection level not sufficient; send AUTH TLS');
+        } else if (this._authenticated()) {
           checkData();
         } else {
-          self.respond('530 Not logged in.');
+          this.respond('530 Not logged in.');
         }
       }
 
       function checkData() {
-        if (REQUIRES_CONFIGURED_DATA[command] && !self.dataConfigured) {
-          self.respond('425 Data connection not configured; send PASV or PORT');
+        if (REQUIRES_CONFIGURED_DATA[command] && !this.dataConfigured) {
+          this.respond('425 Data connection not configured; send PASV or PORT');
           return;
         }
 
-        self[m](commandArg, command);
+        this[m](commandArg, command);
       }
     } else {
-      self.respond('502 Command not implemented.');
+      this.respond('502 Command not implemented.');
     }
-    self.previousCommand = command;
+    this.previousCommand = command;
   }
 
   // Specify the user's account (superfluous)
@@ -304,38 +296,36 @@ class FtpConnection extends EventEmitter {
   }
 
   _command_AUTH(commandArg) {
-    var self = this;
-
-    if (!self.server.options.tlsOptions || commandArg !== 'TLS') {
-      return self.respond('502 Command not implemented');
+    if (!this.server.options.tlsOptions || commandArg !== 'TLS') {
+      return this.respond('502 Command not implemented');
     }
 
-    self.respond('234 Honored', () => {
-      self._logIf(LOG.INFO, 'Establishing secure connection...');
-      starttls.starttlsServer(self.socket, self.server.options.tlsOptions, (err, cleartext) => {
+    this.respond('234 Honored', () => {
+      this._logIf(LOG.INFO, 'Establishing secure connection...');
+      starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
         if (err) {
-          self._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
-          self._closeSocket(self.socket, true);
+          this._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
+          this._closeSocket(this.socket, true);
         } else if (!cleartext.authorized) {
-          self._logIf(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
-          if (self.server.options.allowUnauthorizedTls) {
-            self._logIf(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
+          this._logIf(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
+          if (this.server.options.allowUnauthorizedTls) {
+            this._logIf(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
             switchToSecure();
           } else {
-            self._logIf(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
-            self._closeSocket(self.socket, true);
+            this._logIf(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
+            this._closeSocket(this.socket, true);
           }
         } else {
           switchToSecure();
         }
 
         function switchToSecure() {
-          self._logIf(LOG.INFO, 'Secure connection started');
-          self.socket = cleartext;
-          self.socket.on('data', (data) => {
-            self._onData(data);
+          this._logIf(LOG.INFO, 'Secure connection started');
+          this.socket = cleartext;
+          this.socket.on('data', (data) => {
+            this._onData(data);
           });
-          self.secure = true;
+          this.secure = true;
         }
       });
     });
@@ -371,16 +361,14 @@ class FtpConnection extends EventEmitter {
   }
 
   _command_DELE(commandArg) {
-    var self = this;
-
-    var filename = withCwd(self.cwd, commandArg);
-    self.fs.unlink(pathModule.join(self.root, filename), (err) => {
+    var filename = withCwd(this.cwd, commandArg);
+    this.fs.unlink(pathModule.join(this.root, filename), (err) => {
       if (err) {
-        self._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
+        this._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
         // write error to socket
-        self.respond('550 Permission denied');
+        this.respond('550 Permission denied');
       } else {
-        self.respond('250 File deleted');
+        this.respond('250 File deleted');
       }
     });
   }
@@ -453,22 +441,20 @@ class FtpConnection extends EventEmitter {
      The server may reject the LIST or NLST request (with code 450 or 550) without first responding with a mark. In this case the server does not touch the data connection.
      */
 
-    var self = this;
-
     // LIST may be passed options (-a in particular). We just ignore any of these.
     // (In the particular case of -a, we show hidden files anyway.)
     var dirname = stripOptions(commandArg);
-    var dir = withCwd(self.cwd, dirname);
+    var dir = withCwd(this.cwd, dirname);
 
-    glob.setMaxStatsAtOnce(self.server.options.maxStatsAtOnce);
-    glob.glob(pathModule.join(self.root, dir), self.fs, (err, files) => {
+    glob.setMaxStatsAtOnce(this.server.options.maxStatsAtOnce);
+    glob.glob(pathModule.join(this.root, dir), this.fs, (err, files) => {
       if (err) {
-        self._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
-        self.respond('550 Not a directory');
+        this._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
+        this.respond('550 Not a directory');
         return;
       }
 
-      if (self.server.options.hideDotFiles) {
+      if (this.server.options.hideDotFiles) {
         files = files.filter((file) => {
           if (file.name && file.name[0] !== '.') {
             return true;
@@ -476,9 +462,9 @@ class FtpConnection extends EventEmitter {
         });
       }
 
-      self._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
+      this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
       if (files.length === 0) {
-        return self._listFiles([], detailed, cmd);
+        return this._listFiles([], detailed, cmd);
       }
 
       var fileInfos; // To contain list of files with info for each.
@@ -493,7 +479,7 @@ class FtpConnection extends EventEmitter {
       // Now we need to get username and group name for each file from user/group ids.
       fileInfos = [];
 
-      var CONC = self.server.options.maxStatsAtOnce;
+      var CONC = this.server.options.maxStatsAtOnce;
       var j = 0;
       for (var i = 0; i < files.length && i < CONC; ++i) {
         handleFile(i);
@@ -505,10 +491,10 @@ class FtpConnection extends EventEmitter {
           return i === files.length + j ? finished() : null;
         }
 
-        self.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
-          self.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
+        this.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
+          this.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
             if (e1 || e2) {
-              self._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
+              this._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
               fileInfos.push({
                 file: files[ii],
                 uname: null,
@@ -528,10 +514,10 @@ class FtpConnection extends EventEmitter {
 
       function finished() {
         // Sort file names.
-        if (!self.server.options.dontSortFilenames) {
-          if (self.server.options.filenameSortMap !== false) {
+        if (!this.server.options.dontSortFilenames) {
+          if (this.server.options.filenameSortMap !== false) {
             var sm = (
-              self.server.options.filenameSortMap ||
+              this.server.options.filenameSortMap ||
               ((x) => x.toUpperCase())
             );
             for (var i = 0; i < fileInfos.length; ++i) {
@@ -539,11 +525,11 @@ class FtpConnection extends EventEmitter {
             }
           }
 
-          var sf = (self.server.options.filenameSortFunc ||
+          var sf = (this.server.options.filenameSortFunc ||
             ((x, y) => x.localeCompare(y))
           );
           fileInfos = fileInfos.sort((x, y) => {
-            if (self.server.options.filenameSortMap !== false) {
+            if (this.server.options.filenameSortMap !== false) {
               return sf(x._s, y._s);
             } else if (detailed) {
               return sf(x.file.name, y.file.name);
@@ -553,14 +539,12 @@ class FtpConnection extends EventEmitter {
           });
         }
 
-        self._listFiles(fileInfos, detailed, cmd);
+        this._listFiles(fileInfos, detailed, cmd);
       }
-    }, self.server.options.noWildcards);
+    }, this.server.options.noWildcards);
   }
 
   _listFiles(fileInfos, detailed, cmd) {
-    var self = this;
-
     var m = '150 Here comes the directory listing';
     var BEGIN_MSGS = {
       LIST: m, NLST: m, STAT: '213-Status follows',
@@ -570,11 +554,11 @@ class FtpConnection extends EventEmitter {
       LIST: m, NLST: m, STAT: '213 End of status',
     };
 
-    self.respond(BEGIN_MSGS[cmd], () => {
+    this.respond(BEGIN_MSGS[cmd], () => {
       if (cmd === 'STAT') {
-        whenReady(self.socket);
+        whenReady(this.socket);
       } else {
-        self._whenDataReady(whenReady);
+        this._whenDataReady(whenReady);
       }
 
       function whenReady(listconn) {
@@ -584,16 +568,16 @@ class FtpConnection extends EventEmitter {
 
         function success(err) {
           if (err) {
-            self.respond('550 Error listing files');
+            this.respond('550 Error listing files');
           } else {
-            self.respond(END_MSGS[cmd]);
+            this.respond(END_MSGS[cmd]);
           }
           if (cmd !== 'STAT') {
-            self._closeSocket(listconn);
+            this._closeSocket(listconn);
           }
         }
 
-        self._logIf(LOG.DEBUG, 'Sending file list');
+        this._logIf(LOG.DEBUG, 'Sending file list');
 
         for (var i = 0; i < fileInfos.length; ++i) {
           var fileInfo = fileInfos[i];
@@ -620,7 +604,7 @@ class FtpConnection extends EventEmitter {
             line += file.name;
             line += '\r\n';
           }
-          self._writeText(
+          this._writeText(
             listconn,
             line,
             (i === fileInfos.length - 1 ? success : undefined)
@@ -661,15 +645,14 @@ class FtpConnection extends EventEmitter {
   }
 
   _PORT(commandArg, command) {
-    var self = this;
     var m;
 
-    self.dataConfigured = false;
+    this.dataConfigured = false;
 
     if (command === 'PORT') {
       m = commandArg.match(/^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$/);
       if (!m) {
-        self.respond('501 Bad argument to PORT');
+        this.respond('501 Bad argument to PORT');
         return;
       }
 
@@ -683,13 +666,13 @@ class FtpConnection extends EventEmitter {
       if (commandArg.length >= 3 && commandArg.charAt(0) === '|' &&
           commandArg.charAt(2) === '|' && commandArg.charAt(1) === '2') {
         // Only IPv4 is supported.
-        self.respond('522 Server cannot handle IPv6 EPRT commands, use (1)');
+        this.respond('522 Server cannot handle IPv6 EPRT commands, use (1)');
         return;
       }
 
       m = commandArg.match(/^\|1\|([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\|([0-9]{1,5})/);
       if (!m) {
-        self.respond('501 Bad Argument to EPRT');
+        this.respond('501 Bad Argument to EPRT');
         return;
       }
 
@@ -699,7 +682,7 @@ class FtpConnection extends EventEmitter {
         throw new Error('Impossible NaN in FtpConnection.prototype._PORT (2)');
       }
       if (r > 65535 || r <= 0) {
-        self.respond('501 Bad argument to EPRT (invalid port number)');
+        this.respond('501 Bad argument to EPRT (invalid port number)');
         return;
       }
 
@@ -707,11 +690,11 @@ class FtpConnection extends EventEmitter {
       port = r;
     }
 
-    self.dataConfigured = true;
-    self.dataHost = host;
-    self.dataPort = port;
-    self._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + self.dataHost + ':' + self.dataPort);
-    self.respond('200 OK');
+    this.dataConfigured = true;
+    this.dataHost = host;
+    this.dataPort = port;
+    this._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
+    this.respond('200 OK');
   }
 
   _command_PASV(x, y) {
@@ -723,73 +706,67 @@ class FtpConnection extends EventEmitter {
   }
 
   _PASV(commandArg, command) {
-    var self = this;
-
-    self.dataConfigured = false;
+    this.dataConfigured = false;
 
     if (command === 'EPSV' && commandArg && commandArg !== '1') {
-      self.respond('202 Not supported');
+      this.respond('202 Not supported');
       return;
     }
 
     // not sure whether the spec limits to 1 data connection at a time ...
-    if (self.dataSocket) {
-      self._closeSocket(self.dataSocket, true);
+    if (this.dataSocket) {
+      this._closeSocket(this.dataSocket, true);
     }
 
-    if (self.dataListener) {
-      self._logIf(LOG.DEBUG, 'Telling client that they can connect now');
-      self._writePASVReady(command);
+    if (this.dataListener) {
+      this._logIf(LOG.DEBUG, 'Telling client that they can connect now');
+      this._writePASVReady(command);
     } else {
-      self._logIf(LOG.DEBUG, 'Setting up listener for passive connections');
-      self._setupNewPASV(commandArg, command);
+      this._logIf(LOG.DEBUG, 'Setting up listener for passive connections');
+      this._setupNewPASV(commandArg, command);
     }
 
-    self.dataConfigured = true;
+    this.dataConfigured = true;
   }
 
   _writePASVReady(command) {
-    var self = this;
-
-    var a = self.pasv.address();
-    var host = self.server.host;
+    var a = this.pasv.address();
+    var host = this.server.host;
     var port = a.port;
     if (command === 'PASV') {
       var i1 = (port / 256) | 0;
       var i2 = port % 256;
-      self.respond('227 Entering Passive Mode (' + host.split('.').join(',') + ',' + i1 + ',' + i2 + ')');
+      this.respond('227 Entering Passive Mode (' + host.split('.').join(',') + ',' + i1 + ',' + i2 + ')');
     } else { // EPASV
-      self.respond('229 Entering Extended Passive Mode (|||' + port + '|)');
+      this.respond('229 Entering Extended Passive Mode (|||' + port + '|)');
     }
   }
 
   _setupNewPASV(commandArg, command) {
-    var self = this;
-
-    var pasv = self._createPassiveServer();
+    var pasv = this._createPassiveServer();
     var portRangeErrorHandler;
 
     function normalErrorHandler(e) {
-      self._logIf(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
-      self.respond('421 Server was unable to open passive connection listener');
-      self.dataConfigured = false;
-      self.dataListener = null;
-      self.dataSocket = null;
-      self.pasv = null;
+      this._logIf(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
+      this.respond('421 Server was unable to open passive connection listener');
+      this.dataConfigured = false;
+      this.dataListener = null;
+      this.dataSocket = null;
+      this.pasv = null;
     }
 
-    if (self.server.options.pasvPortRangeStart != null && self.server.options.pasvPortRangeEnd != null) {
+    if (this.server.options.pasvPortRangeStart != null && this.server.options.pasvPortRangeEnd != null) {
       // Keep trying ports in the range supplied until either:
       //     (i)   It works
       //     (ii)  We get an error that's not just EADDRINUSE
       //     (iii) We run out of ports to try.
-      var i = self.server.options.pasvPortRangeStart;
+      var i = this.server.options.pasvPortRangeStart;
       pasv.listen(i);
       portRangeErrorHandler = (e) => {
-        if (e.code === 'EADDRINUSE' && i < self.server.options.pasvPortRangeEnd) {
+        if (e.code === 'EADDRINUSE' && i < this.server.options.pasvPortRangeEnd) {
           pasv.listen(++i);
         } else {
-          self._logIf(LOG.DEBUG, 'Passing on error from portRangeErrorHandler to normalErrorHandler:' + JSON.stringify(e));
+          this._logIf(LOG.DEBUG, 'Passing on error from portRangeErrorHandler to normalErrorHandler:' + JSON.stringify(e));
           normalErrorHandler(e);
         }
       };
@@ -801,66 +778,62 @@ class FtpConnection extends EventEmitter {
 
     // Once we're successfully listening, tell the client
     pasv.on('listening', () => {
-      self.pasv = pasv;
+      this.pasv = pasv;
 
       if (portRangeErrorHandler) {
         pasv.removeListener('error', portRangeErrorHandler);
         pasv.addListener('error', normalErrorHandler);
       }
 
-      self._logIf(LOG.DEBUG, 'Passive data connection beginning to listen');
+      this._logIf(LOG.DEBUG, 'Passive data connection beginning to listen');
 
       var port = pasv.address().port;
-      self.dataListener = new PassiveListener();
-      self._logIf(LOG.DEBUG, 'Passive data connection listening on port ' + port);
-      self._writePASVReady(command);
+      this.dataListener = new PassiveListener();
+      this._logIf(LOG.DEBUG, 'Passive data connection listening on port ' + port);
+      this._writePASVReady(command);
     });
     pasv.on('close', () => {
-      self.pasv = null;
-      self.dataListener = null;
-      self._logIf(LOG.DEBUG, 'Passive data listener closed');
+      this.pasv = null;
+      this.dataListener = null;
+      this._logIf(LOG.DEBUG, 'Passive data listener closed');
     });
   }
 
   _command_PBSZ(commandArg) {
-    var self = this;
-
-    if (!self.server.options.tlsOptions) {
-      return self.respond('202 Not supported');
+    if (!this.server.options.tlsOptions) {
+      return this.respond('202 Not supported');
     }
 
     // Protection Buffer Size (RFC 2228)
-    if (!self.secure) {
-      self.respond('503 Secure connection not established');
+    if (!this.secure) {
+      this.respond('503 Secure connection not established');
     } else if (parseInt(commandArg, 10) !== 0) {
       // RFC 2228 specifies that a 200 reply must be sent specifying a more
       // satisfactory PBSZ size (0 in our case, since we're using TLS).
       // Doubt that this will do any good if the client was already confused
       // enough to send a non-zero value, but ok...
-      self.pbszReceived = true;
-      self.respond('200 buffer too big, PBSZ=0');
+      this.pbszReceived = true;
+      this.respond('200 buffer too big, PBSZ=0');
     } else {
-      self.pbszReceived = true;
-      self.respond('200 OK');
+      this.pbszReceived = true;
+      this.respond('200 OK');
     }
   }
 
   _command_PROT(commandArg) {
-    var self = this;
-
-    if (!self.server.options.tlsOptions) {
-      return self.respond('202 Not supported');
+    if (!this.server.options.tlsOptions) {
+      return this.respond('202 Not supported');
     }
 
-    if (!self.pbszReceived) {
-      self.respond('503 No PBSZ command received');
+    if (!this.pbszReceived) {
+      this.respond('503 No PBSZ command received');
     } else if (commandArg === 'S' || commandArg === 'E' || commandArg === 'C') {
-      self.respond('536 Not supported');
+      this.respond('536 Not supported');
     } else if (commandArg === 'P') {
-      self.respond('200 OK');
+      this.respond('200 OK');
     } else {
       // Don't even recognize this one...
-      self.respond('504 Not recognized');
+      this.respond('504 Not recognized');
     }
   }
 
@@ -876,15 +849,13 @@ class FtpConnection extends EventEmitter {
   }
 
   _command_QUIT() {
-    var self = this;
-
-    self.hasQuit = true;
-    self.respond('221 Goodbye', (err) => {
+    this.hasQuit = true;
+    this.respond('221 Goodbye', (err) => {
       if (err) {
-        self._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
+        this._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
       }
-      self._closeSocket(self.socket, true);
-      self._closeDataConnections();
+      this._closeSocket(this.socket, true);
+      this._closeDataConnections();
     });
   }
 
@@ -899,24 +870,23 @@ class FtpConnection extends EventEmitter {
   }
 
   _RETR_usingCreateReadStream(commandArg, filename) {
-    var self = this;
     var startTime = new Date();
 
-    self.emit('file:retr', 'open', {
-      user: self.username,
+    this.emit('file:retr', 'open', {
+      user: this.username,
       file: filename,
       sTime: startTime,
     });
 
     function afterOk(callback) {
-      self.respond('150 Opening ' + self.mode.toUpperCase() + ' mode data connection', callback);
+      this.respond('150 Opening ' + this.mode.toUpperCase() + ' mode data connection', callback);
     }
 
 
-    self.fs.open(filename, 'r', (err, fd) => {
+    this.fs.open(filename, 'r', (err, fd) => {
       if (err) {
-        self.emit('file:retr', 'error', {
-          user: self.username,
+        this.emit('file:retr', 'error', {
+          user: this.username,
           file: filename,
           filesize: 0,
           sTime: startTime,
@@ -926,21 +896,21 @@ class FtpConnection extends EventEmitter {
           error: err,
         });
         if (err.code === 'ENOENT') {
-          self.respond('550 Not Found');
+          this.respond('550 Not Found');
         } else { // Who knows what's going on here...
-          self.respond('550 Not Accessible');
-          self._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
+          this.respond('550 Not Accessible');
+          this._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
         afterOk(() => {
-          self._whenDataReady((pasvconn) => {
+          this._whenDataReady((pasvconn) => {
             var readLength = 0;
             var now = new Date();
-            var rs = self.fs.createReadStream(null, {fd: fd});
+            var rs = this.fs.createReadStream(null, {fd: fd});
             rs.pause();
             rs.once('error', (err) => {
-              self.emit('file:retr', 'close', {
-                user: self.username,
+              this.emit('file:retr', 'close', {
+                user: this.username,
                 file: filename,
                 filesize: 0,
                 sTime: startTime,
@@ -957,8 +927,8 @@ class FtpConnection extends EventEmitter {
 
             rs.on('end', () => {
               var now = new Date();
-              self.emit('file:retr', 'close', {
-                user: self.username,
+              this.emit('file:retr', 'close', {
+                user: this.username,
                 file: filename,
                 filesize: 0,
                 sTime: startTime,
@@ -966,7 +936,7 @@ class FtpConnection extends EventEmitter {
                 duration: now - startTime,
                 errorState: false,
               });
-              self.respond('226 Closing data connection, sent ' + readLength + ' bytes');
+              this.respond('226 Closing data connection, sent ' + readLength + ' bytes');
             });
 
             rs.pipe(pasvconn);
@@ -978,23 +948,22 @@ class FtpConnection extends EventEmitter {
   }
 
   _RETR_usingReadFile(commandArg, filename) {
-    var self = this;
     var startTime = new Date();
 
-    self.emit('file:retr', 'open', {
-      user: self.username,
+    this.emit('file:retr', 'open', {
+      user: this.username,
       file: filename,
       sTime: startTime,
     });
 
     function afterOk(callback) {
-      self.respond('150 Opening ' + self.mode.toUpperCase() + ' mode data connection', callback);
+      this.respond('150 Opening ' + this.mode.toUpperCase() + ' mode data connection', callback);
     }
 
-    self.fs.readFile(filename, (err, contents) => {
+    this.fs.readFile(filename, (err, contents) => {
       if (err) {
-        self.emit('file:retr', 'error', {
-          user: self.username,
+        this.emit('file:retr', 'error', {
+          user: this.username,
           file: filename,
           filesize: 0,
           sTime: startTime,
@@ -1004,22 +973,22 @@ class FtpConnection extends EventEmitter {
           error: err,
         });
         if (err.code === 'ENOENT') {
-          self.respond('550 Not Found');
+          this.respond('550 Not Found');
         } else { // Who knows what's going on here...
-          self.respond('550 Not Accessible');
-          self._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
+          this.respond('550 Not Accessible');
+          this._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
         afterOk(() => {
-          self._whenDataReady((pasvconn) => {
+          this._whenDataReady((pasvconn) => {
             contents = {filename: filename, data: contents};
-            self.emit('file:retr:contents', contents);
+            this.emit('file:retr:contents', contents);
             contents = contents.data;
             pasvconn.write(contents);
             var contentLength = contents.length;
-            self.respond('226 Closing data connection, sent ' + contentLength + ' bytes');
-            self.emit('file:retr', 'close', {
-              user: self.username,
+            this.respond('226 Closing data connection, sent ' + contentLength + ' bytes');
+            this.emit('file:retr', 'close', {
+              user: this.username,
               file: filename,
               filesize: contentLength,
               sTime: startTime,
@@ -1027,7 +996,7 @@ class FtpConnection extends EventEmitter {
               duration: new Date() - startTime,
               errorState: false,
             });
-            self._closeSocket(pasvconn);
+            this._closeSocket(pasvconn);
           });
         });
       }
@@ -1050,36 +1019,32 @@ class FtpConnection extends EventEmitter {
   }
 
   _command_RNFR(commandArg) {
-    var self = this;
-    self.filefrom = withCwd(self.cwd, commandArg);
-    self._logIf(LOG.DEBUG, 'Rename from ' + self.filefrom);
-    self.respond('350 Ready for destination name');
+    this.filefrom = withCwd(this.cwd, commandArg);
+    this._logIf(LOG.DEBUG, 'Rename from ' + this.filefrom);
+    this.respond('350 Ready for destination name');
   }
 
   _command_RNTO(commandArg) {
-    var self = this;
-    var fileto = withCwd(self.cwd, commandArg);
-    self.fs.rename(pathModule.join(self.root, self.filefrom), pathModule.join(self.root, fileto), (err) => {
+    var fileto = withCwd(this.cwd, commandArg);
+    this.fs.rename(pathModule.join(this.root, this.filefrom), pathModule.join(this.root, fileto), (err) => {
       if (err) {
-        self._logIf(LOG.ERROR, 'Error renaming file from ' + self.filefrom + ' to ' + fileto);
-        self.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
+        this._logIf(LOG.ERROR, 'Error renaming file from ' + this.filefrom + ' to ' + fileto);
+        this.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
       } else {
-        self.respond('250 File renamed successfully');
+        this.respond('250 File renamed successfully');
       }
     });
   }
 
   _command_SIZE(commandArg) {
-    var self = this;
-
-    var filename = withCwd(self.cwd, commandArg);
-    self.fs.stat(pathModule.join(self.root, filename), (err, s) => {
+    var filename = withCwd(this.cwd, commandArg);
+    this.fs.stat(pathModule.join(this.root, filename), (err, s) => {
       if (err) {
-        self._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
-        self.respond('450 Failed to get size of file');
+        this._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
+        this.respond('450 Failed to get size of file');
         return;
       }
-      self.respond('213 ' + s.size + '');
+      this.respond('213 ' + s.size + '');
     });
   }
 
@@ -1107,10 +1072,8 @@ class FtpConnection extends EventEmitter {
 
   // 'initialBuffers' argument is set when this is called from _STOR_usingWriteFile.
   _STOR_usingCreateWriteStream(filename, initialBuffers, flag) {
-    var self = this;
-
     var wStreamFlags = {flags: flag || 'w', mode: 0o644};
-    var storeStream = self.fs.createWriteStream(pathModule.join(self.root, filename), wStreamFlags);
+    var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wStreamFlags);
     var notErr = true;
     // Adding for event metadata for file upload (STOR)
     var startTime = new Date();
@@ -1123,24 +1086,24 @@ class FtpConnection extends EventEmitter {
       });
     }
 
-    self._whenDataReady(handleUpload);
+    this._whenDataReady(handleUpload);
 
     storeStream.on('open', () => {
-      self._logIf(LOG.DEBUG, 'File opened/created: ' + filename);
-      self._logIf(LOG.DEBUG, 'Told client ok to send file data');
+      this._logIf(LOG.DEBUG, 'File opened/created: ' + filename);
+      this._logIf(LOG.DEBUG, 'Told client ok to send file data');
       // Adding event emitter for upload start time
-      self.emit('file:stor', 'open', {
-        user: self.username,
+      this.emit('file:stor', 'open', {
+        user: this.username,
         file: filename,
         time: startTime,
       });
 
-      self.respond('150 Ok to send data');
+      this.respond('150 Ok to send data');
     });
 
     storeStream.on('error', () => {
-      self.emit('file:stor', 'error', {
-        user: self.username,
+      this.emit('file:stor', 'error', {
+        user: this.username,
         file: filename,
         filesize: uploadSize,
         sTime: startTime,
@@ -1150,16 +1113,16 @@ class FtpConnection extends EventEmitter {
       });
       storeStream.end();
       notErr = false;
-      if (self.dataSocket) {
-        self._closeSocket(self.dataSocket, true);
+      if (this.dataSocket) {
+        this._closeSocket(this.dataSocket, true);
       }
-      self.respond('426 Connection closed; transfer aborted');
+      this.respond('426 Connection closed; transfer aborted');
     });
 
     storeStream.on('finish', () => {
       // Adding event emitter for completed upload.
-      self.emit('file:stor', 'close', {
-        user: self.username,
+      this.emit('file:stor', 'close', {
+        user: this.username,
         file: filename,
         filesize: uploadSize,
         sTime: startTime,
@@ -1167,9 +1130,9 @@ class FtpConnection extends EventEmitter {
         duration: new Date() - startTime,
         errorState: !notErr,
       });
-      notErr ? self.respond('226 Closing data connection') : true;
-      if (self.dataSocket) {
-        self._closeSocket(self.dataSocket);
+      notErr ? this.respond('226 Closing data connection') : true;
+      if (this.dataSocket) {
+        this._closeSocket(this.dataSocket);
       }
     });
 
@@ -1204,51 +1167,49 @@ class FtpConnection extends EventEmitter {
   }
 
   _STOR_usingWriteFile(filename, flag) {
-    var self = this;
-
     var erroredOut = false;
     var slurpBuf = new Buffer(1024);
     var totalBytes = 0;
     var startTime = new Date();
 
-    self.emit('file:stor', 'open', {
-      user: self.username,
+    this.emit('file:stor', 'open', {
+      user: this.username,
       file: filename,
       time: startTime,
     });
 
-    self.respond('150 Ok to send data', () => {
-      self._whenDataReady(handleUpload);
+    this.respond('150 Ok to send data', () => {
+      this._whenDataReady(handleUpload);
     });
 
     function handleUpload() {
-      self.dataSocket.on('data', dataHandler);
-      self.dataSocket.once('close', closeHandler);
-      self.dataSocket.once('error', errorHandler);
+      this.dataSocket.on('data', dataHandler);
+      this.dataSocket.once('close', closeHandler);
+      this.dataSocket.once('error', errorHandler);
     }
 
     function dataHandler(buf) {
-      if (self.server.options.uploadMaxSlurpSize != null &&
-          totalBytes + buf.length > self.server.options.uploadMaxSlurpSize) {
+      if (this.server.options.uploadMaxSlurpSize != null &&
+          totalBytes + buf.length > this.server.options.uploadMaxSlurpSize) {
         // Give up trying to slurp it -- it's too big.
 
         // If the 'fs' module we've been given doesn't implement 'createWriteStream', then
         // we give up and send the client an error.
-        if (!self.fs.createWriteStream) {
-          if (self.dataSocket) {
-            self._closeSocket(self.dataSocket, true);
+        if (!this.fs.createWriteStream) {
+          if (this.dataSocket) {
+            this._closeSocket(this.dataSocket, true);
           }
-          self.respond('552 Requested file action aborted; file too big');
+          this.respond('552 Requested file action aborted; file too big');
           return;
         }
 
         // Otherwise, we call _STOR_usingWriteStream, and tell it to prepend the stuff
         // that we've buffered so far to the file.
-        self._logIf(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
-        self._STOR_usingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
-        self.dataSocket.removeListener('data', dataHandler);
-        self.dataSocket.removeListener('error', errorHandler);
-        self.dataSocket.removeListener('close', closeHandler);
+        this._logIf(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
+        this._STOR_usingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
+        this.dataSocket.removeListener('data', dataHandler);
+        this.dataSocket.removeListener('error', errorHandler);
+        this.dataSocket.removeListener('close', closeHandler);
       } else {
         if (totalBytes + buf.length > slurpBuf.length) {
           var newLength = slurpBuf.length * 2;
@@ -1272,10 +1233,10 @@ class FtpConnection extends EventEmitter {
 
       var wOptions = {flag: flag || 'w', mode: 0o644};
       var contents = {filename: filename, data: slurpBuf.slice(0, totalBytes)};
-      self.emit('file:stor:contents', contents);
-      self.fs.writeFile(pathModule.join(self.root, filename), contents.data, wOptions, (err) => {
-        self.emit('file:stor', 'close', {
-          user: self.username,
+      this.emit('file:stor:contents', contents);
+      this.fs.writeFile(pathModule.join(this.root, filename), contents.data, wOptions, (err) => {
+        this.emit('file:stor', 'close', {
+          user: this.username,
           file: filename,
           filesize: totalBytes,
           sTime: startTime,
@@ -1285,17 +1246,17 @@ class FtpConnection extends EventEmitter {
         });
         if (err) {
           erroredOut = true;
-          self._logIf(LOG.ERROR, 'Error writing file. ' + err);
-          if (self.dataSocket) {
-            self._closeSocket(self.dataSocket, true);
+          this._logIf(LOG.ERROR, 'Error writing file. ' + err);
+          if (this.dataSocket) {
+            this._closeSocket(this.dataSocket, true);
           }
-          self.respond('426 Connection closed; transfer aborted');
+          this.respond('426 Connection closed; transfer aborted');
           return;
         }
 
-        self.respond('226 Closing data connection');
-        if (self.dataSocket) {
-          self._closeSocket(self.dataSocket);
+        this.respond('226 Closing data connection');
+        if (this.dataSocket) {
+          this._closeSocket(this.dataSocket);
         }
       });
     }
@@ -1316,24 +1277,22 @@ class FtpConnection extends EventEmitter {
 
   // Specify a username for login
   _command_USER(username) {
-    var self = this;
-
-    if (self.server.options.tlsOnly && !self.secure) {
-      self.respond(
+    if (this.server.options.tlsOnly && !this.secure) {
+      this.respond(
         '530 This server does not permit login over ' +
         'a non-secure connection; ' +
         'connect using FTP-SSL with explicit AUTH TLS');
     } else {
-      self.emit(
+      this.emit(
         'command:user',
         username,
         // success callback
         () => {
-          self.respond('331 User name okay, need password.');
+          this.respond('331 User name okay, need password.');
         },
         // failure callback
         () => {
-          self.respond('530 Not logged in.');
+          this.respond('530 Not logged in.');
         }
       );
     }
@@ -1342,33 +1301,31 @@ class FtpConnection extends EventEmitter {
 
   // Specify a password for login
   _command_PASS(password) {
-    var self = this;
-
-    if (self.previousCommand !== 'USER') {
-      self.respond('503 Bad sequence of commands.');
+    if (this.previousCommand !== 'USER') {
+      this.respond('503 Bad sequence of commands.');
     } else {
-      self.emit(
+      this.emit(
         'command:pass',
         password,
         // success callback
         (username, userFsModule) => {
           function panic(error, method) {
-            self._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
-            self.respond('421 Service not available, closing control connection.', () => {
-              self._closeSocket(self.socket, true);
+            this._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
+            this.respond('421 Service not available, closing control connection.', () => {
+              this._closeSocket(this.socket, true);
             });
           }
           function setCwd(cwd) {
             function setRoot(root) {
-              self.root = root;
-              self.respond('230 User logged in, proceed.');
+              this.root = root;
+              this.respond('230 User logged in, proceed.');
             }
 
-            self.cwd = cwd;
-            if (self.server.getRoot.length <= 1) {
-              setRoot(self.server.getRoot(self));
+            this.cwd = cwd;
+            if (this.server.getRoot.length <= 1) {
+              setRoot(this.server.getRoot(this));
             } else {
-              self.server.getRoot(self, (err, root) => {
+              this.server.getRoot(this, (err, root) => {
                 if (err) {
                   panic(err, 'getRoot');
                 } else {
@@ -1377,12 +1334,12 @@ class FtpConnection extends EventEmitter {
               });
             }
           }
-          self.username = username;
-          self.fs = userFsModule || fsModule;
-          if (self.server.getInitialCwd.length <= 1) {
-            setCwd(withCwd(self.server.getInitialCwd(self)));
+          this.username = username;
+          this.fs = userFsModule || fsModule;
+          if (this.server.getInitialCwd.length <= 1) {
+            setCwd(withCwd(this.server.getInitialCwd(this)));
           } else {
-            self.server.getInitialCwd(self, (err, cwd) => {
+            this.server.getInitialCwd(this, (err, cwd) => {
               if (err) {
                 panic(err, 'getInitialCwd');
               } else {
@@ -1393,8 +1350,8 @@ class FtpConnection extends EventEmitter {
         },
         // failure callback
         () => {
-          self.respond('530 Not logged in.');
-          self.username = null;
+          this.respond('530 Not logged in.');
+          this.username = null;
         }
       );
     }
