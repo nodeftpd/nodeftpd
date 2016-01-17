@@ -7,8 +7,7 @@
     "node": ">=0.10.0"
   },
   "scripts": {
-    "test": "eslint --max-warnings 0 . && ./node_modules/.bin/istanbul test _mocha",
-    "test-new": "mocha --compilers js:babel-register **/__tests__/**.js",
+    "test": "mocha --compilers js:babel-register **/__tests__/**.js",
     "lint": "eslint --max-warnings 0 ."
   },
   "repository": {
@@ -129,7 +128,6 @@
     "eslint-plugin-babel": "^3.0.0",
     "expect": "^1.13.4",
     "ftp": "^0.3.10",
-    "istanbul": "~0.2.4",
     "jsftp": "git://github.com/sergi/jsftp.git#master",
     "mocha": "^2.3.4",
     "should": "~3.1.2"
