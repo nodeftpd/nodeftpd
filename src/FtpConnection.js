@@ -1,4 +1,4 @@
-/* eslint-disable prefer-arrow-callback, camelcase */
+/* eslint-disable camelcase */
 
 var net = require('net');
 var util = require('util');
@@ -75,14 +75,14 @@ class FtpConnection extends EventEmitter {
   _createPassiveServer() {
     var self = this;
 
-    return net.createServer(function(psocket) {
+    return net.createServer((psocket) => {
       // This is simply a connection listener.
       // TODO: Should we keep track of *all* connections, or enforce just one?
       self._logIf(LOG.INFO, 'Passive data event: connect');
 
       if (self.secure) {
         self._logIf(LOG.INFO, 'Upgrading passive connection to TLS');
-        starttls.starttlsServer(psocket, self.server.options.tlsOptions, function(err, cleartext) {
+        starttls.starttlsServer(psocket, self.server.options.tlsOptions, (err, cleartext) => {
           if (err) {
             self._logIf(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
             self._closeSocket(psocket, true);
@@ -126,7 +126,7 @@ class FtpConnection extends EventEmitter {
         self.dataSocket.on('close', allOver('close'));
         self.dataSocket.on('end', allOver('end'));
         function allOver(ename) {
-          return function(err) {
+          return (err) => {
             self._logIf(
                 (err ? LOG.ERROR : LOG.DEBUG),
                 'Passive data event: ' + ename + (err ? ' due to error' : '')
@@ -135,7 +135,7 @@ class FtpConnection extends EventEmitter {
           };
         }
 
-        self.dataSocket.on('error', function(err) {
+        self.dataSocket.on('error', (err) => {
           self._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
           // TODO: Can we can rely on self.dataSocket having been closed?
           self.dataSocket = null;
@@ -156,7 +156,7 @@ class FtpConnection extends EventEmitter {
         callback(self.dataSocket);
       } else {
         self._logIf(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
-        self.dataListener.once('ready', function() {
+        self.dataListener.once('ready', () => {
           self._logIf(LOG.DEBUG, '...client has connected now');
           callback(self.dataSocket);
         });
@@ -167,7 +167,7 @@ class FtpConnection extends EventEmitter {
         self._logIf(LOG.DEBUG, 'Using existing non-passive dataSocket');
         callback(self.dataSocket);
       } else {
-        self._initiateData(function(sock) {
+        self._initiateData((sock) => {
           callback(sock);
         });
       }
@@ -182,7 +182,7 @@ class FtpConnection extends EventEmitter {
     }
 
     var sock = net.connect(self.dataPort, self.dataHost || self.socket.remoteAddress);
-    sock.on('connect', function() {
+    sock.on('connect', () => {
       self.dataSocket = sock;
       callback(sock);
     });
@@ -196,7 +196,7 @@ class FtpConnection extends EventEmitter {
       );
     }
 
-    sock.on('error', function(err) {
+    sock.on('error', (err) => {
       self._closeSocket(sock, true);
       self._logIf(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
       self.dataSocket = null;
@@ -310,9 +310,9 @@ class FtpConnection extends EventEmitter {
       return self.respond('502 Command not implemented');
     }
 
-    self.respond('234 Honored', function() {
+    self.respond('234 Honored', () => {
       self._logIf(LOG.INFO, 'Establishing secure connection...');
-      starttls.starttlsServer(self.socket, self.server.options.tlsOptions, function(err, cleartext) {
+      starttls.starttlsServer(self.socket, self.server.options.tlsOptions, (err, cleartext) => {
         if (err) {
           self._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
           self._closeSocket(self.socket, true);
@@ -332,7 +332,7 @@ class FtpConnection extends EventEmitter {
         function switchToSecure() {
           self._logIf(LOG.INFO, 'Secure connection started');
           self.socket = cleartext;
-          self.socket.on('data', function(data) {
+          self.socket.on('data', (data) => {
             self._onData(data);
           });
           self.secure = true;
@@ -355,7 +355,7 @@ class FtpConnection extends EventEmitter {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathFs = pathModule.join(this.root, pathServer);
     var pathEscaped = pathEscape(pathServer);
-    this.fs.stat(pathFs, function(err, stats) {
+    this.fs.stat(pathFs, (err, stats) => {
       if (err) {
         this._logIf(LOG.ERROR, 'CWD ' + pathRequest + ': ' + err);
         this.respond('550 Directory not found.');
@@ -366,7 +366,7 @@ class FtpConnection extends EventEmitter {
         this.cwd = pathServer;
         this.respond('250 CWD successful. "' + pathEscaped + '" is current directory');
       }
-    }.bind(this));
+    });
     return this;
   }
 
@@ -374,7 +374,7 @@ class FtpConnection extends EventEmitter {
     var self = this;
 
     var filename = withCwd(self.cwd, commandArg);
-    self.fs.unlink(pathModule.join(self.root, filename), function(err) {
+    self.fs.unlink(pathModule.join(self.root, filename), (err) => {
       if (err) {
         self._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
         // write error to socket
@@ -415,13 +415,13 @@ class FtpConnection extends EventEmitter {
   _command_MDTM(file) {
     file = withCwd(this.cwd, file);
     file = pathModule.join(this.root, file);
-    this.fs.stat(file, function(err, stats) {
+    this.fs.stat(file, (err, stats) => {
       if (err) {
         this.respond('550 File unavailable');
       } else {
         this.respond('213 ' + dateformat(stats.mtime, 'yyyymmddhhMMss'));
       }
-    }.bind(this));
+    });
     return this;
   }
 
@@ -461,7 +461,7 @@ class FtpConnection extends EventEmitter {
     var dir = withCwd(self.cwd, dirname);
 
     glob.setMaxStatsAtOnce(self.server.options.maxStatsAtOnce);
-    glob.glob(pathModule.join(self.root, dir), self.fs, function(err, files) {
+    glob.glob(pathModule.join(self.root, dir), self.fs, (err, files) => {
       if (err) {
         self._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
         self.respond('550 Not a directory');
@@ -469,7 +469,7 @@ class FtpConnection extends EventEmitter {
       }
 
       if (self.server.options.hideDotFiles) {
-        files = files.filter(function(file) {
+        files = files.filter((file) => {
           if (file.name && file.name[0] !== '.') {
             return true;
           }
@@ -505,8 +505,8 @@ class FtpConnection extends EventEmitter {
           return i === files.length + j ? finished() : null;
         }
 
-        self.server.getUsernameFromUid(files[ii].stats.uid, function(e1, uname) {
-          self.server.getGroupFromGid(files[ii].stats.gid, function(e2, gname) {
+        self.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
+          self.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
             if (e1 || e2) {
               self._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
               fileInfos.push({
@@ -532,9 +532,7 @@ class FtpConnection extends EventEmitter {
           if (self.server.options.filenameSortMap !== false) {
             var sm = (
               self.server.options.filenameSortMap ||
-              function(x) {
-                return x.toUpperCase();
-              }
+              ((x) => x.toUpperCase())
             );
             for (var i = 0; i < fileInfos.length; ++i) {
               fileInfos[i]._s = sm(detailed ? fileInfos[i].file.name : fileInfos[i].name);
@@ -542,10 +540,9 @@ class FtpConnection extends EventEmitter {
           }
 
           var sf = (self.server.options.filenameSortFunc ||
-              function(x, y) {
-                return x.localeCompare(y);
-              });
-          fileInfos = fileInfos.sort(function(x, y) {
+            ((x, y) => x.localeCompare(y))
+          );
+          fileInfos = fileInfos.sort((x, y) => {
             if (self.server.options.filenameSortMap !== false) {
               return sf(x._s, y._s);
             } else if (detailed) {
@@ -573,7 +570,7 @@ class FtpConnection extends EventEmitter {
       LIST: m, NLST: m, STAT: '213 End of status',
     };
 
-    self.respond(BEGIN_MSGS[cmd], function() {
+    self.respond(BEGIN_MSGS[cmd], () => {
       if (cmd === 'STAT') {
         whenReady(self.socket);
       } else {
@@ -638,14 +635,14 @@ class FtpConnection extends EventEmitter {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathEscaped = pathEscape(pathServer);
     var pathFs = pathModule.join(this.root, pathServer);
-    this.fs.mkdir(pathFs, 0o755, function(err) {
+    this.fs.mkdir(pathFs, 0o755, (err) => {
       if (err) {
         this._logIf(LOG.ERROR, 'MKD ' + pathRequest + ': ' + err);
         this.respond('550 "' + pathEscaped + '" directory NOT created');
       } else {
         this.respond('257 "' + pathEscaped + '" directory created');
       }
-    }.bind(this));
+    });
     return this;
   }
 
@@ -788,7 +785,7 @@ class FtpConnection extends EventEmitter {
       //     (iii) We run out of ports to try.
       var i = self.server.options.pasvPortRangeStart;
       pasv.listen(i);
-      portRangeErrorHandler = function(e) {
+      portRangeErrorHandler = (e) => {
         if (e.code === 'EADDRINUSE' && i < self.server.options.pasvPortRangeEnd) {
           pasv.listen(++i);
         } else {
@@ -803,7 +800,7 @@ class FtpConnection extends EventEmitter {
     }
 
     // Once we're successfully listening, tell the client
-    pasv.on('listening', function() {
+    pasv.on('listening', () => {
       self.pasv = pasv;
 
       if (portRangeErrorHandler) {
@@ -818,7 +815,7 @@ class FtpConnection extends EventEmitter {
       self._logIf(LOG.DEBUG, 'Passive data connection listening on port ' + port);
       self._writePASVReady(command);
     });
-    pasv.on('close', function() {
+    pasv.on('close', () => {
       self.pasv = null;
       self.dataListener = null;
       self._logIf(LOG.DEBUG, 'Passive data listener closed');
@@ -882,7 +879,7 @@ class FtpConnection extends EventEmitter {
     var self = this;
 
     self.hasQuit = true;
-    self.respond('221 Goodbye', function(err) {
+    self.respond('221 Goodbye', (err) => {
       if (err) {
         self._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
       }
@@ -916,7 +913,7 @@ class FtpConnection extends EventEmitter {
     }
 
 
-    self.fs.open(filename, 'r', function(err, fd) {
+    self.fs.open(filename, 'r', (err, fd) => {
       if (err) {
         self.emit('file:retr', 'error', {
           user: self.username,
@@ -935,13 +932,13 @@ class FtpConnection extends EventEmitter {
           self._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
-        afterOk(function() {
-          self._whenDataReady(function(pasvconn) {
+        afterOk(() => {
+          self._whenDataReady((pasvconn) => {
             var readLength = 0;
             var now = new Date();
             var rs = self.fs.createReadStream(null, {fd: fd});
             rs.pause();
-            rs.once('error', function(err) {
+            rs.once('error', (err) => {
               self.emit('file:retr', 'close', {
                 user: self.username,
                 file: filename,
@@ -954,11 +951,11 @@ class FtpConnection extends EventEmitter {
               });
             });
 
-            rs.on('data', function(buffer) {
+            rs.on('data', (buffer) => {
               readLength += buffer.length;
             });
 
-            rs.on('end', function() {
+            rs.on('end', () => {
               var now = new Date();
               self.emit('file:retr', 'close', {
                 user: self.username,
@@ -994,7 +991,7 @@ class FtpConnection extends EventEmitter {
       self.respond('150 Opening ' + self.mode.toUpperCase() + ' mode data connection', callback);
     }
 
-    self.fs.readFile(filename, function(err, contents) {
+    self.fs.readFile(filename, (err, contents) => {
       if (err) {
         self.emit('file:retr', 'error', {
           user: self.username,
@@ -1013,8 +1010,8 @@ class FtpConnection extends EventEmitter {
           self._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
-        afterOk(function() {
-          self._whenDataReady(function(pasvconn) {
+        afterOk(() => {
+          self._whenDataReady((pasvconn) => {
             contents = {filename: filename, data: contents};
             self.emit('file:retr:contents', contents);
             contents = contents.data;
@@ -1041,14 +1038,14 @@ class FtpConnection extends EventEmitter {
   _command_RMD(pathRequest) {
     var pathServer = withCwd(this.cwd, pathRequest);
     var pathFs = pathModule.join(this.root, pathServer);
-    this.fs.rmdir(pathFs, function(err) {
+    this.fs.rmdir(pathFs, (err) => {
       if (err) {
         this._logIf(LOG.ERROR, 'RMD ' + pathRequest + ': ' + err);
         this.respond('550 Delete operation failed');
       } else {
         this.respond('250 "' + pathServer + '" directory removed');
       }
-    }.bind(this));
+    });
     return this;
   }
 
@@ -1062,7 +1059,7 @@ class FtpConnection extends EventEmitter {
   _command_RNTO(commandArg) {
     var self = this;
     var fileto = withCwd(self.cwd, commandArg);
-    self.fs.rename(pathModule.join(self.root, self.filefrom), pathModule.join(self.root, fileto), function(err) {
+    self.fs.rename(pathModule.join(self.root, self.filefrom), pathModule.join(self.root, fileto), (err) => {
       if (err) {
         self._logIf(LOG.ERROR, 'Error renaming file from ' + self.filefrom + ' to ' + fileto);
         self.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
@@ -1076,7 +1073,7 @@ class FtpConnection extends EventEmitter {
     var self = this;
 
     var filename = withCwd(self.cwd, commandArg);
-    self.fs.stat(pathModule.join(self.root, filename), function(err, s) {
+    self.fs.stat(pathModule.join(self.root, filename), (err, s) => {
       if (err) {
         self._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
         self.respond('450 Failed to get size of file');
@@ -1121,14 +1118,14 @@ class FtpConnection extends EventEmitter {
 
     if (initialBuffers) {
       //todo: handle back-pressure
-      initialBuffers.forEach(function(b) {
+      initialBuffers.forEach((b) => {
         storeStream.write(b);
       });
     }
 
     self._whenDataReady(handleUpload);
 
-    storeStream.on('open', function() {
+    storeStream.on('open', () => {
       self._logIf(LOG.DEBUG, 'File opened/created: ' + filename);
       self._logIf(LOG.DEBUG, 'Told client ok to send file data');
       // Adding event emitter for upload start time
@@ -1141,7 +1138,7 @@ class FtpConnection extends EventEmitter {
       self.respond('150 Ok to send data');
     });
 
-    storeStream.on('error', function() {
+    storeStream.on('error', () => {
       self.emit('file:stor', 'error', {
         user: self.username,
         file: filename,
@@ -1159,7 +1156,7 @@ class FtpConnection extends EventEmitter {
       self.respond('426 Connection closed; transfer aborted');
     });
 
-    storeStream.on('finish', function() {
+    storeStream.on('finish', () => {
       // Adding event emitter for completed upload.
       self.emit('file:stor', 'close', {
         user: self.username,
@@ -1178,25 +1175,25 @@ class FtpConnection extends EventEmitter {
 
     function handleUpload(dataSocket) {
       var isPaused = false;
-      dataSocket.on('data', function(buff) {
+      dataSocket.on('data', (buff) => {
         var result = storeStream.write(buff);
         // Handle back-pressure
         if (result === false) {
           dataSocket.pause();
           isPaused = true;
-          storeStream.once('drain', function() {
+          storeStream.once('drain', () => {
             dataSocket.resume();
             isPaused = false;
           });
         }
       });
-      dataSocket.once('error', function() {
+      dataSocket.once('error', () => {
         notErr = false;
         storeStream.end();
       });
-      dataSocket.once('finish', function() {
+      dataSocket.once('finish', () => {
         if (isPaused) {
-          storeStream.once('drain', function() {
+          storeStream.once('drain', () => {
             storeStream.end();
           });
         } else {
@@ -1220,7 +1217,7 @@ class FtpConnection extends EventEmitter {
       time: startTime,
     });
 
-    self.respond('150 Ok to send data', function() {
+    self.respond('150 Ok to send data', () => {
       self._whenDataReady(handleUpload);
     });
 
@@ -1276,7 +1273,7 @@ class FtpConnection extends EventEmitter {
       var wOptions = {flag: flag || 'w', mode: 0o644};
       var contents = {filename: filename, data: slurpBuf.slice(0, totalBytes)};
       self.emit('file:stor:contents', contents);
-      self.fs.writeFile(pathModule.join(self.root, filename), contents.data, wOptions, function(err) {
+      self.fs.writeFile(pathModule.join(self.root, filename), contents.data, wOptions, (err) => {
         self.emit('file:stor', 'close', {
           user: self.username,
           file: filename,
@@ -1327,13 +1324,17 @@ class FtpConnection extends EventEmitter {
         'a non-secure connection; ' +
         'connect using FTP-SSL with explicit AUTH TLS');
     } else {
-      self.emit('command:user', username,
-          function success() {
-            self.respond('331 User name okay, need password.');
-          },
-          function failure() {
-            self.respond('530 Not logged in.');
-          }
+      self.emit(
+        'command:user',
+        username,
+        // success callback
+        () => {
+          self.respond('331 User name okay, need password.');
+        },
+        // failure callback
+        () => {
+          self.respond('530 Not logged in.');
+        }
       );
     }
     return this;
@@ -1346,51 +1347,55 @@ class FtpConnection extends EventEmitter {
     if (self.previousCommand !== 'USER') {
       self.respond('503 Bad sequence of commands.');
     } else {
-      self.emit('command:pass', password,
-          function success(username, userFsModule) {
-            function panic(error, method) {
-              self._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
-              self.respond('421 Service not available, closing control connection.', function() {
-                self._closeSocket(self.socket, true);
-              });
+      self.emit(
+        'command:pass',
+        password,
+        // success callback
+        (username, userFsModule) => {
+          function panic(error, method) {
+            self._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
+            self.respond('421 Service not available, closing control connection.', () => {
+              self._closeSocket(self.socket, true);
+            });
+          }
+          function setCwd(cwd) {
+            function setRoot(root) {
+              self.root = root;
+              self.respond('230 User logged in, proceed.');
             }
-            function setCwd(cwd) {
-              function setRoot(root) {
-                self.root = root;
-                self.respond('230 User logged in, proceed.');
-              }
 
-              self.cwd = cwd;
-              if (self.server.getRoot.length <= 1) {
-                setRoot(self.server.getRoot(self));
-              } else {
-                self.server.getRoot(self, function(err, root) {
-                  if (err) {
-                    panic(err, 'getRoot');
-                  } else {
-                    setRoot(root);
-                  }
-                });
-              }
-            }
-            self.username = username;
-            self.fs = userFsModule || fsModule;
-            if (self.server.getInitialCwd.length <= 1) {
-              setCwd(withCwd(self.server.getInitialCwd(self)));
+            self.cwd = cwd;
+            if (self.server.getRoot.length <= 1) {
+              setRoot(self.server.getRoot(self));
             } else {
-              self.server.getInitialCwd(self, function(err, cwd) {
+              self.server.getRoot(self, (err, root) => {
                 if (err) {
-                  panic(err, 'getInitialCwd');
+                  panic(err, 'getRoot');
                 } else {
-                  setCwd(withCwd(cwd));
+                  setRoot(root);
                 }
               });
             }
-          },
-          function failure() {
-            self.respond('530 Not logged in.');
-            self.username = null;
           }
+          self.username = username;
+          self.fs = userFsModule || fsModule;
+          if (self.server.getInitialCwd.length <= 1) {
+            setCwd(withCwd(self.server.getInitialCwd(self)));
+          } else {
+            self.server.getInitialCwd(self, (err, cwd) => {
+              if (err) {
+                panic(err, 'getInitialCwd');
+              } else {
+                setCwd(withCwd(cwd));
+              }
+            });
+          }
+        },
+        // failure callback
+        () => {
+          self.respond('530 Not logged in.');
+          self.username = null;
+        }
       );
     }
     return this;
