@@ -1,14 +1,13 @@
-var pathModule = require('path');
+import pathModule from 'path';
 
-function withCwd(cwd, path) {
-  var firstChar = (path || '').charAt(0);
-  cwd = cwd || pathModule.sep;
-  path = path || '';
-  if (firstChar === '/' || firstChar === pathModule.sep) {
-    cwd = pathModule.sep;
+const SEP = pathModule.sep;
+
+const withCwd = (cwd, path) => {
+  let firstChar = (path || '').charAt(0);
+  if (firstChar === '/' || firstChar === SEP) {
+    cwd = SEP;
   }
-  path = pathModule.join(pathModule.sep, cwd, path);
-  return path;
-}
+  return pathModule.join(SEP, cwd || SEP, path || '');
+};
 
-module.exports = withCwd;
+export default withCwd;
