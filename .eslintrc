@@ -106,9 +106,9 @@
 
     // Stylistic (these rules are purely matters of style and are quite subjective)
 
-    "key-spacing": 0,
-    "comma-spacing": 0,
-    "no-multi-spaces": 0,
+    "key-spacing": 1,                     // require space after colon `{a: 1}`
+    "comma-spacing": 1,                   // require space after comma `var a, b;`
+    "no-multi-spaces": 1,                 // don't allow more spaces than necessary
     "brace-style": [                      // enforce one true brace style
       1, "1tbs", {
         "allowSingleLine": false
