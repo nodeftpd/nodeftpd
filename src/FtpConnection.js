@@ -606,7 +606,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _RETR_usingCreateReadStream(commandArg, filename) {
+  _retrieveUsingCreateReadStream(commandArg, filename) {
     var startTime = new Date();
 
     this.emit('file:retr', 'open', {
@@ -683,7 +683,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _RETR_usingReadFile(commandArg, filename) {
+  _retrieveUsingReadFile(commandArg, filename) {
     var startTime = new Date();
 
     this.emit('file:retr', 'open', {
@@ -739,8 +739,8 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  // 'initialBuffers' argument is set when this is called from _STOR_usingWriteFile.
-  _STOR_usingCreateWriteStream(filename, initialBuffers, flag) {
+  // 'initialBuffers' argument is set when this is called from _storeUsingWriteFile.
+  _storeUsingCreateWriteStream(filename, initialBuffers, flag) {
     var wStreamFlags = {flags: flag || 'w', mode: 0o644};
     var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wStreamFlags);
     var notErr = true;
@@ -835,7 +835,7 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _STOR_usingWriteFile(filename, flag) {
+  _storeUsingWriteFile(filename, flag) {
     var erroredOut = false;
     var slurpBuf = new Buffer(1024);
     var totalBytes = 0;
@@ -865,7 +865,7 @@ class FtpConnection extends EventEmitter {
         // Otherwise, we call _STOR_usingWriteStream, and tell it to prepend the stuff
         // that we've buffered so far to the file.
         this._logIf(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
-        this._STOR_usingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
+        this._storeUsingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
         this.dataSocket.removeListener('data', dataHandler);
         this.dataSocket.removeListener('error', errorHandler);
         this.dataSocket.removeListener('close', closeHandler);
@@ -1198,9 +1198,9 @@ class FtpConnection extends EventEmitter {
     var filename = pathModule.join(this.root, withCwd(this.cwd, commandArg));
 
     if (this.server.options.useReadFile) {
-      this._RETR_usingReadFile(commandArg, filename);
+      this._retrieveUsingReadFile(commandArg, filename);
     } else {
-      this._RETR_usingCreateReadStream(commandArg, filename);
+      this._retrieveUsingCreateReadStream(commandArg, filename);
     }
   }
 
@@ -1265,18 +1265,18 @@ class FtpConnection extends EventEmitter {
     var filename = withCwd(this.cwd, commandArg);
 
     if (this.server.options.useWriteFile) {
-      this._STOR_usingWriteFile(filename, 'w');
+      this._storeUsingWriteFile(filename, 'w');
     } else {
-      this._STOR_usingCreateWriteStream(filename, null, 'w');
+      this._storeUsingCreateWriteStream(filename, null, 'w');
     }
   }
 
   __APPE(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
     if (this.server.options.useWriteFile) {
-      this._STOR_usingWriteFile(filename, 'a');
+      this._storeUsingWriteFile(filename, 'a');
     } else {
-      this._STOR_usingCreateWriteStream(filename, null, 'a');
+      this._storeUsingCreateWriteStream(filename, null, 'a');
     }
   }
 
