@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('ACCT command', () => {
-  'use strict';
-
   var client;
   var server;
 

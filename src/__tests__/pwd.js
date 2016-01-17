@@ -2,8 +2,6 @@ var common = require('./lib/common');
 var path = require('path');
 
 describe('PWD command', () => {
-  'use strict';
-
   var client;
   var server;
   var directories = [

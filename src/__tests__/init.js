@@ -2,8 +2,6 @@ var common = require('./lib/common');
 var Client = require('jsftp');
 
 describe('initialization', () => {
-  'use strict';
-
   var client;
   var server;
   var options = {

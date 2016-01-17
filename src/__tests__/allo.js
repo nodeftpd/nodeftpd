@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('ALLO command', () => {
-  'use strict';
-
   var client;
   var server;
 

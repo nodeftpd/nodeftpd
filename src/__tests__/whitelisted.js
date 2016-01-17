@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('Whitelisted commands', () => {
-  'use strict';
-
   var client;
   var server;
   var options = {

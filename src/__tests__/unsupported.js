@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('UNSUPPORTED commands', () => {
-  'use strict';
-
   var client;
   var server;
   var commands = [

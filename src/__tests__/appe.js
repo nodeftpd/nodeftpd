@@ -4,8 +4,6 @@ var path = require('path');
 var fs = require('fs');
 
 describe('APPE command', () => {
-  'use strict';
-
   var client = new FtpClient();
   var server;
 

@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('CWD/CDUP commands', () => {
-  'use strict';
-
   var client;
   var server;
   var pathExisting = 'usr/local';

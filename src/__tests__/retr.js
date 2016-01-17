@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('RETR command', () => {
-  'use strict';
-
   var client;
   var server;
 

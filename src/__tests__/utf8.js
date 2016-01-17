@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('UTF8 support', () => {
-  'use strict';
-
   var client;
   var server;
 

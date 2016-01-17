@@ -1,7 +1,3 @@
-﻿/*jslint indent: 2, maxlen: 80, node: true, white: true, vars: true */
-/*globals describe, it, beforeEach, afterEach */
-'use strict';
-
 var common = require('./lib/common');
 var async = require('async');
 var collectStream = require('collect-stream');

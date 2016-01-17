@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('MKD/RMD commands', () => {
-  'use strict';
-
   var client;
   var server;
   var directory = '/testdir';

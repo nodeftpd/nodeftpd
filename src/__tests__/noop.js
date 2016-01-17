@@ -1,8 +1,6 @@
 var common = require('./lib/common');
 
 describe('NOOP command', () => {
-  'use strict';
-
   var client;
   var server;
 
