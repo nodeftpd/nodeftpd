@@ -897,21 +897,14 @@ class FtpConnection extends EventEmitter {
     });
   }
 
+  // Get the feature list implemented by the server. (RFC 2389)
   __FEAT() {
-    // Get the feature list implemented by the server. (RFC 2389)
-    this.respond(
-        '211-Features\r\n' +
-            ' SIZE\r\n' +
-            ' UTF8\r\n' +
-            ' MDTM\r\n' +
-            (!this.server.options.tlsOptions ? '' :
-                ' AUTH TLS\r\n' +
-                    ' PBSZ\r\n' +
-                    ' UTF8\r\n' +
-                    ' PROT\r\n'
-                ) +
-            '211 end'
-    );
+    let features = ['SIZE', 'UTF8', 'MDTM'];
+    if (this.server.options.tlsOptions) {
+      features.push('AUTH TLS', 'PBSZ', 'PROT');
+    }
+    features = features.map((feature) => ' ' + feature + '\r\n');
+    this.respond('211-Features\r\n' + features.join('') + '211 end');
   }
 
   __OPTS(commandArg) {
