@@ -36,7 +36,7 @@ function starttls(socket, options, callback, isServer) {
   var sslcontext;
 
   var opts = {};
-  Object.keys(options).forEach(function(key) {
+  Object.keys(options).forEach((key) => {
     opts[key] = options[key];
   });
   if (!opts.ciphers) {
@@ -53,7 +53,7 @@ function starttls(socket, options, callback, isServer) {
   var cleartext = pipe(pair, socket);
 
   var erroredOut = false;
-  pair.on('secure', function() {
+  pair.on('secure', () => {
     if (erroredOut) {
       pair.end();
       return;
@@ -70,7 +70,7 @@ function starttls(socket, options, callback, isServer) {
 
     callback(null, cleartext);
   });
-  pair.once('error', function(err) {
+  pair.once('error', (err) => {
     if (!erroredOut) {
       erroredOut = true;
       callback(err);
