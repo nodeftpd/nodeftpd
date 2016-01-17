@@ -37,8 +37,12 @@ class FtpConnection extends EventEmitter {
     return this._writeText(this.socket, message + '\r\n', callback);
   }
 
-  _logIf(verbosity, message) {
-    return this.server._logIf(verbosity, message, this);
+  _log(verbosity, message) {
+    var peerAddr = this.socket ? this.socket.remoteAddress : null;
+    return this.server._log(
+      verbosity,
+      peerAddr ? `<${peerAddr}> ${message}` : message
+    );
   }
 
   // We don't want to use setEncoding because it screws up TLS, but we
@@ -46,10 +50,10 @@ class FtpConnection extends EventEmitter {
   // with a string argument.
   _writeText(socket, data, callback) {
     if (!socket.writable) {
-      this._logIf(LOG.DEBUG, 'Attempted writing to a closed socket:\n>> ' + data.trim());
+      this._log(LOG.DEBUG, 'Attempted writing to a closed socket:\n>> ' + data.trim());
       return;
     }
-    this._logIf(LOG.TRACE, '>> ' + data.trim());
+    this._log(LOG.TRACE, '>> ' + data.trim());
     return socket.write(data, 'utf8', callback);
   }
 
@@ -73,18 +77,18 @@ class FtpConnection extends EventEmitter {
     return net.createServer((psocket) => {
       // This is simply a connection listener.
       // TODO: Should we keep track of *all* connections, or enforce just one?
-      this._logIf(LOG.INFO, 'Passive data event: connect');
+      this._log(LOG.INFO, 'Passive data event: connect');
 
       const setupPassiveListener = () => {
         if (this.dataListener) {
           this.dataListener.emit('ready');
         } else {
-          this._logIf(LOG.WARN, 'Passive connection initiated, but no data listener');
+          this._log(LOG.WARN, 'Passive connection initiated, but no data listener');
         }
 
         const allOver = (ename) => {
           return (err) => {
-            this._logIf(
+            this._log(
                 (err ? LOG.ERROR : LOG.DEBUG),
                 'Passive data event: ' + ename + (err ? ' due to error' : '')
             );
@@ -99,7 +103,7 @@ class FtpConnection extends EventEmitter {
         this.dataSocket.on('end', allOver('end'));
 
         this.dataSocket.on('error', (err) => {
-          this._logIf(LOG.ERROR, 'Passive data event: error: ' + err);
+          this._log(LOG.ERROR, 'Passive data event: error: ' + err);
           // TODO: Can we can rely on self.dataSocket having been closed?
           this.dataSocket = null;
           this.dataConfigured = false;
@@ -107,24 +111,24 @@ class FtpConnection extends EventEmitter {
       };
 
       if (this.secure) {
-        this._logIf(LOG.INFO, 'Upgrading passive connection to TLS');
+        this._log(LOG.INFO, 'Upgrading passive connection to TLS');
         starttls.starttlsServer(psocket, this.server.options.tlsOptions, (err, cleartext) => {
           const switchToSecure = () => {
-            this._logIf(LOG.INFO, 'Secure passive connection started');
+            this._log(LOG.INFO, 'Secure passive connection started');
             // TODO: Check for existing dataSocket.
             this.dataSocket = cleartext;
             setupPassiveListener();
           };
           if (err) {
-            this._logIf(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
+            this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
             this._closeSocket(psocket, true);
             this.dataConfigured = false;
           } else if (!cleartext.authorized) {
             if (this.server.options.allowUnauthorizedTls) {
-              this._logIf(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
+              this._log(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
               switchToSecure();
             } else {
-              this._logIf(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
+              this._log(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
               this._closeSocket(this.socket, true);
               this.dataConfigured = false;
             }
@@ -145,19 +149,19 @@ class FtpConnection extends EventEmitter {
       // how many data connections are allowed?
       // should still be listening since we created a server, right?
       if (this.dataSocket) {
-        this._logIf(LOG.DEBUG, 'A data connection exists');
+        this._log(LOG.DEBUG, 'A data connection exists');
         callback(this.dataSocket);
       } else {
-        this._logIf(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
+        this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
         this.dataListener.once('ready', () => {
-          this._logIf(LOG.DEBUG, '...client has connected now');
+          this._log(LOG.DEBUG, '...client has connected now');
           callback(this.dataSocket);
         });
       }
     } else {
       // Do we need to open the data connection?
       if (this.dataSocket) { // There really shouldn't be an existing connection
-        this._logIf(LOG.DEBUG, 'Using existing non-passive dataSocket');
+        this._log(LOG.DEBUG, 'Using existing non-passive dataSocket');
         callback(this.dataSocket);
       } else {
         this._initiateData((sock) => {
@@ -179,7 +183,7 @@ class FtpConnection extends EventEmitter {
     });
     const allOver = (err) => {
       this.dataSocket = null;
-      this._logIf(
+      this._log(
         err ? LOG.ERROR : LOG.DEBUG,
         'Non-passive data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
       );
@@ -189,19 +193,19 @@ class FtpConnection extends EventEmitter {
 
     sock.on('error', (err) => {
       this._closeSocket(sock, true);
-      this._logIf(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
+      this._log(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
       this.dataSocket = null;
       this.dataConfigured = false;
     });
   }
 
   _onError(err) {
-    this._logIf(LOG.ERROR, 'Client connection error: ' + util.inspect(err));
+    this._log(LOG.ERROR, 'Client connection error: ' + util.inspect(err));
     this._closeSocket(this.socket, true);
   }
 
   _onEnd() {
-    this._logIf(LOG.DEBUG, 'Client connection ended');
+    this._log(LOG.DEBUG, 'Client connection ended');
   }
 
   _onClose(hadError) {
@@ -221,7 +225,7 @@ class FtpConnection extends EventEmitter {
       this.pasv = null;
     }
     // TODO: LOG.DEBUG?
-    this._logIf(LOG.INFO, 'Client connection closed');
+    this._log(LOG.INFO, 'Client connection closed');
   }
 
   _onData(data) {
@@ -230,9 +234,9 @@ class FtpConnection extends EventEmitter {
     }
 
     data = data.toString('utf-8').trim();
-    this._logIf(LOG.TRACE, '<< ' + data);
+    this._log(LOG.TRACE, '<< ' + data);
     // Don't want to include passwords in logs.
-    this._logIf(LOG.INFO, 'FTP command: ' +
+    this._log(LOG.INFO, 'FTP command: ' +
       data.replace(/^PASS [\s\S]*$/i, 'PASS ***')
     );
 
@@ -291,7 +295,7 @@ class FtpConnection extends EventEmitter {
         return success();
       }
 
-      this._logIf(LOG.DEBUG, 'Sending file list');
+      this._log(LOG.DEBUG, 'Sending file list');
 
       for (var i = 0; i < fileInfos.length; ++i) {
         var fileInfo = fileInfos[i];
@@ -407,7 +411,7 @@ class FtpConnection extends EventEmitter {
     var portRangeErrorHandler;
 
     const normalErrorHandler = (e) => {
-      this._logIf(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
+      this._log(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
       this.respond('421 Server was unable to open passive connection listener');
       this.dataConfigured = false;
       this.dataListener = null;
@@ -426,7 +430,7 @@ class FtpConnection extends EventEmitter {
         if (e.code === 'EADDRINUSE' && i < this.server.options.pasvPortRangeEnd) {
           pasv.listen(++i);
         } else {
-          this._logIf(LOG.DEBUG, 'Passing on error from portRangeErrorHandler to normalErrorHandler:' + JSON.stringify(e));
+          this._log(LOG.DEBUG, 'Passing on error from portRangeErrorHandler to normalErrorHandler:' + JSON.stringify(e));
           normalErrorHandler(e);
         }
       };
@@ -445,17 +449,17 @@ class FtpConnection extends EventEmitter {
         pasv.addListener('error', normalErrorHandler);
       }
 
-      this._logIf(LOG.DEBUG, 'Passive data connection beginning to listen');
+      this._log(LOG.DEBUG, 'Passive data connection beginning to listen');
 
       var port = pasv.address().port;
       this.dataListener = new PassiveListener();
-      this._logIf(LOG.DEBUG, 'Passive data connection listening on port ' + port);
+      this._log(LOG.DEBUG, 'Passive data connection listening on port ' + port);
       this._writePASVReady(command);
     });
     pasv.on('close', () => {
       this.pasv = null;
       this.dataListener = null;
-      this._logIf(LOG.DEBUG, 'Passive data listener closed');
+      this._log(LOG.DEBUG, 'Passive data listener closed');
     });
   }
 
@@ -488,7 +492,7 @@ class FtpConnection extends EventEmitter {
           this.respond('550 Not Found');
         } else { // Who knows what's going on here...
           this.respond('550 Not Accessible');
-          this._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
+          this._log(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
         afterOk(() => {
@@ -565,7 +569,7 @@ class FtpConnection extends EventEmitter {
           this.respond('550 Not Found');
         } else { // Who knows what's going on here...
           this.respond('550 Not Accessible');
-          this._logIf(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
+          this._log(LOG.ERROR, "Error at read of '" + filename + "' other than ENOENT " + err);
         }
       } else {
         afterOk(() => {
@@ -640,8 +644,8 @@ class FtpConnection extends EventEmitter {
     this._whenDataReady(handleUpload);
 
     storeStream.on('open', () => {
-      this._logIf(LOG.DEBUG, 'File opened/created: ' + filename);
-      this._logIf(LOG.DEBUG, 'Told client ok to send file data');
+      this._log(LOG.DEBUG, 'File opened/created: ' + filename);
+      this._log(LOG.DEBUG, 'Told client ok to send file data');
       // Adding event emitter for upload start time
       this.emit('file:stor', 'open', {
         user: this.username,
@@ -717,7 +721,7 @@ class FtpConnection extends EventEmitter {
 
         // Otherwise, we call _STOR_usingWriteStream, and tell it to prepend the stuff
         // that we've buffered so far to the file.
-        this._logIf(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
+        this._log(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
         this._storeUsingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
         this.dataSocket.removeListener('data', dataHandler);
         this.dataSocket.removeListener('error', errorHandler);
@@ -758,7 +762,7 @@ class FtpConnection extends EventEmitter {
         });
         if (err) {
           erroredOut = true;
-          this._logIf(LOG.ERROR, 'Error writing file. ' + err);
+          this._log(LOG.ERROR, 'Error writing file. ' + err);
           if (this.dataSocket) {
             this._closeSocket(this.dataSocket, true);
           }
@@ -822,10 +826,10 @@ class FtpConnection extends EventEmitter {
     }
 
     this.respond('234 Honored', () => {
-      this._logIf(LOG.INFO, 'Establishing secure connection...');
+      this._log(LOG.INFO, 'Establishing secure connection...');
       starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
         const switchToSecure = () => {
-          this._logIf(LOG.INFO, 'Secure connection started');
+          this._log(LOG.INFO, 'Secure connection started');
           this.socket = cleartext;
           this.socket.on('data', (data) => {
             this._onData(data);
@@ -833,15 +837,15 @@ class FtpConnection extends EventEmitter {
           this.secure = true;
         };
         if (err) {
-          this._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
+          this._log(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
           this._closeSocket(this.socket, true);
         } else if (!cleartext.authorized) {
-          this._logIf(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
+          this._log(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
           if (this.server.options.allowUnauthorizedTls) {
-            this._logIf(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
+            this._log(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
             switchToSecure();
           } else {
-            this._logIf(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
+            this._log(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
             this._closeSocket(this.socket, true);
           }
         } else {
@@ -867,10 +871,10 @@ class FtpConnection extends EventEmitter {
     var pathEscaped = pathEscape(pathServer);
     this.fs.stat(pathFs, (err, stats) => {
       if (err) {
-        this._logIf(LOG.ERROR, 'CWD ' + pathRequest + ': ' + err);
+        this._log(LOG.ERROR, 'CWD ' + pathRequest + ': ' + err);
         this.respond('550 Directory not found.');
       } else if (!stats.isDirectory()) {
-        this._logIf(LOG.WARN, 'Attempt to CWD to non-directory');
+        this._log(LOG.WARN, 'Attempt to CWD to non-directory');
         this.respond('550 Not a directory');
       } else {
         this.cwd = pathServer;
@@ -884,7 +888,7 @@ class FtpConnection extends EventEmitter {
     var filename = withCwd(this.cwd, commandArg);
     this.fs.unlink(pathModule.join(this.root, filename), (err) => {
       if (err) {
-        this._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
+        this._log(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
         // write error to socket
         this.respond('550 Permission denied');
       } else {
@@ -967,7 +971,7 @@ class FtpConnection extends EventEmitter {
       this.fs,
       (err, files) => {
         if (err) {
-          this._logIf(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
+          this._log(LOG.ERROR, 'Error sending file list, reading directory: ' + err);
           this.respond('550 Not a directory');
           return;
         }
@@ -979,7 +983,7 @@ class FtpConnection extends EventEmitter {
           this.server.getUsernameFromUid(files[ii].stats.uid, (e1, uname) => {
             this.server.getGroupFromGid(files[ii].stats.gid, (e2, gname) => {
               if (e1 || e2) {
-                this._logIf(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
+                this._log(LOG.WARN, 'Error getting user/group name for file: ' + util.inspect(e1 || e2));
                 fileInfos.push({
                   file: files[ii],
                   uname: null,
@@ -1033,7 +1037,7 @@ class FtpConnection extends EventEmitter {
           ));
         }
 
-        this._logIf(LOG.INFO, 'Directory has ' + files.length + ' files');
+        this._log(LOG.INFO, 'Directory has ' + files.length + ' files');
         if (files.length === 0) {
           return this._listFiles([], isDetailed, command);
         }
@@ -1081,7 +1085,7 @@ class FtpConnection extends EventEmitter {
     var pathFs = pathModule.join(this.root, pathServer);
     this.fs.mkdir(pathFs, 0o755, (err) => {
       if (err) {
-        this._logIf(LOG.ERROR, 'MKD ' + pathRequest + ': ' + err);
+        this._log(LOG.ERROR, 'MKD ' + pathRequest + ': ' + err);
         this.respond('550 "' + pathEscaped + '" directory NOT created');
       } else {
         this.respond('257 "' + pathEscaped + '" directory created');
@@ -1104,7 +1108,7 @@ class FtpConnection extends EventEmitter {
     this.dataConfigured = true;
     this.dataHost = host;
     this.dataPort = port;
-    this._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
+    this._log(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
     this.respond('200 OK');
   }
 
@@ -1121,10 +1125,10 @@ class FtpConnection extends EventEmitter {
     }
 
     if (this.dataListener) {
-      this._logIf(LOG.DEBUG, 'Telling client that they can connect now');
+      this._log(LOG.DEBUG, 'Telling client that they can connect now');
       this._writePASVReady(command);
     } else {
-      this._logIf(LOG.DEBUG, 'Setting up listener for passive connections');
+      this._log(LOG.DEBUG, 'Setting up listener for passive connections');
       this._setupNewPASV(commandArg, command);
     }
 
@@ -1192,7 +1196,7 @@ class FtpConnection extends EventEmitter {
     this.hasQuit = true;
     this.respond('221 Goodbye', (err) => {
       if (err) {
-        this._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
+        this._log(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
       }
       this._closeSocket(this.socket, true);
       this._closeDataConnections();
@@ -1215,7 +1219,7 @@ class FtpConnection extends EventEmitter {
     var pathFs = pathModule.join(this.root, pathServer);
     this.fs.rmdir(pathFs, (err) => {
       if (err) {
-        this._logIf(LOG.ERROR, 'RMD ' + pathRequest + ': ' + err);
+        this._log(LOG.ERROR, 'RMD ' + pathRequest + ': ' + err);
         this.respond('550 Delete operation failed');
       } else {
         this.respond('250 "' + pathServer + '" directory removed');
@@ -1226,7 +1230,7 @@ class FtpConnection extends EventEmitter {
 
   __RNFR(commandArg) {
     this.filefrom = withCwd(this.cwd, commandArg);
-    this._logIf(LOG.DEBUG, 'Rename from ' + this.filefrom);
+    this._log(LOG.DEBUG, 'Rename from ' + this.filefrom);
     this.respond('350 Ready for destination name');
   }
 
@@ -1234,7 +1238,7 @@ class FtpConnection extends EventEmitter {
     var fileto = withCwd(this.cwd, commandArg);
     this.fs.rename(pathModule.join(this.root, this.filefrom), pathModule.join(this.root, fileto), (err) => {
       if (err) {
-        this._logIf(LOG.ERROR, 'Error renaming file from ' + this.filefrom + ' to ' + fileto);
+        this._log(LOG.ERROR, 'Error renaming file from ' + this.filefrom + ' to ' + fileto);
         this.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
       } else {
         this.respond('250 File renamed successfully');
@@ -1246,7 +1250,7 @@ class FtpConnection extends EventEmitter {
     var filename = withCwd(this.cwd, commandArg);
     this.fs.stat(pathModule.join(this.root, filename), (err, s) => {
       if (err) {
-        this._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
+        this._log(LOG.ERROR, "Error getting size of file '" + filename + "' ");
         this.respond('450 Failed to get size of file');
         return;
       }
@@ -1320,7 +1324,7 @@ class FtpConnection extends EventEmitter {
         // success callback
         (username, userFsModule) => {
           const panic = (error, method) => {
-            this._logIf(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
+            this._log(LOG.ERROR, method + ' signaled error ' + util.inspect(error));
             this.respond('421 Service not available, closing control connection.', () => {
               this._closeSocket(this.socket, true);
             });

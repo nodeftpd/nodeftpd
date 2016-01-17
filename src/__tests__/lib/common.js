@@ -78,9 +78,12 @@ const common = {
         }
       });
     });
-    var origLogIf = server._logIf;
+    var _log = server._log;
     server.suppressExpecteErrMsgs = [];
-    server._logIf = (verbosity, message, conn) => {
+    server._log = (...args) => {
+      var verbosity = args[0];
+      // Remove the <0.0.0.0> prefix.
+      var message = args[1].replace(/^<.+?> /, '');
       var expecteErrMsgs = server.suppressExpecteErrMsgs;
       message = String(message).split(fixturesPath).join('fixture:/');
       if ((expecteErrMsgs.length > 0) && (verbosity < LOG_LEVELS.INFO)) {
@@ -104,7 +107,7 @@ const common = {
           );
         }
       }
-      return origLogIf.call(server, verbosity, message, conn);
+      return _log.apply(server, args);
     };
     server.listen(customOptions.port);
     return server;

@@ -92,7 +92,7 @@ class FtpServer extends EventEmitter {
     socket.setTimeout(0);
     socket.setNoDelay();
 
-    this._logIf(LOG.INFO, 'Accepted a new client connection');
+    this._log(LOG.INFO, 'Accepted a new client connection');
     conn.respond('220 FTP server (nodeftpd) ready');
 
     socket.on('data', (buf) => {
@@ -110,14 +110,9 @@ class FtpServer extends EventEmitter {
     });
   }
 
-  _logIf(verbosity, message, conn) {
+  _log(verbosity, message) {
     if (verbosity > this.options.logLevel) {
       return;
-    }
-    // TODO: Move this to FtpConnection.prototype._logIf.
-    var peerAddr = (conn && conn.socket && conn.socket.remoteAddress);
-    if (peerAddr) {
-      message = '<' + peerAddr + '> ' + message;
     }
     if (verbosity === LOG.ERROR) {
       message = 'ERROR: ' + message;
