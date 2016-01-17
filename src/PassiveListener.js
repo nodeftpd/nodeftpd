@@ -1,10 +1,5 @@
-var util = require('util');
-var events = require('events');
-var EventEmitter = events.EventEmitter;
+import events from 'events';
 
-function PassiveListener() {
-  EventEmitter.call(this);
-}
-util.inherits(PassiveListener, EventEmitter);
+const {EventEmitter} = events;
 
-module.exports = PassiveListener;
+export default class PassiveListener extends EventEmitter {}
