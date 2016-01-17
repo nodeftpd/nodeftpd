@@ -459,57 +459,48 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  _PORT(commandArg, command) {
-    var m;
-
-    this.dataConfigured = false;
-
-    if (command === 'PORT') {
-      m = commandArg.match(/^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$/);
-      if (!m) {
-        this.respond('501 Bad argument to PORT');
-        return;
-      }
-
-      var host = m[1] + '.' + m[2] + '.' + m[3] + '.' + m[4];
-      var port = (parseInt(m[5], 10) << 8) + parseInt(m[6], 10);
-      if (isNaN(port)) {
-        // The value should never be NaN because the relevant groups in the regex matche 1-3 digits.
-        throw new Error('Impossible NaN in FtpConnection.prototype._PORT');
-      }
-    } else { // EPRT
-      if (commandArg.length >= 3 && commandArg.charAt(0) === '|' &&
-          commandArg.charAt(2) === '|' && commandArg.charAt(1) === '2') {
-        // Only IPv4 is supported.
-        this.respond('522 Server cannot handle IPv6 EPRT commands, use (1)');
-        return;
-      }
-
-      m = commandArg.match(/^\|1\|([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\|([0-9]{1,5})/);
-      if (!m) {
-        this.respond('501 Bad Argument to EPRT');
-        return;
-      }
-
-      var r = parseInt(m[2], 10);
-      if (isNaN(r)) {
-        // The value should never be NaN because the relevant group in the regex matches 1-5 digits.
-        throw new Error('Impossible NaN in FtpConnection.prototype._PORT (2)');
-      }
-      if (r > 65535 || r <= 0) {
-        this.respond('501 Bad argument to EPRT (invalid port number)');
-        return;
-      }
-
-      host = m[1];
-      port = r;
+  _parsePORT(commandArg) {
+    var m = commandArg.match(/^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$/);
+    if (!m) {
+      this.respond('501 Bad argument to PORT');
+      return;
     }
 
-    this.dataConfigured = true;
-    this.dataHost = host;
-    this.dataPort = port;
-    this._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
-    this.respond('200 OK');
+    var host = m[1] + '.' + m[2] + '.' + m[3] + '.' + m[4];
+    var port = (parseInt(m[5], 10) << 8) + parseInt(m[6], 10);
+    if (isNaN(port)) {
+      // The value should never be NaN because the relevant groups in the regex matche 1-3 digits.
+      throw new Error('Impossible NaN in FtpConnection.prototype._PORT');
+    }
+    return {host, port};
+  }
+
+  _parseEPRT(commandArg) {
+    if (
+      commandArg.length >= 3 &&
+      commandArg.charAt(0) === '|' &&
+      commandArg.charAt(2) === '|' &&
+      commandArg.charAt(1) === '2'
+    ) {
+      // Only IPv4 is supported.
+      this.respond('522 Server cannot handle IPv6 EPRT commands, use (1)');
+      return;
+    }
+    var m = commandArg.match(/^\|1\|([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\|([0-9]{1,5})/);
+    if (!m) {
+      this.respond('501 Bad Argument to EPRT');
+      return;
+    }
+    var r = parseInt(m[2], 10);
+    if (isNaN(r)) {
+      // The value should never be NaN because the relevant group in the regex matches 1-5 digits.
+      throw new Error('Impossible NaN in FtpConnection.prototype._PORT (2)');
+    }
+    if (r > 65535 || r <= 0) {
+      this.respond('501 Bad argument to EPRT (invalid port number)');
+      return;
+    }
+    return {host: m[1], port: r};
   }
 
   _writePASVReady(command) {
@@ -1094,12 +1085,20 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  __PORT(x, y) {
-    this._PORT(x, y);
+  __PORT(commandArg, command) {
+    this.dataConfigured = false;
+    var {host, port} = (command === 'PORT') ?
+      this._parsePORT(commandArg) :
+      this._parsePORT(commandArg);
+    this.dataConfigured = true;
+    this.dataHost = host;
+    this.dataPort = port;
+    this._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
+    this.respond('200 OK');
   }
 
-  __EPRT(x, y) {
-    this._PORT(x, y);
+  __EPRT(commandArg, command) {
+    this.__PORT(commandArg, command);
   }
 
   __PASV(commandArg, command) {
