@@ -1,0 +1,26 @@
+{
+  "parser": "babel-eslint",
+  "plugins": [
+    "babel"
+  ],
+  "rules": {
+    // ECMAScript 6/7 (2015 and above)
+    "arrow-parens": 1,                    // require parens in arrow function arguments
+    "arrow-spacing": 1,                   // require space before/after arrow function's arrow (fixable)
+    "constructor-super": 1,               // verify calls of super() in constructors
+    "generator-star-spacing": 0,          // enforce spacing around the * in generator functions (fixable)
+    "no-class-assign": 1,                 // disallow modifying variables of class declarations
+    "no-const-assign": 1,                 // disallow modifying variables that are declared using const
+    "no-dupe-class-members": 1,           // disallow duplicate name in class members
+    "no-this-before-super": 1,            // disallow use of this/super before calling super() in constructors.
+    "no-var": 0,                          // require let or const instead of var
+    "object-shorthand": 0,                // require method and property shorthand syntax for object literals
+    "prefer-arrow-callback": 1,           // suggest using arrow functions as callbacks
+    "prefer-const": 0,                    // suggest using const declaration for variables that are never modified after declared
+    "prefer-reflect": 0,                  // suggest using Reflect methods where applicable
+    "prefer-spread": 0,                   // suggest using the spread operator instead of .apply().
+    "prefer-template": 0,                 // suggest using template literals instead of strings concatenation
+    "require-yield": 0,                   // disallow generator functions that do not have yield
+    "babel/no-await-in-loop": 1           // async inside a loop will run operations in serial, when often the desired behavior is to do do in parallel
+  }
+}
