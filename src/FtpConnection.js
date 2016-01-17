@@ -512,30 +512,6 @@ class FtpConnection extends EventEmitter {
     this.respond('200 OK');
   }
 
-  _PASV(commandArg, command) {
-    this.dataConfigured = false;
-
-    if (command === 'EPSV' && commandArg && commandArg !== '1') {
-      this.respond('202 Not supported');
-      return;
-    }
-
-    // not sure whether the spec limits to 1 data connection at a time ...
-    if (this.dataSocket) {
-      this._closeSocket(this.dataSocket, true);
-    }
-
-    if (this.dataListener) {
-      this._logIf(LOG.DEBUG, 'Telling client that they can connect now');
-      this._writePASVReady(command);
-    } else {
-      this._logIf(LOG.DEBUG, 'Setting up listener for passive connections');
-      this._setupNewPASV(commandArg, command);
-    }
-
-    this.dataConfigured = true;
-  }
-
   _writePASVReady(command) {
     var a = this.pasv.address();
     var host = this.server.host;
@@ -1126,12 +1102,31 @@ class FtpConnection extends EventEmitter {
     this._PORT(x, y);
   }
 
-  __PASV(x, y) {
-    this._PASV(x, y);
+  __PASV(commandArg, command) {
+    this.dataConfigured = false;
+
+    // not sure whether the spec limits to 1 data connection at a time ...
+    if (this.dataSocket) {
+      this._closeSocket(this.dataSocket, true);
+    }
+
+    if (this.dataListener) {
+      this._logIf(LOG.DEBUG, 'Telling client that they can connect now');
+      this._writePASVReady(command);
+    } else {
+      this._logIf(LOG.DEBUG, 'Setting up listener for passive connections');
+      this._setupNewPASV(commandArg, command);
+    }
+
+    this.dataConfigured = true;
   }
 
-  __EPSV(x, y) {
-    this._PASV(x, y);
+  __EPSV(commandArg, command) {
+    if (commandArg && commandArg !== '1') {
+      this.respond('202 Not supported');
+    } else {
+      this.__PASV(commandArg, command);
+    }
   }
 
   __PBSZ(commandArg) {
