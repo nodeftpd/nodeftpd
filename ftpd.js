@@ -1,4 +1,4 @@
-var Constants = require('./lib/Constants');
+var Constants = require('./lib/Constants').default;
 
-exports.FtpServer = require('./lib/FtpServer');
+exports.FtpServer = require('./lib/FtpServer').default;
 exports.LOG_LEVELS = Constants.LOG_LEVELS;
