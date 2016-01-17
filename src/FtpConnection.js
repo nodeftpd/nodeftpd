@@ -274,151 +274,6 @@ class FtpConnection extends EventEmitter {
     this.previousCommand = command;
   }
 
-  // Specify the user's account (superfluous)
-  __ACCT() {
-    this.respond('202 Command not implemented, superfluous at this site.');
-    return this;
-  }
-
-  // Allocate storage space (superfluous)
-  __ALLO() {
-    this.respond('202 Command not implemented, superfluous at this site.');
-    return this;
-  }
-
-  __AUTH(commandArg) {
-    if (!this.server.options.tlsOptions || commandArg !== 'TLS') {
-      return this.respond('502 Command not implemented');
-    }
-
-    this.respond('234 Honored', () => {
-      this._logIf(LOG.INFO, 'Establishing secure connection...');
-      starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
-        const switchToSecure = () => {
-          this._logIf(LOG.INFO, 'Secure connection started');
-          this.socket = cleartext;
-          this.socket.on('data', (data) => {
-            this._onData(data);
-          });
-          this.secure = true;
-        };
-        if (err) {
-          this._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
-          this._closeSocket(this.socket, true);
-        } else if (!cleartext.authorized) {
-          this._logIf(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
-          if (this.server.options.allowUnauthorizedTls) {
-            this._logIf(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
-            switchToSecure();
-          } else {
-            this._logIf(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
-            this._closeSocket(this.socket, true);
-          }
-        } else {
-          switchToSecure();
-        }
-      });
-    });
-  }
-
-  // Change working directory to parent directory
-  __CDUP() {
-    var pathServer = pathModule.dirname(this.cwd);
-    var pathEscaped = pathEscape(pathServer);
-    this.cwd = pathServer;
-    this.respond('250 Directory changed to "' + pathEscaped + '"');
-    return this;
-  }
-
-  // Change working directory
-  __CWD(pathRequest) {
-    var pathServer = withCwd(this.cwd, pathRequest);
-    var pathFs = pathModule.join(this.root, pathServer);
-    var pathEscaped = pathEscape(pathServer);
-    this.fs.stat(pathFs, (err, stats) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'CWD ' + pathRequest + ': ' + err);
-        this.respond('550 Directory not found.');
-      } else if (!stats.isDirectory()) {
-        this._logIf(LOG.WARN, 'Attempt to CWD to non-directory');
-        this.respond('550 Not a directory');
-      } else {
-        this.cwd = pathServer;
-        this.respond('250 CWD successful. "' + pathEscaped + '" is current directory');
-      }
-    });
-    return this;
-  }
-
-  __DELE(commandArg) {
-    var filename = withCwd(this.cwd, commandArg);
-    this.fs.unlink(pathModule.join(this.root, filename), (err) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
-        // write error to socket
-        this.respond('550 Permission denied');
-      } else {
-        this.respond('250 File deleted');
-      }
-    });
-  }
-
-  __FEAT() {
-    // Get the feature list implemented by the server. (RFC 2389)
-    this.respond(
-        '211-Features\r\n' +
-            ' SIZE\r\n' +
-            ' UTF8\r\n' +
-            ' MDTM\r\n' +
-            (!this.server.options.tlsOptions ? '' :
-                ' AUTH TLS\r\n' +
-                    ' PBSZ\r\n' +
-                    ' UTF8\r\n' +
-                    ' PROT\r\n'
-                ) +
-            '211 end'
-    );
-  }
-
-  __OPTS(commandArg) {
-    // http://tools.ietf.org/html/rfc2389#section-4
-    if (commandArg.toUpperCase() === 'UTF8 ON') {
-      this.respond('200 OK');
-    } else {
-      this.respond('451 Not supported');
-    }
-  }
-
-  // Print the file modification time
-  __MDTM(file) {
-    file = withCwd(this.cwd, file);
-    file = pathModule.join(this.root, file);
-    this.fs.stat(file, (err, stats) => {
-      if (err) {
-        this.respond('550 File unavailable');
-      } else {
-        this.respond('213 ' + dateformat(stats.mtime, 'yyyymmddhhMMss'));
-      }
-    });
-    return this;
-  }
-
-  __LIST(commandArg) {
-    this._LIST(commandArg, true/*detailed*/, 'LIST');
-  }
-
-  __NLST(commandArg) {
-    this._LIST(commandArg, false/*!detailed*/, 'NLST');
-  }
-
-  __STAT(commandArg) {
-    if (commandArg) {
-      this._LIST(commandArg, true/*detailed*/, 'STAT');
-    } else {
-      this.respond('211 FTP Server Status OK');
-    }
-  }
-
   _LIST(commandArg, detailed, cmd) {
     /*
      Normally the server responds with a mark using code 150. It then stops accepting new connections, attempts to send the contents of the directory over the data connection, and closes the data connection. Finally it
@@ -604,36 +459,6 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  // Create a directory
-  __MKD(pathRequest) {
-    var pathServer = withCwd(this.cwd, pathRequest);
-    var pathEscaped = pathEscape(pathServer);
-    var pathFs = pathModule.join(this.root, pathServer);
-    this.fs.mkdir(pathFs, 0o755, (err) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'MKD ' + pathRequest + ': ' + err);
-        this.respond('550 "' + pathEscaped + '" directory NOT created');
-      } else {
-        this.respond('257 "' + pathEscaped + '" directory created');
-      }
-    });
-    return this;
-  }
-
-  // Perform a no-op (used to keep-alive connection)
-  __NOOP() {
-    this.respond('200 OK');
-    return this;
-  }
-
-  __PORT(x, y) {
-    this._PORT(x, y);
-  }
-
-  __EPRT(x, y) {
-    this._PORT(x, y);
-  }
-
   _PORT(commandArg, command) {
     var m;
 
@@ -685,14 +510,6 @@ class FtpConnection extends EventEmitter {
     this.dataPort = port;
     this._logIf(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
     this.respond('200 OK');
-  }
-
-  __PASV(x, y) {
-    this._PASV(x, y);
-  }
-
-  __EPSV(x, y) {
-    this._PASV(x, y);
   }
 
   _PASV(commandArg, command) {
@@ -787,76 +604,6 @@ class FtpConnection extends EventEmitter {
       this.dataListener = null;
       this._logIf(LOG.DEBUG, 'Passive data listener closed');
     });
-  }
-
-  __PBSZ(commandArg) {
-    if (!this.server.options.tlsOptions) {
-      return this.respond('202 Not supported');
-    }
-
-    // Protection Buffer Size (RFC 2228)
-    if (!this.secure) {
-      this.respond('503 Secure connection not established');
-    } else if (parseInt(commandArg, 10) !== 0) {
-      // RFC 2228 specifies that a 200 reply must be sent specifying a more
-      // satisfactory PBSZ size (0 in our case, since we're using TLS).
-      // Doubt that this will do any good if the client was already confused
-      // enough to send a non-zero value, but ok...
-      this.pbszReceived = true;
-      this.respond('200 buffer too big, PBSZ=0');
-    } else {
-      this.pbszReceived = true;
-      this.respond('200 OK');
-    }
-  }
-
-  __PROT(commandArg) {
-    if (!this.server.options.tlsOptions) {
-      return this.respond('202 Not supported');
-    }
-
-    if (!this.pbszReceived) {
-      this.respond('503 No PBSZ command received');
-    } else if (commandArg === 'S' || commandArg === 'E' || commandArg === 'C') {
-      this.respond('536 Not supported');
-    } else if (commandArg === 'P') {
-      this.respond('200 OK');
-    } else {
-      // Don't even recognize this one...
-      this.respond('504 Not recognized');
-    }
-  }
-
-  // Print the current working directory.
-  __PWD(commandArg) {
-    var pathEscaped = pathEscape(this.cwd);
-    if (commandArg === '') {
-      this.respond('257 "' + pathEscaped + '" is current directory');
-    } else {
-      this.respond('501 Syntax error in parameters or arguments.');
-    }
-    return this;
-  }
-
-  __QUIT() {
-    this.hasQuit = true;
-    this.respond('221 Goodbye', (err) => {
-      if (err) {
-        this._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
-      }
-      this._closeSocket(this.socket, true);
-      this._closeDataConnections();
-    });
-  }
-
-  __RETR(commandArg) {
-    var filename = pathModule.join(this.root, withCwd(this.cwd, commandArg));
-
-    if (this.server.options.useReadFile) {
-      this._RETR_usingReadFile(commandArg, filename);
-    } else {
-      this._RETR_usingCreateReadStream(commandArg, filename);
-    }
   }
 
   _RETR_usingCreateReadStream(commandArg, filename) {
@@ -990,73 +737,6 @@ class FtpConnection extends EventEmitter {
         });
       }
     });
-  }
-
-  // Remove a directory
-  __RMD(pathRequest) {
-    var pathServer = withCwd(this.cwd, pathRequest);
-    var pathFs = pathModule.join(this.root, pathServer);
-    this.fs.rmdir(pathFs, (err) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'RMD ' + pathRequest + ': ' + err);
-        this.respond('550 Delete operation failed');
-      } else {
-        this.respond('250 "' + pathServer + '" directory removed');
-      }
-    });
-    return this;
-  }
-
-  __RNFR(commandArg) {
-    this.filefrom = withCwd(this.cwd, commandArg);
-    this._logIf(LOG.DEBUG, 'Rename from ' + this.filefrom);
-    this.respond('350 Ready for destination name');
-  }
-
-  __RNTO(commandArg) {
-    var fileto = withCwd(this.cwd, commandArg);
-    this.fs.rename(pathModule.join(this.root, this.filefrom), pathModule.join(this.root, fileto), (err) => {
-      if (err) {
-        this._logIf(LOG.ERROR, 'Error renaming file from ' + this.filefrom + ' to ' + fileto);
-        this.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
-      } else {
-        this.respond('250 File renamed successfully');
-      }
-    });
-  }
-
-  __SIZE(commandArg) {
-    var filename = withCwd(this.cwd, commandArg);
-    this.fs.stat(pathModule.join(this.root, filename), (err, s) => {
-      if (err) {
-        this._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
-        this.respond('450 Failed to get size of file');
-        return;
-      }
-      this.respond('213 ' + s.size + '');
-    });
-  }
-
-  __TYPE(commandArg) {
-    if (commandArg === 'I' || commandArg === 'A') {
-      this.respond('200 OK');
-    } else {
-      this.respond('202 Not supported');
-    }
-  }
-
-  __SYST() {
-    this.respond('215 UNIX Type: I');
-  }
-
-  __STOR(commandArg) {
-    var filename = withCwd(this.cwd, commandArg);
-
-    if (this.server.options.useWriteFile) {
-      this._STOR_usingWriteFile(filename, 'w');
-    } else {
-      this._STOR_usingCreateWriteStream(filename, null, 'w');
-    }
   }
 
   // 'initialBuffers' argument is set when this is called from _STOR_usingWriteFile.
@@ -1255,6 +935,342 @@ class FtpConnection extends EventEmitter {
     });
   }
 
+  _closeSocket(socket, shouldDestroy) {
+    // TODO: Should we always use destroy() to avoid keeping sockets open longer
+    // than necessary (and possibly exceeding OS max open sockets)?
+    if (shouldDestroy || this.server.options.destroySockets) {
+      // Don't call destroy() more than once.
+      if (!socket.destroyed) {
+        socket.destroy();
+      }
+    } else {
+      // Don't call `end()` more than once.
+      if (socket.writable) {
+        socket.end();
+      }
+    }
+  }
+
+  // Specify the user's account (superfluous)
+  __ACCT() {
+    this.respond('202 Command not implemented, superfluous at this site.');
+    return this;
+  }
+
+  // Allocate storage space (superfluous)
+  __ALLO() {
+    this.respond('202 Command not implemented, superfluous at this site.');
+    return this;
+  }
+
+  __AUTH(commandArg) {
+    if (!this.server.options.tlsOptions || commandArg !== 'TLS') {
+      return this.respond('502 Command not implemented');
+    }
+
+    this.respond('234 Honored', () => {
+      this._logIf(LOG.INFO, 'Establishing secure connection...');
+      starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
+        const switchToSecure = () => {
+          this._logIf(LOG.INFO, 'Secure connection started');
+          this.socket = cleartext;
+          this.socket.on('data', (data) => {
+            this._onData(data);
+          });
+          this.secure = true;
+        };
+        if (err) {
+          this._logIf(LOG.ERROR, 'Error upgrading connection to TLS: ' + util.inspect(err));
+          this._closeSocket(this.socket, true);
+        } else if (!cleartext.authorized) {
+          this._logIf(LOG.INFO, 'Secure socket not authorized: ' + util.inspect(cleartext.authorizationError));
+          if (this.server.options.allowUnauthorizedTls) {
+            this._logIf(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
+            switchToSecure();
+          } else {
+            this._logIf(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
+            this._closeSocket(this.socket, true);
+          }
+        } else {
+          switchToSecure();
+        }
+      });
+    });
+  }
+
+  // Change working directory to parent directory
+  __CDUP() {
+    var pathServer = pathModule.dirname(this.cwd);
+    var pathEscaped = pathEscape(pathServer);
+    this.cwd = pathServer;
+    this.respond('250 Directory changed to "' + pathEscaped + '"');
+    return this;
+  }
+
+  // Change working directory
+  __CWD(pathRequest) {
+    var pathServer = withCwd(this.cwd, pathRequest);
+    var pathFs = pathModule.join(this.root, pathServer);
+    var pathEscaped = pathEscape(pathServer);
+    this.fs.stat(pathFs, (err, stats) => {
+      if (err) {
+        this._logIf(LOG.ERROR, 'CWD ' + pathRequest + ': ' + err);
+        this.respond('550 Directory not found.');
+      } else if (!stats.isDirectory()) {
+        this._logIf(LOG.WARN, 'Attempt to CWD to non-directory');
+        this.respond('550 Not a directory');
+      } else {
+        this.cwd = pathServer;
+        this.respond('250 CWD successful. "' + pathEscaped + '" is current directory');
+      }
+    });
+    return this;
+  }
+
+  __DELE(commandArg) {
+    var filename = withCwd(this.cwd, commandArg);
+    this.fs.unlink(pathModule.join(this.root, filename), (err) => {
+      if (err) {
+        this._logIf(LOG.ERROR, 'Error deleting file: ' + filename + ', ' + err);
+        // write error to socket
+        this.respond('550 Permission denied');
+      } else {
+        this.respond('250 File deleted');
+      }
+    });
+  }
+
+  __FEAT() {
+    // Get the feature list implemented by the server. (RFC 2389)
+    this.respond(
+        '211-Features\r\n' +
+            ' SIZE\r\n' +
+            ' UTF8\r\n' +
+            ' MDTM\r\n' +
+            (!this.server.options.tlsOptions ? '' :
+                ' AUTH TLS\r\n' +
+                    ' PBSZ\r\n' +
+                    ' UTF8\r\n' +
+                    ' PROT\r\n'
+                ) +
+            '211 end'
+    );
+  }
+
+  __OPTS(commandArg) {
+    // http://tools.ietf.org/html/rfc2389#section-4
+    if (commandArg.toUpperCase() === 'UTF8 ON') {
+      this.respond('200 OK');
+    } else {
+      this.respond('451 Not supported');
+    }
+  }
+
+  // Print the file modification time
+  __MDTM(file) {
+    file = withCwd(this.cwd, file);
+    file = pathModule.join(this.root, file);
+    this.fs.stat(file, (err, stats) => {
+      if (err) {
+        this.respond('550 File unavailable');
+      } else {
+        this.respond('213 ' + dateformat(stats.mtime, 'yyyymmddhhMMss'));
+      }
+    });
+    return this;
+  }
+
+  __LIST(commandArg) {
+    this._LIST(commandArg, true/*detailed*/, 'LIST');
+  }
+
+  __NLST(commandArg) {
+    this._LIST(commandArg, false/*!detailed*/, 'NLST');
+  }
+
+  __STAT(commandArg) {
+    if (commandArg) {
+      this._LIST(commandArg, true/*detailed*/, 'STAT');
+    } else {
+      this.respond('211 FTP Server Status OK');
+    }
+  }
+
+  // Create a directory
+  __MKD(pathRequest) {
+    var pathServer = withCwd(this.cwd, pathRequest);
+    var pathEscaped = pathEscape(pathServer);
+    var pathFs = pathModule.join(this.root, pathServer);
+    this.fs.mkdir(pathFs, 0o755, (err) => {
+      if (err) {
+        this._logIf(LOG.ERROR, 'MKD ' + pathRequest + ': ' + err);
+        this.respond('550 "' + pathEscaped + '" directory NOT created');
+      } else {
+        this.respond('257 "' + pathEscaped + '" directory created');
+      }
+    });
+    return this;
+  }
+
+  // Perform a no-op (used to keep-alive connection)
+  __NOOP() {
+    this.respond('200 OK');
+    return this;
+  }
+
+  __PORT(x, y) {
+    this._PORT(x, y);
+  }
+
+  __EPRT(x, y) {
+    this._PORT(x, y);
+  }
+
+  __PASV(x, y) {
+    this._PASV(x, y);
+  }
+
+  __EPSV(x, y) {
+    this._PASV(x, y);
+  }
+
+  __PBSZ(commandArg) {
+    if (!this.server.options.tlsOptions) {
+      return this.respond('202 Not supported');
+    }
+
+    // Protection Buffer Size (RFC 2228)
+    if (!this.secure) {
+      this.respond('503 Secure connection not established');
+    } else if (parseInt(commandArg, 10) !== 0) {
+      // RFC 2228 specifies that a 200 reply must be sent specifying a more
+      // satisfactory PBSZ size (0 in our case, since we're using TLS).
+      // Doubt that this will do any good if the client was already confused
+      // enough to send a non-zero value, but ok...
+      this.pbszReceived = true;
+      this.respond('200 buffer too big, PBSZ=0');
+    } else {
+      this.pbszReceived = true;
+      this.respond('200 OK');
+    }
+  }
+
+  __PROT(commandArg) {
+    if (!this.server.options.tlsOptions) {
+      return this.respond('202 Not supported');
+    }
+
+    if (!this.pbszReceived) {
+      this.respond('503 No PBSZ command received');
+    } else if (commandArg === 'S' || commandArg === 'E' || commandArg === 'C') {
+      this.respond('536 Not supported');
+    } else if (commandArg === 'P') {
+      this.respond('200 OK');
+    } else {
+      // Don't even recognize this one...
+      this.respond('504 Not recognized');
+    }
+  }
+
+  // Print the current working directory.
+  __PWD(commandArg) {
+    var pathEscaped = pathEscape(this.cwd);
+    if (commandArg === '') {
+      this.respond('257 "' + pathEscaped + '" is current directory');
+    } else {
+      this.respond('501 Syntax error in parameters or arguments.');
+    }
+    return this;
+  }
+
+  __QUIT() {
+    this.hasQuit = true;
+    this.respond('221 Goodbye', (err) => {
+      if (err) {
+        this._logIf(LOG.ERROR, "Error writing 'Goodbye' message following QUIT");
+      }
+      this._closeSocket(this.socket, true);
+      this._closeDataConnections();
+    });
+  }
+
+  __RETR(commandArg) {
+    var filename = pathModule.join(this.root, withCwd(this.cwd, commandArg));
+
+    if (this.server.options.useReadFile) {
+      this._RETR_usingReadFile(commandArg, filename);
+    } else {
+      this._RETR_usingCreateReadStream(commandArg, filename);
+    }
+  }
+
+  // Remove a directory
+  __RMD(pathRequest) {
+    var pathServer = withCwd(this.cwd, pathRequest);
+    var pathFs = pathModule.join(this.root, pathServer);
+    this.fs.rmdir(pathFs, (err) => {
+      if (err) {
+        this._logIf(LOG.ERROR, 'RMD ' + pathRequest + ': ' + err);
+        this.respond('550 Delete operation failed');
+      } else {
+        this.respond('250 "' + pathServer + '" directory removed');
+      }
+    });
+    return this;
+  }
+
+  __RNFR(commandArg) {
+    this.filefrom = withCwd(this.cwd, commandArg);
+    this._logIf(LOG.DEBUG, 'Rename from ' + this.filefrom);
+    this.respond('350 Ready for destination name');
+  }
+
+  __RNTO(commandArg) {
+    var fileto = withCwd(this.cwd, commandArg);
+    this.fs.rename(pathModule.join(this.root, this.filefrom), pathModule.join(this.root, fileto), (err) => {
+      if (err) {
+        this._logIf(LOG.ERROR, 'Error renaming file from ' + this.filefrom + ' to ' + fileto);
+        this.respond('550 Rename failed' + (err.code === 'ENOENT' ? '; file does not exist' : ''));
+      } else {
+        this.respond('250 File renamed successfully');
+      }
+    });
+  }
+
+  __SIZE(commandArg) {
+    var filename = withCwd(this.cwd, commandArg);
+    this.fs.stat(pathModule.join(this.root, filename), (err, s) => {
+      if (err) {
+        this._logIf(LOG.ERROR, "Error getting size of file '" + filename + "' ");
+        this.respond('450 Failed to get size of file');
+        return;
+      }
+      this.respond('213 ' + s.size + '');
+    });
+  }
+
+  __TYPE(commandArg) {
+    if (commandArg === 'I' || commandArg === 'A') {
+      this.respond('200 OK');
+    } else {
+      this.respond('202 Not supported');
+    }
+  }
+
+  __SYST() {
+    this.respond('215 UNIX Type: I');
+  }
+
+  __STOR(commandArg) {
+    var filename = withCwd(this.cwd, commandArg);
+
+    if (this.server.options.useWriteFile) {
+      this._STOR_usingWriteFile(filename, 'w');
+    } else {
+      this._STOR_usingCreateWriteStream(filename, null, 'w');
+    }
+  }
+
   __APPE(commandArg) {
     var filename = withCwd(this.cwd, commandArg);
     if (this.server.options.useWriteFile) {
@@ -1345,22 +1361,6 @@ class FtpConnection extends EventEmitter {
       );
     }
     return this;
-  }
-
-  _closeSocket(socket, shouldDestroy) {
-    // TODO: Should we always use destroy() to avoid keeping sockets open longer
-    // than necessary (and possibly exceeding OS max open sockets)?
-    if (shouldDestroy || this.server.options.destroySockets) {
-      // Don't call destroy() more than once.
-      if (!socket.destroyed) {
-        socket.destroy();
-      }
-    } else {
-      // Don't call `end()` more than once.
-      if (socket.writable) {
-        socket.end();
-      }
-    }
   }
 }
 
