@@ -9,7 +9,6 @@ import dateformat from 'dateformat';
 import * as glob from './glob';
 import starttls from './starttls';
 import Constants from './Constants';
-import PassiveListener from './PassiveListener';
 
 import pathEscape from './helpers/pathEscape';
 import withCwd from './helpers/withCwd';
@@ -452,7 +451,7 @@ class FtpConnection extends EventEmitter {
       this._log(LOG.DEBUG, 'Passive data connection beginning to listen');
 
       var port = pasv.address().port;
-      this.dataListener = new PassiveListener();
+      this.dataListener = new EventEmitter();
       this._log(LOG.DEBUG, 'Passive data connection listening on port ' + port);
       this._writePASVReady(command);
     });
