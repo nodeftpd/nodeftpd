@@ -8,6 +8,8 @@ describe('APPE command', function() {
 
   var client = new FtpClient();
   var server;
+  var basename = path.basename(__filename);
+  var uploadedFile = path.join(common.fixturesPath(), common.defaultOptions().user, 'uploads', basename);
 
   //run tests both ways
   [true, false].forEach(function(useWriteFile) {
@@ -28,13 +30,12 @@ describe('APPE command', function() {
       });
 
       it('should append data to existing file', function(done) {
-        var basename = path.basename(__filename);
         var fileSize = fs.statSync(__filename).size;
         client.put(__filename, '/uploads/' + basename, function(err) {
           common.should.not.exist(err);
           client.append(__filename, '/uploads/' + basename, function(err) {
             common.should.not.exist(err);
-            var newSize = fs.statSync(path.join(common.fixturesPath(), common.defaultOptions().user, 'uploads', basename)).size;
+            var newSize = fs.statSync(uploadedFile).size;
             newSize.should.be.eql(fileSize * 2);
             done();
           });
@@ -43,6 +44,7 @@ describe('APPE command', function() {
 
       afterEach(function() {
         server.close();
+        fs.unlinkSync(uploadedFile);
       });
 
     });
