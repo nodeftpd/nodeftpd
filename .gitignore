@@ -1,1 +1,4 @@
-node_modules/*
+_*
+!__tests__
+lib/
+node_modules/
