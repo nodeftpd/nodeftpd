@@ -7,49 +7,45 @@ var {EventEmitter} = events;
 
 // Use LOG for brevity.
 var LOG = Constants.LOG_LEVELS;
+var DEFAULT_OPTIONS = {
+  logLevel: 0,
+  maxStatsAtOnce: 5,
+  uploadMaxSlurpSize: null,
+  getGroupFromGid: (gid, c) => {
+    c(null, 'ftp');
+  },
+  getUsernameFromUid: (uid, c) => {
+    c(null, 'ftp');
+  },
+};
 
 class FtpServer extends EventEmitter {
   constructor(host, options) {
     super();
-    var self = this;
-
-    self.host = host;
-
-    self.options = options;
-
-    if (!self.options.maxStatsAtOnce) {
-      self.options.maxStatsAtOnce = 5;
-    }
-
+    this.host = host;
+    options = Object.assign({}, DEFAULT_OPTIONS, options);
     if (!options.getInitialCwd) {
       throw new Error("'getInitialCwd' option of FtpServer must be set");
     }
     if (!options.getRoot) {
       throw new Error("'getRoot' option of FtpServer must be set");
     }
-    self.getInitialCwd = options.getInitialCwd;
-    self.getRoot = options.getRoot;
-
-    self.getUsernameFromUid = options.getUsernameFromUid || ((uid, c) => {
-      c(null, 'ftp');
+    this.options = options;
+    this.getInitialCwd = options.getInitialCwd;
+    this.getRoot = options.getRoot;
+    this.getUsernameFromUid = options.getUsernameFromUid;
+    this.getGroupFromGid = options.getGroupFromGid;
+    this.useWriteFile = options.useWriteFile;
+    this.useReadFile = options.useReadFile;
+    this.server = net.createServer();
+    this.server.on('connection', (socket) => {
+      this._onConnection(socket);
     });
-    self.getGroupFromGid = options.getGroupFromGid || ((gid, c) => {
-      c(null, 'ftp');
+    this.server.on('error', (err) => {
+      this.emit('error', err);
     });
-    self.debugging = options.logLevel || 0;
-    self.useWriteFile = options.useWriteFile;
-    self.useReadFile = options.useReadFile;
-    self.uploadMaxSlurpSize = options.uploadMaxSlurpSize || 0;
-
-    self.server = net.createServer();
-    self.server.on('connection', (socket) => {
-      self._onConnection(socket);
-    });
-    self.server.on('error', (err) => {
-      self.emit('error', err);
-    });
-    self.server.on('close', () => {
-      self.emit('close');
+    this.server.on('close', () => {
+      this.emit('close');
     });
   }
 
@@ -115,7 +111,7 @@ class FtpServer extends EventEmitter {
   }
 
   _logIf(verbosity, message, conn) {
-    if (verbosity > this.debugging) {
+    if (verbosity > this.options.logLevel) {
       return;
     }
     // TODO: Move this to FtpConnection.prototype._logIf.
@@ -130,7 +126,7 @@ class FtpServer extends EventEmitter {
     }
     console.log(message);
     var isError = (verbosity === LOG.ERROR);
-    if (isError && this.debugging === LOG.TRACE) {
+    if (isError && this.options.logLevel === LOG.TRACE) {
       console.trace('Trace follows');
     }
   }
