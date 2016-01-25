@@ -693,7 +693,7 @@ class FtpConnection extends EventEmitter {
 
   _storeUsingWriteFile(filename, flag) {
     var erroredOut = false;
-    var slurpBuf = new Buffer(1024);
+    var slurpBuf = new Buffer(1024); // TODO: Why is there a magic number here?
     var totalBytes = 0;
     var startTime = new Date();
 
@@ -704,8 +704,10 @@ class FtpConnection extends EventEmitter {
     });
 
     const dataHandler = (buf) => {
-      if (this.server.options.uploadMaxSlurpSize != null &&
-          totalBytes + buf.length > this.server.options.uploadMaxSlurpSize) {
+      if (
+        this.server.options.uploadMaxSlurpSize != null &&
+        totalBytes + buf.length > this.server.options.uploadMaxSlurpSize
+      ) {
         // Give up trying to slurp it -- it's too big.
 
         // If the 'fs' module we've been given doesn't implement 'createWriteStream', then
@@ -721,7 +723,7 @@ class FtpConnection extends EventEmitter {
         // Otherwise, we call _STOR_usingWriteStream, and tell it to prepend the stuff
         // that we've buffered so far to the file.
         this._log(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
-        this._storeUsingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf]);
+        this._storeUsingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf], flag);
         this.dataSocket.removeListener('data', dataHandler);
         this.dataSocket.removeListener('error', errorHandler);
         this.dataSocket.removeListener('close', closeHandler);
