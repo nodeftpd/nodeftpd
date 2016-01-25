@@ -1,4 +1,5 @@
 _*
 !__tests__
 lib/
+fixture/
 node_modules/
