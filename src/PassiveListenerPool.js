@@ -46,7 +46,6 @@ export class DataConnection extends EventEmitter {
     }, WAIT_TIMEOUT);
     // Auto-bind methods.
     this._onError = this._onError.bind(this);
-    this._onData = this._onData.bind(this);
     this._close = this._close.bind(this);
   }
 
@@ -55,7 +54,6 @@ export class DataConnection extends EventEmitter {
     this._socket = socket;
     this.state = CONNECTION_STATE.CONNECTED;
     socket.on('error', this._onError);
-    socket.on('data', this._onData);
     socket.on('close', this._close);
     this.emit('ready', socket);
   }
@@ -71,10 +69,6 @@ export class DataConnection extends EventEmitter {
   _onError(error) {
     this.emit('error', error);
     process.nextTick(this._close);
-  }
-
-  _onData(...args) {
-    this.emit('data', ...args);
   }
 
   _close() {
