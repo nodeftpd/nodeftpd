@@ -23,6 +23,12 @@ var {
   COMMANDS_REQUIRE_DATA_SOCKET,
 } = Constants;
 
+const encodeAddress = (host, port) => {
+  var i1 = (port / 256) | 0;
+  var i2 = port % 256;
+  return host.split('.').join(',') + ',' + i1 + ',' + i2;
+};
+
 class FtpConnection extends EventEmitter {
   constructor(properties) {
     super();
@@ -56,129 +62,63 @@ class FtpConnection extends EventEmitter {
     return socket.write(data, 'utf8', callback);
   }
 
-  _authenticated() {
+  _isAuthenticated() {
     return !!this.username;
   }
 
-  _closeDataConnections() {
-    if (this.dataSocket) {
-      // TODO: should the second arg be false here?
-      this._closeSocket(this.dataSocket, true);
-      this.dataSocket = null;
-    }
-    if (this.pasv) {
-      this.pasv.close();
-      this.pasv = null;
-    }
+  _doesRequireDataConnection(command) {
+    return (COMMANDS_REQUIRE_DATA_SOCKET[command] === true);
   }
 
-  _createPassiveServer() {
-    return net.createServer((psocket) => {
-      // This is simply a connection listener.
-      // TODO: Should we keep track of *all* connections, or enforce just one?
-      this._log(LOG.INFO, 'Passive data event: connect');
+  _hasReceivedDataConnectionRequest() {
+    return (
+      this.isEstablishingDataConnection ||
+      this.dataConnection != null
+    );
+  }
 
-      const setupPassiveListener = () => {
-        if (this.dataListener) {
-          this.dataListener.emit('ready');
-        } else {
-          this._log(LOG.WARN, 'Passive connection initiated, but no data listener');
-        }
-
-        const allOver = (ename) => {
-          return (err) => {
-            this._log(
-                (err ? LOG.ERROR : LOG.DEBUG),
-                'Passive data event: ' + ename + (err ? ' due to error' : '')
-            );
-            this.dataSocket = null;
-          };
-        };
-
-        // Responses are not guaranteed to have an 'end' event
-        // (https://github.com/joyent/node/issues/728), but we want to set
-        // dataSocket to null as soon as possible, so we handle both events.
-        this.dataSocket.on('close', allOver('close'));
-        this.dataSocket.on('end', allOver('end'));
-
-        this.dataSocket.on('error', (err) => {
-          this._log(LOG.ERROR, 'Passive data event: error: ' + err);
-          // TODO: Can we can rely on self.dataSocket having been closed?
-          this.dataSocket = null;
-          this.dataConfigured = false;
-        });
-      };
-
-      if (this.secure) {
-        this._log(LOG.INFO, 'Upgrading passive connection to TLS');
-        starttls.starttlsServer(psocket, this.server.options.tlsOptions, (err, cleartext) => {
-          const switchToSecure = () => {
-            this._log(LOG.INFO, 'Secure passive connection started');
-            // TODO: Check for existing dataSocket.
-            this.dataSocket = cleartext;
-            setupPassiveListener();
-          };
-          if (err) {
-            this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
-            this._closeSocket(psocket, true);
-            this.dataConfigured = false;
-          } else if (!cleartext.authorized) {
-            if (this.server.options.allowUnauthorizedTls) {
-              this._log(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
-              switchToSecure();
-            } else {
-              this._log(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
-              this._closeSocket(this.socket, true);
-              this.dataConfigured = false;
-            }
-          } else {
-            switchToSecure();
-          }
-        });
-      } else {
-        // TODO: Check for existing dataSocket.
-        this.dataSocket = psocket;
-        setupPassiveListener();
-      }
-    });
+  // TODO: rename this method.
+  _closeDataConnections() {
+    if (this.dataConnection) {
+      this.dataConnection.destroy();
+      this.dataConnection = null;
+    }
   }
 
   _whenDataReady(callback) {
-    if (this.dataListener) {
-      // how many data connections are allowed?
-      // should still be listening since we created a server, right?
-      if (this.dataSocket) {
-        this._log(LOG.DEBUG, 'A data connection exists');
-        callback(this.dataSocket);
-      } else {
-        this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
-        this.dataListener.once('ready', () => {
-          this._log(LOG.DEBUG, '...client has connected now');
-          callback(this.dataSocket);
-        });
-      }
+    // TODO: Better to check which mode we are (Active or Passive) and then act accordingly.
+    if (this.isEstablishingDataConnection) {
+      // TODO: reword.
+      this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
+      this.on('dataConnectionEstablished', () => {
+        this._log(LOG.DEBUG, '...client has connected now');
+        let socket = this.dataConnection.getSocket();
+        callback(socket);
+      });
+    } else if (this.dataConnection) {
+      this._log(LOG.DEBUG, 'A data connection exists');
+      let socket = this.dataConnection.getSocket();
+      process.nextTick(() => {
+        callback(socket);
+      });
     } else {
-      // Do we need to open the data connection?
-      if (this.dataSocket) { // There really shouldn't be an existing connection
-        this._log(LOG.DEBUG, 'Using existing non-passive dataSocket');
-        callback(this.dataSocket);
-      } else {
-        this._initiateData((sock) => {
-          callback(sock);
-        });
-      }
+      // This makes a connection to the client (Active mode).
+      this._initiateData((socket) => {
+        callback(socket);
+      });
     }
   }
 
+  // This makes a connection to the client (Active mode).
+  // TODO: fix some stuff here.
   _initiateData(callback) {
     if (this.dataSocket) {
       return callback(this.dataSocket);
     }
-
-    var sock = net.connect(this.dataPort, this.dataHost || this.socket.remoteAddress);
-    sock.on('connect', () => {
-      this.dataSocket = sock;
-      callback(sock);
+    var socket = net.connect(this.dataPort, this.dataHost || this.socket.remoteAddress);
+    socket.on('connect', () => {
+      this.dataSocket = socket;
+      callback(socket);
     });
     const allOver = (err) => {
       this.dataSocket = null;
@@ -187,14 +127,13 @@ class FtpConnection extends EventEmitter {
         'Non-passive data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
       );
     };
-    sock.on('end', allOver);
-    sock.on('close', allOver);
-
-    sock.on('error', (err) => {
-      this._closeSocket(sock, true);
+    // TODO: allOver will get executed twice here.
+    socket.on('end', allOver);
+    socket.on('close', allOver);
+    socket.on('error', (err) => {
+      this._closeSocket(socket, true);
       this._log(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
       this.dataSocket = null;
-      this.dataConfigured = false;
     });
   }
 
@@ -219,9 +158,9 @@ class FtpConnection extends EventEmitter {
       this._closeSocket(this.socket, hadError);
       this.socket = null;
     }
-    if (this.pasv) {
-      this.pasv.close();
-      this.pasv = null;
+    if (this.dataConnection) {
+      this.dataConnection.destroy();
+      this.dataConnection = null;
     }
     // TODO: LOG.DEBUG?
     this._log(LOG.INFO, 'Client connection closed');
@@ -231,50 +170,52 @@ class FtpConnection extends EventEmitter {
     if (this.hasQuit) {
       return;
     }
-
     data = data.toString('utf-8').trim();
     this._log(LOG.TRACE, '<< ' + data);
-    // Don't want to include passwords in logs.
-    this._log(LOG.INFO, 'FTP command: ' +
-      data.replace(/^PASS [\s\S]*$/i, 'PASS ***')
+    // Don't include passwords in logs.
+    this._log(
+      LOG.INFO,
+      'FTP command: ' + data.replace(/^PASS [\s\S]*$/i, 'PASS ***')
     );
-
-    var command;
-    var commandArg;
-    var index = data.indexOf(' ');
-    if (index !== -1) {
-      var parts = data.split(' ');
-      command = parts.shift().toUpperCase();
-      commandArg = parts.join(' ').trim();
-    } else {
-      command = data.toUpperCase();
-      commandArg = '';
-    }
-
-    var methodName = '__' + command;
+    var parts = data.split(' ');
+    var command = parts.shift().toUpperCase();
+    var commandArg = parts.join(' ').trim();
     if (
       COMMANDS_SUPPORTED[command] !== true ||
       (this.allowedCommands != null && this.allowedCommands[command] !== true)
     ) {
       this.respond('502 Command not implemented.');
-    } else if (COMMANDS_NO_AUTH[command] === true) {
-      this[methodName](commandArg, command);
-    } else {
-      // If 'tlsOnly' option is set, all commands which require user authentication will only
-      // be permitted over a secure connection. See RFC4217 regarding error code.
-      if (!this.secure && this.server.options.tlsOnly) {
-        this.respond('522 Protection level not sufficient; send AUTH TLS');
-      } else if (this._authenticated()) {
-        if (COMMANDS_REQUIRE_DATA_SOCKET[command] === true && !this.dataConfigured) {
-          this.respond('425 Data connection not configured; send PASV or PORT');
-        } else {
-          this[methodName](commandArg, command);
-        }
-      } else {
-        this.respond('530 Not logged in.');
-      }
+      return;
     }
-    this.previousCommand = command;
+    if (COMMANDS_NO_AUTH[command] === true) {
+      this._execCommand(command, commandArg);
+      return;
+    }
+    // If 'tlsOnly' option is set, all commands which require user authentication will only
+    // be permitted over a secure connection. See RFC4217 regarding error code.
+    if (!this.secure && this.server.options.tlsOnly) {
+      this.respond('522 Protection level not sufficient; send AUTH TLS');
+      return;
+    }
+    if (!this._isAuthenticated()) {
+      this.respond('530 Not logged in.');
+      return;
+    }
+    if (
+      this._doesRequireDataConnection(command) &&
+      !this._hasReceivedDataConnectionRequest()
+    ) {
+      this.respond('425 Data connection not configured; send PASV or PORT');
+      return;
+    }
+    this._execCommand(command, commandArg);
+  }
+
+  _execCommand(command, commandArg) {
+    var methodName = '__' + command;
+    // this.emit('pre-command:' + command, commandArg, command);
+    this[methodName](commandArg, command);
+    // this.emit('post-command:' + command, commandArg, command);
   }
 
   _listFiles(fileInfos, isDetailed, command) {
@@ -348,13 +289,13 @@ class FtpConnection extends EventEmitter {
     });
   }
 
+  // TODO: refactor this and write tests.
   _parsePORT(commandArg) {
     var m = commandArg.match(/^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$/);
     if (!m) {
       this.respond('501 Bad argument to PORT');
       return;
     }
-
     var host = m[1] + '.' + m[2] + '.' + m[3] + '.' + m[4];
     var port = (parseInt(m[5], 10) << 8) + parseInt(m[6], 10);
     if (isNaN(port)) {
@@ -392,74 +333,75 @@ class FtpConnection extends EventEmitter {
     return {host: m[1], port: r};
   }
 
-  _writePASVReady(command) {
-    var a = this.pasv.address();
-    var host = this.server.host;
-    var port = a.port;
-    if (command === 'PASV') {
-      var i1 = (port / 256) | 0;
-      var i2 = port % 256;
-      this.respond('227 Entering Passive Mode (' + host.split('.').join(',') + ',' + i1 + ',' + i2 + ')');
-    } else { // EPASV
-      this.respond('229 Entering Extended Passive Mode (|||' + port + '|)');
-    }
+  // TODO: move this to PassiveListenerPool
+  _upgradePassiveConnectionToTLS(socket, callback) {
+    this._log(LOG.INFO, 'Upgrading passive connection to TLS');
+    starttls.starttlsServer(socket, this.server.options.tlsOptions, (err, cleartext) => {
+      const switchToSecure = () => {
+        this._log(LOG.INFO, 'Passive connection secured');
+        // TODO: Check for existing dataSocket.
+        this.dataSocket = cleartext;
+        callback();
+      };
+      if (err) {
+        this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
+        this._closeSocket(socket, true);
+      } else if (!cleartext.authorized) {
+        if (this.server.options.allowUnauthorizedTls) {
+          this._log(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
+          switchToSecure();
+        } else {
+          this._log(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
+          this._closeSocket(this.socket, true);
+        }
+      } else {
+        switchToSecure();
+      }
+    });
   }
 
-  _setupNewPASV(commandArg, command) {
-    var pasv = this._createPassiveServer();
-    var portRangeErrorHandler;
+  // TODO: fix some stuff.
+  _onPassiveDataConnection(socket) {
+    // TODO: reword
+    this._log(LOG.INFO, 'Passive data event: connect');
 
-    const normalErrorHandler = (e) => {
-      this._log(LOG.WARN, 'Error with passive data listener: ' + util.inspect(e));
-      this.respond('421 Server was unable to open passive connection listener');
-      this.dataConfigured = false;
-      this.dataListener = null;
-      this.dataSocket = null;
-      this.pasv = null;
-    };
-
-    if (this.server.options.pasvPortRangeStart != null && this.server.options.pasvPortRangeEnd != null) {
-      // Keep trying ports in the range supplied until either:
-      //     (i)   It works
-      //     (ii)  We get an error that's not just EADDRINUSE
-      //     (iii) We run out of ports to try.
-      var i = this.server.options.pasvPortRangeStart;
-      pasv.listen(i);
-      portRangeErrorHandler = (e) => {
-        if (e.code === 'EADDRINUSE' && i < this.server.options.pasvPortRangeEnd) {
-          pasv.listen(++i);
-        } else {
-          this._log(LOG.DEBUG, 'Passing on error from portRangeErrorHandler to normalErrorHandler:' + JSON.stringify(e));
-          normalErrorHandler(e);
-        }
-      };
-      pasv.on('error', portRangeErrorHandler);
-    } else {
-      pasv.listen(0);
-      pasv.on('error', normalErrorHandler);
-    }
-
-    // Once we're successfully listening, tell the client
-    pasv.on('listening', () => {
-      this.pasv = pasv;
-
-      if (portRangeErrorHandler) {
-        pasv.removeListener('error', portRangeErrorHandler);
-        pasv.addListener('error', normalErrorHandler);
+    const setupPassiveListener = () => {
+      if (this.isEstablishingDataConnection) {
+        this.emit('dataConnectionEstablished');
+        this.isEstablishingDataConnection = false;
       }
 
-      this._log(LOG.DEBUG, 'Passive data connection beginning to listen');
+      const allOver = (ename) => {
+        return (error) => {
+          this._log(
+            error ? LOG.ERROR : LOG.DEBUG,
+            'Passive data event: ' + ename + (error ? ' due to error' : '')
+          );
+          this.dataSocket = null;
+        };
+      };
 
-      var port = pasv.address().port;
-      this.dataListener = new EventEmitter();
-      this._log(LOG.DEBUG, 'Passive data connection listening on port ' + port);
-      this._writePASVReady(command);
-    });
-    pasv.on('close', () => {
-      this.pasv = null;
-      this.dataListener = null;
-      this._log(LOG.DEBUG, 'Passive data listener closed');
-    });
+      // Responses are not guaranteed to have an 'end' event
+      // (https://github.com/joyent/node/issues/728), but we want to set
+      // dataSocket to null as soon as possible, so we handle both events.
+      this.dataSocket.on('close', allOver('close'));
+      this.dataSocket.on('end', allOver('end'));
+
+      this.dataSocket.on('error', (err) => {
+        this._log(LOG.ERROR, 'Passive data event: error: ' + err);
+        // TODO: Can we can rely on self.dataSocket having been closed?
+        this.dataSocket = null;
+      });
+    };
+
+    // TODO: remove this.
+    if (this.secure) {
+      this._upgradePassiveConnectionToTLS(socket, setupPassiveListener);
+    } else {
+      // TODO: Check for existing dataSocket.
+      this.dataSocket = socket;
+      setupPassiveListener();
+    }
   }
 
   _retrieveUsingCreateReadStream(commandArg, filename) {
@@ -1094,12 +1036,8 @@ class FtpConnection extends EventEmitter {
     return this;
   }
 
-  __PORT(commandArg, command) {
-    this.dataConfigured = false;
-    var {host, port} = (command === 'PORT') ?
-      this._parsePORT(commandArg) :
-      this._parsePORT(commandArg);
-    this.dataConfigured = true;
+  __PORT(commandArg) {
+    var {host, port} = this._parsePORT(commandArg);
     this.dataHost = host;
     this.dataPort = port;
     this._log(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
@@ -1111,22 +1049,51 @@ class FtpConnection extends EventEmitter {
   }
 
   __PASV(commandArg, command) {
-    this.dataConfigured = false;
-
-    // not sure whether the spec limits to 1 data connection at a time ...
-    if (this.dataSocket) {
-      this._closeSocket(this.dataSocket, true);
+    // Client already sent PASV.
+    if (this._hasReceivedDataConnectionRequest()) {
+      // TODO: Is this the right message here?
+      this.respond('503 Bad sequence of commands.');
+      return;
     }
+    var isExtendedPASV = (command === 'EPSV');
+    this._log(LOG.DEBUG, 'Setting up listener for passive connections');
+    this.isEstablishingDataConnection = true;
+    // TODO: find a better way to get the address on which to bind listener.
+    let host = this.server.host;
+    this.passiveListenerPool.createDataConnection(
+      host,
+      (error, dataConnection) => {
+        if (error) {
+          this.isEstablishingDataConnection = false;
+          this._log(LOG.WARN, 'Error with passive data listener: ' + util.inspect(error));
+          this.respond('421 Server was unable to open passive connection listener');
+          return;
+        }
+        this.dataConnection = dataConnection;
+        var port = dataConnection.port;
+        this._log(LOG.DEBUG, `Listening for passive data connection on port ${port}`);
+        // Now that we're successfully listening, tell the client.
+        if (isExtendedPASV) {
+          this.respond('229 Entering Extended Passive Mode (|||' + port + '|)');
+        } else {
+          this.respond(`227 Entering Passive Mode (${encodeAddress(host, port)})`);
+        }
 
-    if (this.dataListener) {
-      this._log(LOG.DEBUG, 'Telling client that they can connect now');
-      this._writePASVReady(command);
-    } else {
-      this._log(LOG.DEBUG, 'Setting up listener for passive connections');
-      this._setupNewPASV(commandArg, command);
-    }
-
-    this.dataConfigured = true;
+        dataConnection.on('error', (error) => {
+          this.isEstablishingDataConnection = false;
+          // TODO: handle error
+        });
+        dataConnection.on('ready', (socket) => {
+          this.isEstablishingDataConnection = false;
+          // TODO: inline this? or better yet, abstract the entire process of establishing a data connection.
+          this._onPassiveDataConnection(socket);
+        });
+        dataConnection.on('close', () => {
+          // TODO: reword.
+          this._log(LOG.DEBUG, 'Passive data listener closed');
+        });
+      }
+    );
   }
 
   __EPSV(commandArg, command) {
@@ -1297,6 +1264,7 @@ class FtpConnection extends EventEmitter {
         // success callback
         () => {
           this.respond('331 User name okay, need password.');
+          this.isWaitingForPassword = true;
         },
         // failure callback
         () => {
@@ -1309,9 +1277,10 @@ class FtpConnection extends EventEmitter {
 
   // Specify a password for login
   __PASS(password) {
-    if (this.previousCommand !== 'USER') {
+    if (!this.isWaitingForPassword) {
       this.respond('503 Bad sequence of commands.');
     } else {
+      this.isWaitingForPassword = false;
       this.emit(
         'command:pass',
         password,

@@ -47,6 +47,10 @@ class FtpServer extends EventEmitter {
     this.server.on('close', () => {
       this.emit('close');
     });
+    this.passiveListenerPool = new PassiveListenerPool({
+      bindAddress: BIND_ADDRESS,
+      portRange: [options.pasvPortRangeStart, options.pasvPortRangeEnd],
+    });
   }
 
   _onConnection(socket) {
@@ -62,7 +66,7 @@ class FtpServer extends EventEmitter {
     var conn = new FtpConnection({
       server: this,
       socket: socket,
-      pasv: null, // passive listener server
+      passiveListenerPool: this.passiveListenerPool,
       allowedCommands: allowedCommands, // subset of allowed commands for this server
       dataPort: 20,
       dataHost: null,
