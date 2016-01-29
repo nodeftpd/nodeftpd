@@ -49,7 +49,17 @@ export class DataConnection extends EventEmitter {
     this._close = this._close.bind(this);
   }
 
-  addSocket(socket) {
+  getSocket() {
+    return this._socket;
+  }
+
+  // This is not really a public method, except for use from the code that
+  // created this DataConnection (Listener).
+  setSocket(socket) {
+    // Prevent calling twice.
+    if (this._socket) {
+      throw new Error('DataConnection: method setSocket() called more than once.');
+    }
     clearTimeout(this._timer);
     this._socket = socket;
     this.state = CONNECTION_STATE.CONNECTED;
@@ -176,7 +186,7 @@ export class Listener extends EventEmitter {
       return;
     }
     this._waitingConnections.delete(key);
-    connection.addSocket(socket);
+    connection.setSocket(socket);
   }
 
   _stopIfDone() {
