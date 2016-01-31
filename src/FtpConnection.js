@@ -15,7 +15,9 @@ import withCwd from './helpers/withCwd';
 import stripOptions from './helpers/stripOptions';
 import leftPad from './helpers/leftPad';
 
-var {
+const ENCODED_ADDRESS = /^[0-9]{1,3}(,[0-9]{1,3}){5}$/;
+
+const {
   // Use LOG for brevity.
   LOG_LEVELS: LOG,
   COMMANDS_SUPPORTED,
@@ -29,12 +31,52 @@ const encodeAddress = (host, port) => {
   return host.split('.').join(',') + ',' + i1 + ',' + i2;
 };
 
+const decodeAddress = (encoded) => {
+  if (ENCODED_ADDRESS.test(encoded) === false) {
+    return null;
+  }
+  let octets = encoded.split(',').map((value) => parseInt(value, 10));
+  let isOutOfRange = octets.some((number) => number > 255);
+  if (isOutOfRange) {
+    return null;
+  }
+  return {
+    host: octets.slice(0, 4).join('.'),
+    port: (octets[5] << 8) + octets[6],
+  };
+};
+
 class FtpConnection extends EventEmitter {
-  constructor(properties) {
+  constructor(options = {}) {
     super();
-    Object.keys(properties).forEach((key) => {
-      this[key] = properties[key];
-    });
+    // TODO: Throw if any required option not present.
+    this.server = options.server;
+    this.socket = options.socket;
+    this.passiveListenerPool = options.passiveListenerPool;
+    this.allowedCommands = options.allowedCommands;
+    this.tlsOptions = options.tlsOptions;
+
+    // TODO: I don't think this should be 20.
+    this.dataPort = 20;
+    this.dataHost = null;
+    // The incoming (PASV) data connection.
+    this.dataConnection = null;
+    // the actual data socket
+    this.dataSocket = null;
+    this._isEstablishingDataConnection = false;
+    this._hasReceivedPASV = false;
+    this._hasReceivedPORT = false;
+
+    this.mode = 'ascii';
+    this.filefrom = '';
+    this.username = null;
+    this.fs = null;
+    this.cwd = null;
+    this.root = null;
+    this.hasQuit = false;
+    // State for handling TLS upgrades.
+    this.secure = false;
+    this.pbszReceived = false;
   }
 
   // TODO: rename this to writeLine?
@@ -72,7 +114,7 @@ class FtpConnection extends EventEmitter {
 
   _hasReceivedDataConnectionRequest() {
     return (
-      this.isEstablishingDataConnection ||
+      this._isEstablishingDataConnection ||
       this.dataConnection != null
     );
   }
@@ -87,7 +129,7 @@ class FtpConnection extends EventEmitter {
 
   _whenDataReady(callback) {
     // TODO: Better to check which mode we are (Active or Passive) and then act accordingly.
-    if (this.isEstablishingDataConnection) {
+    if (this._isEstablishingDataConnection) {
       // TODO: reword.
       this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
       this.on('dataConnectionEstablished', () => {
@@ -289,22 +331,6 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  // TODO: refactor this and write tests.
-  _parsePORT(commandArg) {
-    var m = commandArg.match(/^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$/);
-    if (!m) {
-      this.respond('501 Bad argument to PORT');
-      return;
-    }
-    var host = m[1] + '.' + m[2] + '.' + m[3] + '.' + m[4];
-    var port = (parseInt(m[5], 10) << 8) + parseInt(m[6], 10);
-    if (isNaN(port)) {
-      // The value should never be NaN because the relevant groups in the regex matche 1-3 digits.
-      throw new Error('Impossible NaN in FtpConnection.prototype._PORT');
-    }
-    return {host, port};
-  }
-
   _parseEPRT(commandArg) {
     if (
       commandArg.length >= 3 &&
@@ -336,7 +362,7 @@ class FtpConnection extends EventEmitter {
   // TODO: move this to PassiveListenerPool
   _upgradePassiveConnectionToTLS(socket, callback) {
     this._log(LOG.INFO, 'Upgrading passive connection to TLS');
-    starttls.starttlsServer(socket, this.server.options.tlsOptions, (err, cleartext) => {
+    starttls.starttlsServer(socket, this.tlsOptions, (err, cleartext) => {
       const switchToSecure = () => {
         this._log(LOG.INFO, 'Passive connection secured');
         // TODO: Check for existing dataSocket.
@@ -366,9 +392,9 @@ class FtpConnection extends EventEmitter {
     this._log(LOG.INFO, 'Passive data event: connect');
 
     const setupPassiveListener = () => {
-      if (this.isEstablishingDataConnection) {
+      if (this._isEstablishingDataConnection) {
         this.emit('dataConnectionEstablished');
-        this.isEstablishingDataConnection = false;
+        this._isEstablishingDataConnection = false;
       }
 
       const allOver = (ename) => {
@@ -764,13 +790,14 @@ class FtpConnection extends EventEmitter {
   }
 
   __AUTH(commandArg) {
-    if (!this.server.options.tlsOptions || commandArg !== 'TLS') {
+    let {tlsOptions} = this;
+    if (!tlsOptions || commandArg !== 'TLS') {
       return this.respond('502 Command not implemented');
     }
 
     this.respond('234 Honored', () => {
       this._log(LOG.INFO, 'Establishing secure connection...');
-      starttls.starttlsServer(this.socket, this.server.options.tlsOptions, (err, cleartext) => {
+      starttls.starttlsServer(this.socket, tlsOptions, (err, cleartext) => {
         const switchToSecure = () => {
           this._log(LOG.INFO, 'Secure connection started');
           this.socket = cleartext;
@@ -843,7 +870,7 @@ class FtpConnection extends EventEmitter {
   // Get the feature list implemented by the server. (RFC 2389)
   __FEAT() {
     let features = ['SIZE', 'UTF8', 'MDTM'];
-    if (this.server.options.tlsOptions) {
+    if (this.tlsOptions) {
       features.push('AUTH TLS', 'PBSZ', 'PROT');
     }
     features = features.map((feature) => ' ' + feature + '\r\n');
@@ -1037,10 +1064,19 @@ class FtpConnection extends EventEmitter {
   }
 
   __PORT(commandArg) {
-    var {host, port} = this._parsePORT(commandArg);
+    if (this._hasReceivedPASV || this._hasReceivedPORT) {
+      this.respond('503 Bad sequence of commands.');
+      return;
+    }
+    this._hasReceivedPORT = true;
+    let {host, port} = decodeAddress(commandArg) || {};
+    if (host == null || port == null) {
+      this.respond('501 Bad argument to PORT');
+      return;
+    }
     this.dataHost = host;
     this.dataPort = port;
-    this._log(LOG.DEBUG, 'self.dataHost, self.dataPort set to ' + this.dataHost + ':' + this.dataPort);
+    this._log(LOG.DEBUG, `self.dataHost, self.dataPort set to ${host}:${port}`);
     this.respond('200 OK');
   }
 
@@ -1049,22 +1085,22 @@ class FtpConnection extends EventEmitter {
   }
 
   __PASV(commandArg, command) {
-    // Client already sent PASV.
-    if (this._hasReceivedDataConnectionRequest()) {
-      // TODO: Is this the right message here?
+    if (this._hasReceivedPASV || this._hasReceivedPORT) {
       this.respond('503 Bad sequence of commands.');
       return;
     }
-    var isExtendedPASV = (command === 'EPSV');
+    this._hasReceivedPASV = true;
+    let isExtendedPASV = (command === 'EPSV');
     this._log(LOG.DEBUG, 'Setting up listener for passive connections');
-    this.isEstablishingDataConnection = true;
+    this._isEstablishingDataConnection = true;
     // TODO: find a better way to get the address on which to bind listener.
     let host = this.server.host;
     this.passiveListenerPool.createDataConnection(
       host,
+      {useTLS: this.secure},
       (error, dataConnection) => {
         if (error) {
-          this.isEstablishingDataConnection = false;
+          this._isEstablishingDataConnection = false;
           this._log(LOG.WARN, 'Error with passive data listener: ' + util.inspect(error));
           this.respond('421 Server was unable to open passive connection listener');
           return;
@@ -1080,11 +1116,11 @@ class FtpConnection extends EventEmitter {
         }
 
         dataConnection.on('error', (error) => {
-          this.isEstablishingDataConnection = false;
+          this._isEstablishingDataConnection = false;
           // TODO: handle error
         });
         dataConnection.on('ready', (socket) => {
-          this.isEstablishingDataConnection = false;
+          this._isEstablishingDataConnection = false;
           // TODO: inline this? or better yet, abstract the entire process of establishing a data connection.
           this._onPassiveDataConnection(socket);
         });
@@ -1105,7 +1141,7 @@ class FtpConnection extends EventEmitter {
   }
 
   __PBSZ(commandArg) {
-    if (!this.server.options.tlsOptions) {
+    if (!this.tlsOptions) {
       return this.respond('202 Not supported');
     }
 
@@ -1126,7 +1162,7 @@ class FtpConnection extends EventEmitter {
   }
 
   __PROT(commandArg) {
-    if (!this.server.options.tlsOptions) {
+    if (!this.tlsOptions) {
       return this.respond('202 Not supported');
     }
 
@@ -1254,9 +1290,9 @@ class FtpConnection extends EventEmitter {
   __USER(username) {
     if (this.server.options.tlsOnly && !this.secure) {
       this.respond(
-        '530 This server does not permit login over ' +
-        'a non-secure connection; ' +
-        'connect using FTP-SSL with explicit AUTH TLS');
+        '530 This server does not permit login over a non-secure connection; ' +
+        'connect using FTP-SSL with explicit AUTH TLS'
+      );
     } else {
       this.emit(
         'command:user',

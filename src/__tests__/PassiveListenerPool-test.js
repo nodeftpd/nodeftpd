@@ -62,7 +62,8 @@ describe('PassiveListenerPool', () => {
       remoteAddress: '127.0.0.1',
     });
     let remoteAddress = controlConnection.address().address;
-    listenerPool.createDataConnection(remoteAddress, (error, dataConnection) => {
+    let options = {secure: false};
+    listenerPool.createDataConnection(remoteAddress, options, (error, dataConnection) => {
       let {port} = dataConnection;
       log(`listening on port ${port}`);
       expect(port).toBe(MIN_PORT);

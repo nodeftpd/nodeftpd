@@ -3,6 +3,8 @@
 import net from 'net';
 import {EventEmitter} from 'events';
 
+import starttls from './starttls';
+
 const DEFAULT_OPTIONS = {
   BIND_ADDRESS: '0.0.0.0',
   MIN_PORT: 44001,
@@ -13,9 +15,10 @@ const DEFAULT_OPTIONS = {
 const WAIT_TIMEOUT = 9000;
 
 export const CONNECTION_STATE = {
-  WAITING: 0,   // Listener is waiting for client to connect (initial state).
-  CONNECTED: 1, // Client is connected.
-  CLOSED: 2,    // Connection is closed (error or normal connection end).
+  WAITING: 0,          // Listener is waiting for client to connect (initial state).
+  INITIALIZING_TLS: 1, // Client is connected but we are negotiating TLS.
+  READY: 2,            // Client is connected and socket is ready.
+  CLOSED: 3,           // Connection is closed (error or normal connection end).
 };
 
 export const LISTENER_STATE = {
@@ -31,13 +34,14 @@ let listenError = (errorCode, address, port) => ({
 });
 
 export class DataConnection extends EventEmitter {
-  constructor(port, remoteAddress) {
+  constructor(port, remoteAddress, options) {
     super();
     // It's important to store the listening port here so the control connection
     // can send: 227 Entering Passive Mode (<IP_INFO>,<PORT_INFO>)
     this.port = port;
     this.remoteAddress = remoteAddress;
     this.state = CONNECTION_STATE.WAITING;
+    this._useTLS = options.useTLS;
     this._socket = null;
     this._timer = setTimeout(() => {
       this._onError(
@@ -56,16 +60,48 @@ export class DataConnection extends EventEmitter {
   // This is not really a public method, except for use from the code that
   // created this DataConnection (Listener).
   setSocket(socket) {
-    // Prevent calling twice.
     if (this._socket) {
       throw new Error('DataConnection: method setSocket() called more than once.');
     }
     clearTimeout(this._timer);
-    this._socket = socket;
-    this.state = CONNECTION_STATE.CONNECTED;
-    socket.on('error', this._onError);
-    socket.on('close', this._close);
-    this.emit('ready', socket);
+    if (!this._useTLS) {
+      this._socket = socket;
+      this.state = CONNECTION_STATE.READY;
+      socket.on('error', this._onError);
+      socket.on('close', this._close);
+      this.emit('ready', socket);
+      return;
+    }
+    this.state = CONNECTION_STATE.INITIALIZING_TLS;
+    this._upgradeConnection(socket, (error, cleartext) => {
+      this._socket = cleartext;
+      this.state = CONNECTION_STATE.READY;
+      cleartext.on('error', this._onError);
+      cleartext.on('close', this._close);
+      this.emit('ready', cleartext);
+    });
+  }
+
+  _upgradeConnection(rawSocket, callback) {
+    // this._log(LOG.INFO, 'Upgrading passive connection to TLS');
+    let {tlsOptions} = this.options;
+    starttls.starttlsServer(rawSocket, tlsOptions, (error, cleartext) => {
+      if (error) {
+        // this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(error));
+        this._closeSocket(rawSocket, true);
+        callback(error);
+        return;
+      }
+
+      if (cleartext.authorized || this.options.allowUnauthorizedTls) {
+        // this._log(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
+        // this._log(LOG.INFO, 'Passive connection secured');
+        callback(null, cleartext);
+      } else {
+        // this._log(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
+        this._closeSocket(rawSocket, true);
+      }
+    });
   }
 
   destroy() {
@@ -105,10 +141,10 @@ export class Listener extends EventEmitter {
     this._onConnection = this._onConnection.bind(this);
   }
 
-  listenForClient(remoteAddress) {
+  listenForClient(remoteAddress, options) {
     let {bindAddress, port} = this;
     let key = port + '|' + remoteAddress;
-    let connection = new DataConnection(port, remoteAddress);
+    let connection = new DataConnection(port, remoteAddress, options);
     if (this._waitingConnections.has(key)) {
       // We cannot simultaneously have more than one waitingConnection for the
       // same remote address or it would create ambiguity (we wouldn't know
@@ -116,10 +152,10 @@ export class Listener extends EventEmitter {
       // with). Treat this as an EADDRINUSE error to force the calling function
       // to try another port.
       process.nextTick(() => {
-        let e = listenError('EADDRINUSE', bindAddress, port);
+        let {message, props} = listenError('EADDRINUSE', bindAddress, port);
         connection.emit(
           'listenerError',
-          Object.assign(new Error(e.message), e.props)
+          Object.assign(new Error(message), props)
         );
       });
       return connection;
@@ -244,7 +280,7 @@ export default class PassiveListenerPool extends EventEmitter {
     this._listeners = new Map();
   }
 
-  createDataConnection(remoteAddress, callback) {
+  createDataConnection(remoteAddress, options, callback) {
     let port = this._minPort;
     let dataConnection;
     let onError = (error) => {
@@ -266,7 +302,7 @@ export default class PassiveListenerPool extends EventEmitter {
         listener = new Listener(port, this._bindAddress);
         this._listeners.set(port, listener);
       }
-      dataConnection = listener.listenForClient(remoteAddress);
+      dataConnection = listener.listenForClient(remoteAddress, options);
       dataConnection.on('listenerError', onError);
       dataConnection.on('listenerReady', onSuccess);
     };

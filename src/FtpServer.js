@@ -67,28 +67,9 @@ class FtpServer extends EventEmitter {
       server: this,
       socket: socket,
       passiveListenerPool: this.passiveListenerPool,
-      allowedCommands: allowedCommands, // subset of allowed commands for this server
-      dataPort: 20,
-      dataHost: null,
-      dataListener: null, // for incoming passive connections
-      dataSocket: null, // the actual data socket
-      // True if the client has sent a PORT/PASV command, and
-      // we haven't experienced a problem with the configuration
-      // it specified. (This can therefore be true even if there
-      // is not currently an open data connection.)
-      dataConfigured: false,
-      mode: 'ascii',
-      filefrom: '',
-      username: null,
-      filename: '',
-      fs: null,
-      cwd: null,
-      root: null,
-      hasQuit: false,
-
-      // State for handling TLS upgrades.
-      secure: false,
-      pbszReceived: false,
+      // subset of allowed commands for this server
+      allowedCommands: allowedCommands,
+      tlsOptions: this.options.tlsOptions,
     });
 
     this.emit('client:connected', conn); // pass client info so they can listen for client-specific events
