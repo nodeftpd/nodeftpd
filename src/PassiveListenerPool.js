@@ -33,7 +33,7 @@ let listenError = (errorCode, address, port) => ({
   props: {code: errorCode, address, port},
 });
 
-export class DataConnection extends EventEmitter {
+export class PassiveDataConnection extends EventEmitter {
   constructor(port, remoteAddress, options) {
     super();
     // It's important to store the listening port here so the control connection
@@ -58,10 +58,10 @@ export class DataConnection extends EventEmitter {
   }
 
   // This is not really a public method, except for use from the code that
-  // created this DataConnection (Listener).
+  // created this instance (Listener).
   setSocket(socket) {
     if (this._socket) {
-      throw new Error('DataConnection: method setSocket() called more than once.');
+      throw new Error('PassiveDataConnection: method setSocket() called more than once.');
     }
     clearTimeout(this._timer);
     if (!this._useTLS) {
@@ -144,13 +144,13 @@ export class Listener extends EventEmitter {
   listenForClient(remoteAddress, options) {
     let {bindAddress, port} = this;
     let key = port + '|' + remoteAddress;
-    let connection = new DataConnection(port, remoteAddress, options);
+    let connection = new PassiveDataConnection(port, remoteAddress, options);
     if (this._waitingConnections.has(key)) {
       // We cannot simultaneously have more than one waitingConnection for the
       // same remote address or it would create ambiguity (we wouldn't know
-      // which DataConnection instance to associate the incoming connection
-      // with). Treat this as an EADDRINUSE error to force the calling function
-      // to try another port.
+      // which instance to associate the incoming connection with). Treat this
+      // as an EADDRINUSE error to force the calling function to try another
+      // port.
       process.nextTick(() => {
         let {message, props} = listenError('EADDRINUSE', bindAddress, port);
         connection.emit(

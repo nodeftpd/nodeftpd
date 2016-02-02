@@ -359,75 +359,39 @@ class FtpConnection extends EventEmitter {
     return {host: m[1], port: r};
   }
 
-  // TODO: move this to PassiveListenerPool
-  _upgradePassiveConnectionToTLS(socket, callback) {
-    this._log(LOG.INFO, 'Upgrading passive connection to TLS');
-    starttls.starttlsServer(socket, this.tlsOptions, (err, cleartext) => {
-      const switchToSecure = () => {
-        this._log(LOG.INFO, 'Passive connection secured');
-        // TODO: Check for existing dataSocket.
-        this.dataSocket = cleartext;
-        callback();
-      };
-      if (err) {
-        this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(err));
-        this._closeSocket(socket, true);
-      } else if (!cleartext.authorized) {
-        if (this.server.options.allowUnauthorizedTls) {
-          this._log(LOG.INFO, 'Allowing unauthorized passive connection (allowUnauthorizedTls is on)');
-          switchToSecure();
-        } else {
-          this._log(LOG.INFO, 'Closing unauthorized passive connection (allowUnauthorizedTls is off)');
-          this._closeSocket(this.socket, true);
-        }
-      } else {
-        switchToSecure();
-      }
+  // TODO: this should work the same for active or passive.
+  _onDataConnection(socket) {
+    this.dataSocket = socket;
+    if (this._isEstablishingDataConnection) {
+      this.emit('dataConnectionEstablished');
+      this._isEstablishingDataConnection = false;
+    }
+
+    socket.on('error', (err) => {
+      this._log(LOG.ERROR, 'Data socket event: error: ' + err);
+      // TODO: Can we can rely on self.dataSocket having been closed?
+      this.dataSocket = null;
     });
-  }
 
-  // TODO: fix some stuff.
-  _onPassiveDataConnection(socket) {
-    // TODO: reword
-    this._log(LOG.INFO, 'Passive data event: connect');
-
-    const setupPassiveListener = () => {
-      if (this._isEstablishingDataConnection) {
-        this.emit('dataConnectionEstablished');
-        this._isEstablishingDataConnection = false;
-      }
-
-      const allOver = (ename) => {
-        return (error) => {
-          this._log(
-            error ? LOG.ERROR : LOG.DEBUG,
-            'Passive data event: ' + ename + (error ? ' due to error' : '')
-          );
-          this.dataSocket = null;
-        };
-      };
-
-      // Responses are not guaranteed to have an 'end' event
-      // (https://github.com/joyent/node/issues/728), but we want to set
-      // dataSocket to null as soon as possible, so we handle both events.
-      this.dataSocket.on('close', allOver('close'));
-      this.dataSocket.on('end', allOver('end'));
-
-      this.dataSocket.on('error', (err) => {
-        this._log(LOG.ERROR, 'Passive data event: error: ' + err);
-        // TODO: Can we can rely on self.dataSocket having been closed?
+    const allOver = (name) => {
+      return (error) => {
+        // Prevent calling twice.
+        if (this.dataSocket == null) {
+          return;
+        }
+        this._log(
+          error ? LOG.ERROR : LOG.DEBUG,
+          'Data socket event: ' + name + (error ? ' due to error' : '')
+        );
         this.dataSocket = null;
-      });
+      };
     };
 
-    // TODO: remove this.
-    if (this.secure) {
-      this._upgradePassiveConnectionToTLS(socket, setupPassiveListener);
-    } else {
-      // TODO: Check for existing dataSocket.
-      this.dataSocket = socket;
-      setupPassiveListener();
-    }
+    // Responses are not guaranteed to have an 'end' event
+    // (https://github.com/joyent/node/issues/728), but we want to set
+    // dataSocket to null as soon as possible, so we handle both events.
+    socket.on('close', allOver('close'));
+    socket.on('end', allOver('end'));
   }
 
   _retrieveUsingCreateReadStream(commandArg, filename) {
@@ -1084,6 +1048,23 @@ class FtpConnection extends EventEmitter {
     this.__PORT(commandArg, command);
   }
 
+  _getDataConnection() {
+    const DATA_CONNECTION_STATE = {};
+    class DataConnection {
+      constructor(ftpConnection) {
+        this.state = DATA_CONNECTION_STATE.NOT_READY;
+        this.isActive = false;
+        this.isPassive = false;
+        this._ftpConnection = ftpConnection;
+      }
+      setActivePort(port) {
+        this.isActive = true;
+        this._activePort = port;
+      }
+    }
+    return new DataConnection();
+  }
+
   __PASV(commandArg, command) {
     if (this._hasReceivedPASV || this._hasReceivedPORT) {
       this.respond('503 Bad sequence of commands.');
@@ -1114,15 +1095,14 @@ class FtpConnection extends EventEmitter {
         } else {
           this.respond(`227 Entering Passive Mode (${encodeAddress(host, port)})`);
         }
-
         dataConnection.on('error', (error) => {
-          this._isEstablishingDataConnection = false;
+          this._log(LOG.WARN, 'Error with passive data connection: ' + util.inspect(error));
           // TODO: handle error
         });
         dataConnection.on('ready', (socket) => {
-          this._isEstablishingDataConnection = false;
-          // TODO: inline this? or better yet, abstract the entire process of establishing a data connection.
-          this._onPassiveDataConnection(socket);
+          // TODO: reword
+          this._log(LOG.INFO, 'Passive data event: connect');
+          this._onDataConnection(socket);
         });
         dataConnection.on('close', () => {
           // TODO: reword.

@@ -2,6 +2,7 @@ import net from 'net';
 import events from 'events';
 import FtpConnection from './FtpConnection';
 import Constants from './Constants';
+import PassiveListenerPool from './PassiveListenerPool';
 
 var {EventEmitter} = events;
 
@@ -46,10 +47,6 @@ class FtpServer extends EventEmitter {
     });
     this.server.on('close', () => {
       this.emit('close');
-    });
-    this.passiveListenerPool = new PassiveListenerPool({
-      bindAddress: BIND_ADDRESS,
-      portRange: [options.pasvPortRangeStart, options.pasvPortRangeEnd],
     });
   }
 
@@ -111,8 +108,41 @@ class FtpServer extends EventEmitter {
     }
   }
 
-  listen() {
-    this.server.listen(...arguments);
+  _getHost(arg1, arg2) {
+    let host;
+    let NUMERIC = /^[0-9]+$/;
+    let isObject = (arg1 === Object(arg1));
+    let isNumeric = (typeof arg1 === 'number' || (typeof arg1 === 'string' || NUMERIC.test(arg1)))
+    if (isObject) {
+      host = arg1.host;
+    } else if (isNumeric && typeof arg2 === 'string') {
+      host = arg2;
+    }
+    if (host == null) {
+      host = '127.0.0.1';
+    }
+    return host;
+  }
+
+  listen(port, ...args) {
+    let NUMERIC = /^[0-9]+$/;
+    if (typeof port === 'string' && NUMERIC.test(port)) {
+      port = parseInt(port, 10);
+    }
+    if (typeof port !== 'number') {
+      throw new Error('Must specify port');
+    }
+    let {host} = this;
+    let callback = (typeof args[args.length] === 'function') ? args.pop() : null;
+    this.server.listen(port, host, callback);
+    let {options} = this;
+    this.passiveListenerPool = new PassiveListenerPool({
+      bindAddress: host,
+      portRange: [options.pasvPortRangeStart, options.pasvPortRangeEnd],
+      logger: (verbosity, message) => {
+        this._log(verbosity, '[PASV Listener Pool] >> ' + message);
+      },
+    });
   }
 
   close() {
