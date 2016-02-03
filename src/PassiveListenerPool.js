@@ -2,8 +2,11 @@
 
 import net from 'net';
 import {EventEmitter} from 'events';
+import Constants from './Constants';
 
 import starttls from './starttls';
+
+const LOG = Constants.LOG_LEVELS;
 
 const DEFAULT_OPTIONS = {
   BIND_ADDRESS: '0.0.0.0',
@@ -34,13 +37,14 @@ let listenError = (errorCode, address, port) => ({
 });
 
 export class PassiveDataConnection extends EventEmitter {
-  constructor(port, remoteAddress, options) {
+  constructor(port, remoteAddress, options, logger) {
     super();
     // It's important to store the listening port here so the control connection
     // can send: 227 Entering Passive Mode (<IP_INFO>,<PORT_INFO>)
     this.port = port;
     this.remoteAddress = remoteAddress;
     this.state = CONNECTION_STATE.WAITING;
+    this._log = logger;
     this._useTLS = options.useTLS;
     this._socket = null;
     this._timer = setTimeout(() => {
@@ -83,22 +87,21 @@ export class PassiveDataConnection extends EventEmitter {
   }
 
   _upgradeConnection(rawSocket, callback) {
-    // this._log(LOG.INFO, 'Upgrading passive connection to TLS');
+    this._log(LOG.INFO, 'Upgrading connection to TLS');
     let {tlsOptions} = this.options;
     starttls.starttlsServer(rawSocket, tlsOptions, (error, cleartext) => {
       if (error) {
-        // this._log(LOG.ERROR, 'Error upgrading passive connection to TLS:' + util.inspect(error));
+        this._log(LOG.ERROR, 'Error upgrading connection to TLS', error);
         this._closeSocket(rawSocket, true);
         callback(error);
         return;
       }
-
       if (cleartext.authorized || this.options.allowUnauthorizedTls) {
-        // this._log(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
-        // this._log(LOG.INFO, 'Passive connection secured');
+        this._log(LOG.INFO, 'Allowing unauthorized connection (allowUnauthorizedTls is on)');
+        this._log(LOG.INFO, 'Connection secured');
         callback(null, cleartext);
       } else {
-        // this._log(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
+        this._log(LOG.INFO, 'Closing unauthorized connection (allowUnauthorizedTls is off)');
         this._closeSocket(rawSocket, true);
       }
     });
@@ -127,10 +130,11 @@ export class PassiveDataConnection extends EventEmitter {
 }
 
 export class Listener extends EventEmitter {
-  constructor(port, bindAddress) {
+  constructor(port, bindAddress, logger) {
     super();
     this.port = port;
     this.bindAddress = bindAddress;
+    this._log = logger;
     this.state = LISTENER_STATE.CLOSED;
     this._waitingConnections = new Map();
     this._allConnections = new Set();
@@ -144,7 +148,12 @@ export class Listener extends EventEmitter {
   listenForClient(remoteAddress, options) {
     let {bindAddress, port} = this;
     let key = port + '|' + remoteAddress;
-    let connection = new PassiveDataConnection(port, remoteAddress, options);
+    let connection = new PassiveDataConnection(
+      port,
+      remoteAddress,
+      options,
+      this._log
+    );
     if (this._waitingConnections.has(key)) {
       // We cannot simultaneously have more than one waitingConnection for the
       // same remote address or it would create ambiguity (we wouldn't know
@@ -277,6 +286,7 @@ export default class PassiveListenerPool extends EventEmitter {
     let portRange = options.portRange || [];
     this._minPort = portRange[0] || DEFAULT_OPTIONS.MIN_PORT;
     this._maxPort = portRange[1] || DEFAULT_OPTIONS.MAX_PORT;
+    this._log = options.logger || () => {};
     this._listeners = new Map();
   }
 
@@ -299,7 +309,7 @@ export default class PassiveListenerPool extends EventEmitter {
     let startListener = () => {
       let listener = this._listeners.get(port);
       if (listener == null) {
-        listener = new Listener(port, this._bindAddress);
+        listener = new Listener(port, this._bindAddress, this._log);
         this._listeners.set(port, listener);
       }
       dataConnection = listener.listenForClient(remoteAddress, options);

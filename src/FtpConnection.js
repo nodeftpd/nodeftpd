@@ -56,6 +56,7 @@ class FtpConnection extends EventEmitter {
     this.allowedCommands = options.allowedCommands;
     this.tlsOptions = options.tlsOptions;
 
+    // dataPort and dataHost are for active data connections (server connecting to client)
     // TODO: I don't think this should be 20.
     this.dataPort = 20;
     this.dataHost = null;
@@ -131,32 +132,35 @@ class FtpConnection extends EventEmitter {
     // TODO: Better to check which mode we are (Active or Passive) and then act accordingly.
     if (this._isEstablishingDataConnection) {
       // TODO: reword.
-      this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect to pasv server shortly...');
+      this._log(LOG.DEBUG, 'Currently no data connection; expecting client to connect shortly...');
       this.on('dataConnectionEstablished', () => {
         this._log(LOG.DEBUG, '...client has connected now');
         let socket = this.dataConnection.getSocket();
         callback(socket);
       });
-    } else if (this.dataConnection) {
+      return
+    }
+    if (this.dataConnection) {
       this._log(LOG.DEBUG, 'A data connection exists');
       let socket = this.dataConnection.getSocket();
-      process.nextTick(() => {
-        callback(socket);
-      });
-    } else {
-      // This makes a connection to the client (Active mode).
-      this._initiateData((socket) => {
-        callback(socket);
-      });
+      process.nextTick(() => callback(socket));
+      return;
     }
+    // At this point we know to use Active Mode.
+    let existingSocket = this.dataSocket;
+    if (existingSocket) {
+      process.nextTick(() => callback(existingSocket));
+      return;
+    }
+    // This makes a connection to the client (Active mode).
+    this._initiateActiveDataConnection((socket) => {
+      callback(socket);
+    });
   }
 
   // This makes a connection to the client (Active mode).
   // TODO: fix some stuff here.
-  _initiateData(callback) {
-    if (this.dataSocket) {
-      return callback(this.dataSocket);
-    }
+  _initiateActiveDataConnection(callback) {
     var socket = net.connect(this.dataPort, this.dataHost || this.socket.remoteAddress);
     socket.on('connect', () => {
       this.dataSocket = socket;
@@ -166,7 +170,7 @@ class FtpConnection extends EventEmitter {
       this.dataSocket = null;
       this._log(
         err ? LOG.ERROR : LOG.DEBUG,
-        'Non-passive data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
+        'Active data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
       );
     };
     // TODO: allOver will get executed twice here.
@@ -261,7 +265,7 @@ class FtpConnection extends EventEmitter {
   }
 
   _listFiles(fileInfos, isDetailed, command) {
-    const whenReady = (listconn) => {
+    const whenReady = (dataSocket) => {
       const success = (err) => {
         if (err) {
           this.respond('550 Error listing files');
@@ -269,7 +273,7 @@ class FtpConnection extends EventEmitter {
           this.respond(END_MSGS[command]);
         }
         if (command !== 'STAT') {
-          this._closeSocket(listconn);
+          this._closeSocket(dataSocket);
         }
       };
 
@@ -305,7 +309,7 @@ class FtpConnection extends EventEmitter {
           line += '\r\n';
         }
         this._writeText(
-          listconn,
+          dataSocket,
           line,
           (i === fileInfos.length - 1 ? success : undefined)
         );
@@ -361,11 +365,15 @@ class FtpConnection extends EventEmitter {
 
   // TODO: this should work the same for active or passive.
   _onDataConnection(socket) {
+    if (this.dataSocket) {
+      // TODO: better handle this.
+      throw new Error('Data socket already exists.');
+    }
     this.dataSocket = socket;
     if (this._isEstablishingDataConnection) {
-      this.emit('dataConnectionEstablished');
       this._isEstablishingDataConnection = false;
     }
+    this.emit('dataConnectionEstablished');
 
     socket.on('error', (err) => {
       this._log(LOG.ERROR, 'Data socket event: error: ' + err);
@@ -427,7 +435,7 @@ class FtpConnection extends EventEmitter {
         }
       } else {
         afterOk(() => {
-          this._whenDataReady((pasvconn) => {
+          this._whenDataReady((dataSocket) => {
             var readLength = 0;
             var now = new Date();
             var rs = this.fs.createReadStream(null, {fd: fd});
@@ -463,7 +471,7 @@ class FtpConnection extends EventEmitter {
               this.respond('226 Closing data connection, sent ' + readLength + ' bytes');
             });
 
-            rs.pipe(pasvconn);
+            rs.pipe(dataSocket);
             rs.resume();
           });
         });
@@ -504,11 +512,11 @@ class FtpConnection extends EventEmitter {
         }
       } else {
         afterOk(() => {
-          this._whenDataReady((pasvconn) => {
+          this._whenDataReady((dataSocket) => {
             contents = {filename: filename, data: contents};
             this.emit('file:retr:contents', contents);
             contents = contents.data;
-            pasvconn.write(contents);
+            dataSocket.write(contents);
             var contentLength = contents.length;
             this.respond('226 Closing data connection, sent ' + contentLength + ' bytes');
             this.emit('file:retr', 'close', {
@@ -520,7 +528,7 @@ class FtpConnection extends EventEmitter {
               duration: new Date() - startTime,
               errorState: false,
             });
-            this._closeSocket(pasvconn);
+            this._closeSocket(dataSocket);
           });
         });
       }
@@ -543,7 +551,7 @@ class FtpConnection extends EventEmitter {
       });
     }
 
-    const handleUpload = (dataSocket) => {
+    this._whenDataReady((dataSocket) => {
       var isPaused = false;
       dataSocket.on('data', (buff) => {
         var result = storeStream.write(buff);
@@ -570,21 +578,18 @@ class FtpConnection extends EventEmitter {
           storeStream.end();
         }
       });
-    };
-
-    this._whenDataReady(handleUpload);
+    });
 
     storeStream.on('open', () => {
       this._log(LOG.DEBUG, 'File opened/created: ' + filename);
-      this._log(LOG.DEBUG, 'Told client ok to send file data');
       // Adding event emitter for upload start time
       this.emit('file:stor', 'open', {
         user: this.username,
         file: filename,
         time: startTime,
       });
-
       this.respond('150 Ok to send data');
+      this._log(LOG.DEBUG, 'Told client ok to send file data');
     });
 
     storeStream.on('error', () => {
@@ -695,7 +700,7 @@ class FtpConnection extends EventEmitter {
         });
         if (err) {
           erroredOut = true;
-          this._log(LOG.ERROR, 'Error writing file. ' + err);
+          this._log(LOG.ERROR, 'Error writing file.', err);
           if (this.dataSocket) {
             this._closeSocket(this.dataSocket, true);
           }
@@ -714,14 +719,12 @@ class FtpConnection extends EventEmitter {
       erroredOut = true;
     };
 
-    const handleUpload = () => {
-      this.dataSocket.on('data', dataHandler);
-      this.dataSocket.once('close', closeHandler);
-      this.dataSocket.once('error', errorHandler);
-    };
-
     this.respond('150 Ok to send data', () => {
-      this._whenDataReady(handleUpload);
+      this._whenDataReady((dataSocket) => {
+        dataSocket.on('data', dataHandler);
+        dataSocket.once('close', closeHandler);
+        dataSocket.once('error', errorHandler);
+      });
     });
   }
 
@@ -1091,7 +1094,7 @@ class FtpConnection extends EventEmitter {
         this._log(LOG.DEBUG, `Listening for passive data connection on port ${port}`);
         // Now that we're successfully listening, tell the client.
         if (isExtendedPASV) {
-          this.respond('229 Entering Extended Passive Mode (|||' + port + '|)');
+          this.respond(`229 Entering Extended Passive Mode (|||${port}|)`);
         } else {
           this.respond(`227 Entering Passive Mode (${encodeAddress(host, port)})`);
         }

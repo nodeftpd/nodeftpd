@@ -112,7 +112,7 @@ class FtpServer extends EventEmitter {
     let host;
     let NUMERIC = /^[0-9]+$/;
     let isObject = (arg1 === Object(arg1));
-    let isNumeric = (typeof arg1 === 'number' || (typeof arg1 === 'string' || NUMERIC.test(arg1)))
+    let isNumeric = (typeof arg1 === 'number' || (typeof arg1 === 'string' || NUMERIC.test(arg1)));
     if (isObject) {
       host = arg1.host;
     } else if (isNumeric && typeof arg2 === 'string') {
