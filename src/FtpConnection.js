@@ -62,8 +62,6 @@ class FtpConnection extends EventEmitter {
     this.dataHost = null;
     // The incoming (PASV) data connection.
     this.dataConnection = null;
-    // the actual data socket
-    this.dataSocket = null;
     this._isEstablishingDataConnection = false;
     this._hasReceivedPASV = false;
     this._hasReceivedPORT = false;
@@ -128,6 +126,7 @@ class FtpConnection extends EventEmitter {
     }
   }
 
+  // TODO: this should call callback with first parameter `error`.
   _whenDataReady(callback) {
     // TODO: Better to check which mode we are (Active or Passive) and then act accordingly.
     if (this._isEstablishingDataConnection) {
@@ -146,13 +145,8 @@ class FtpConnection extends EventEmitter {
       process.nextTick(() => callback(socket));
       return;
     }
-    // At this point we know to use Active Mode.
-    let existingSocket = this.dataSocket;
-    if (existingSocket) {
-      process.nextTick(() => callback(existingSocket));
-      return;
-    }
-    // This makes a connection to the client (Active mode).
+    // At this point we know to use Active Mode. Makes a connection
+    // to the client for data transfer.
     this._initiateActiveDataConnection((socket) => {
       callback(socket);
     });
@@ -163,11 +157,9 @@ class FtpConnection extends EventEmitter {
   _initiateActiveDataConnection(callback) {
     var socket = net.connect(this.dataPort, this.dataHost || this.socket.remoteAddress);
     socket.on('connect', () => {
-      this.dataSocket = socket;
       callback(socket);
     });
     const allOver = (err) => {
-      this.dataSocket = null;
       this._log(
         err ? LOG.ERROR : LOG.DEBUG,
         'Active data connection ended' + (err ? 'due to error: ' + util.inspect(err) : '')
@@ -179,7 +171,6 @@ class FtpConnection extends EventEmitter {
     socket.on('error', (err) => {
       this._closeSocket(socket, true);
       this._log(LOG.ERROR, 'Data connection error: ' + util.inspect(err));
-      this.dataSocket = null;
     });
   }
 
@@ -193,13 +184,8 @@ class FtpConnection extends EventEmitter {
   }
 
   _onClose(hadError) {
-    // I feel like some of this might be redundant since we probably close some
-    // of these sockets elsewhere, but it is fine to call _closeSocket more than
-    // once.
-    if (this.dataSocket) {
-      this._closeSocket(this.dataSocket, hadError);
-      this.dataSocket = null;
-    }
+    // I feel like some of this might be redundant since we probably are doing
+    //this elsewhere. But it is fine to call _closeSocket more than once.
     if (this.socket) {
       this._closeSocket(this.socket, hadError);
       this.socket = null;
@@ -365,11 +351,6 @@ class FtpConnection extends EventEmitter {
 
   // TODO: this should work the same for active or passive.
   _onDataConnection(socket) {
-    if (this.dataSocket) {
-      // TODO: better handle this.
-      throw new Error('Data socket already exists.');
-    }
-    this.dataSocket = socket;
     if (this._isEstablishingDataConnection) {
       this._isEstablishingDataConnection = false;
     }
@@ -377,21 +358,20 @@ class FtpConnection extends EventEmitter {
 
     socket.on('error', (err) => {
       this._log(LOG.ERROR, 'Data socket event: error: ' + err);
-      // TODO: Can we can rely on self.dataSocket having been closed?
-      this.dataSocket = null;
     });
 
     const allOver = (name) => {
+      let finished = false;
       return (error) => {
         // Prevent calling twice.
-        if (this.dataSocket == null) {
+        if (finished) {
           return;
         }
         this._log(
           error ? LOG.ERROR : LOG.DEBUG,
           'Data socket event: ' + name + (error ? ' due to error' : '')
         );
-        this.dataSocket = null;
+        finished = true;
       };
     };
 
@@ -536,22 +516,33 @@ class FtpConnection extends EventEmitter {
   }
 
   // 'initialBuffers' argument is set when this is called from _storeUsingWriteFile.
-  _storeUsingCreateWriteStream(filename, initialBuffers, flag) {
+  _storeUsingCreateWriteStream(filename, initialBuffers, flag, dataSocket) {
     var wStreamFlags = {flags: flag || 'w', mode: 0o644};
     var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wStreamFlags);
-    var notErr = true;
+    var wasError = false;
     // Adding for event metadata for file upload (STOR)
     var startTime = new Date();
     var uploadSize = 0;
 
     if (initialBuffers) {
-      //todo: handle back-pressure
-      initialBuffers.forEach((b) => {
-        storeStream.write(b);
+      // TODO: Handle back-pressure.
+      initialBuffers.forEach((b) => storeStream.write(b));
+    }
+
+    // If this is called from _storeUsingWriteFile (when the buffer got full),
+    // then we have a dataSocket that is already min-transfer. It is important
+    // we don't delay (do some async logic) before attaching event listeners or
+    // we might miss some data/events.
+    if (dataSocket) {
+      doStuff(dataSocket);
+    } else {
+      this._whenDataReady((socket) => {
+        dataSocket = socket;
+        doStuff(dataSocket);
       });
     }
 
-    this._whenDataReady((dataSocket) => {
+    const doStuff = (dataSocket) => {
       var isPaused = false;
       dataSocket.on('data', (buff) => {
         var result = storeStream.write(buff);
@@ -566,7 +557,7 @@ class FtpConnection extends EventEmitter {
         }
       });
       dataSocket.once('error', () => {
-        notErr = false;
+        wasError = true;
         storeStream.end();
       });
       dataSocket.once('finish', () => {
@@ -578,7 +569,7 @@ class FtpConnection extends EventEmitter {
           storeStream.end();
         }
       });
-    });
+    };
 
     storeStream.on('open', () => {
       this._log(LOG.DEBUG, 'File opened/created: ' + filename);
@@ -600,18 +591,16 @@ class FtpConnection extends EventEmitter {
         sTime: startTime,
         eTime: new Date(),
         duration: new Date() - startTime,
-        errorState: !notErr,
+        errorState: wasError,
       });
       storeStream.end();
-      notErr = false;
-      if (this.dataSocket) {
-        this._closeSocket(this.dataSocket, true);
-      }
+      wasError = true;
+      // TODO: Close data socket.
       this.respond('426 Connection closed; transfer aborted');
     });
 
     storeStream.on('finish', () => {
-      // Adding event emitter for completed upload.
+      // Emit event for completed upload.
       this.emit('file:stor', 'close', {
         user: this.username,
         file: filename,
@@ -619,20 +608,21 @@ class FtpConnection extends EventEmitter {
         sTime: startTime,
         eTime: new Date(),
         duration: new Date() - startTime,
-        errorState: !notErr,
+        errorState: wasError,
       });
-      notErr ? this.respond('226 Closing data connection') : true;
-      if (this.dataSocket) {
-        this._closeSocket(this.dataSocket);
+      if (!wasError) {
+        this.respond('226 Closing data connection');
       }
+      // TODO: Close data socket.
     });
   }
 
   _storeUsingWriteFile(filename, flag) {
-    var erroredOut = false;
+    var wasError = false;
     var slurpBuf = new Buffer(1024); // TODO: Why is there a magic number here?
     var totalBytes = 0;
     var startTime = new Date();
+    var dataSocket;
 
     this.emit('file:stor', 'open', {
       user: this.username,
@@ -650,20 +640,24 @@ class FtpConnection extends EventEmitter {
         // If the 'fs' module we've been given doesn't implement 'createWriteStream', then
         // we give up and send the client an error.
         if (!this.fs.createWriteStream) {
-          if (this.dataSocket) {
-            this._closeSocket(this.dataSocket, true);
-          }
           this.respond('552 Requested file action aborted; file too big');
+          dataSocket.destroy();
           return;
         }
 
         // Otherwise, we call _STOR_usingWriteStream, and tell it to prepend the stuff
         // that we've buffered so far to the file.
         this._log(LOG.WARN, 'uploadMaxSlurpSize exceeded; falling back to createWriteStream');
-        this._storeUsingCreateWriteStream(filename, [slurpBuf.slice(0, totalBytes), buf], flag);
-        this.dataSocket.removeListener('data', dataHandler);
-        this.dataSocket.removeListener('error', errorHandler);
-        this.dataSocket.removeListener('close', closeHandler);
+        // TODO: pause dataSocket first?
+        this._storeUsingCreateWriteStream(
+          filename,
+          [slurpBuf.slice(0, totalBytes), buf],
+          flag,
+          dataSocket
+        );
+        dataSocket.removeListener('data', dataHandler);
+        dataSocket.removeListener('error', errorHandler);
+        dataSocket.removeListener('close', closeHandler);
       } else {
         if (totalBytes + buf.length > slurpBuf.length) {
           var newLength = slurpBuf.length * 2;
@@ -681,10 +675,13 @@ class FtpConnection extends EventEmitter {
     };
 
     const closeHandler = () => {
-      if (erroredOut) {
+      // TODO: Should this writeFile logic be done in the `end` event? That
+      // event will happen at the graceful end of a file transfer onlye,
+      // whereas the close event happens *always*. Including if there was an
+      // error (hence the `wasError` logic).
+      if (wasError) {
         return;
       }
-
       var wOptions = {flag: flag || 'w', mode: 0o644};
       var contents = {filename: filename, data: slurpBuf.slice(0, totalBytes)};
       this.emit('file:stor:contents', contents);
@@ -699,28 +696,23 @@ class FtpConnection extends EventEmitter {
           errorState: err ? true : false,
         });
         if (err) {
-          erroredOut = true;
+          wasError = true;
           this._log(LOG.ERROR, 'Error writing file.', err);
-          if (this.dataSocket) {
-            this._closeSocket(this.dataSocket, true);
-          }
           this.respond('426 Connection closed; transfer aborted');
-          return;
-        }
-
-        this.respond('226 Closing data connection');
-        if (this.dataSocket) {
-          this._closeSocket(this.dataSocket);
+        } else {
+          // Technically the connection is already closed at this point.
+          this.respond('226 Closing data connection');
         }
       });
     };
 
     const errorHandler = () => {
-      erroredOut = true;
+      wasError = true;
     };
 
     this.respond('150 Ok to send data', () => {
-      this._whenDataReady((dataSocket) => {
+      this._whenDataReady((socket) => {
+        dataSocket = socket;
         dataSocket.on('data', dataHandler);
         dataSocket.once('close', closeHandler);
         dataSocket.once('error', errorHandler);
