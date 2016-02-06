@@ -516,7 +516,7 @@ class FtpConnection extends EventEmitter {
   }
 
   // 'initialBuffers' argument is set when this is called from _storeUsingWriteFile.
-  _storeUsingCreateWriteStream(filename, initialBuffers, flag, dataSocket) {
+  _storeUsingCreateWriteStream(filename, flag, initialBuffers, dataSocket) {
     var wStreamFlags = {flags: flag || 'w', mode: 0o644};
     var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wStreamFlags);
     var wasError = false;
@@ -525,7 +525,7 @@ class FtpConnection extends EventEmitter {
     var uploadSize = 0;
 
     if (initialBuffers) {
-      // TODO: Handle back-pressure.
+      // TODO: Use `writeToStreamAsync` (handle back-pressure).
       initialBuffers.forEach((b) => storeStream.write(b));
     }
 
@@ -651,8 +651,8 @@ class FtpConnection extends EventEmitter {
         // TODO: pause dataSocket first?
         this._storeUsingCreateWriteStream(
           filename,
-          [slurpBuf.slice(0, totalBytes), buf],
           flag,
+          [slurpBuf.slice(0, totalBytes), buf],
           dataSocket
         );
         dataSocket.removeListener('data', dataHandler);
@@ -1248,7 +1248,7 @@ class FtpConnection extends EventEmitter {
     if (this.server.options.useWriteFile) {
       this._storeUsingWriteFile(filename, 'w');
     } else {
-      this._storeUsingCreateWriteStream(filename, null, 'w');
+      this._storeUsingCreateWriteStream(filename, 'w');
     }
   }
 
@@ -1257,7 +1257,7 @@ class FtpConnection extends EventEmitter {
     if (this.server.options.useWriteFile) {
       this._storeUsingWriteFile(filename, 'a');
     } else {
-      this._storeUsingCreateWriteStream(filename, null, 'a');
+      this._storeUsingCreateWriteStream(filename, 'a');
     }
   }
 
