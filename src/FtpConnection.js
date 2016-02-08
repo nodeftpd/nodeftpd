@@ -14,6 +14,7 @@ import pathEscape from './helpers/pathEscape';
 import withCwd from './helpers/withCwd';
 import stripOptions from './helpers/stripOptions';
 import leftPad from './helpers/leftPad';
+import writeToStreamAsync from './helpers/writeToStreamAsync';
 
 const ENCODED_ADDRESS = /^[0-9]{1,3}(,[0-9]{1,3}){5}$/;
 
@@ -515,61 +516,14 @@ class FtpConnection extends EventEmitter {
     });
   }
 
-  // 'initialBuffers' argument is set when this is called from _storeUsingWriteFile.
-  _storeUsingCreateWriteStream(filename, flag, initialBuffers, dataSocket) {
-    var wStreamFlags = {flags: flag || 'w', mode: 0o644};
-    var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wStreamFlags);
+  // `initialBuffers` is used when called from _storeUsingWriteFile.
+  _storeUsingCreateWriteStream(filename, flags, initialBuffers, dataSocket) {
+    var wOptions = {flags: flags || 'w', mode: 0o644};
+    var storeStream = this.fs.createWriteStream(pathModule.join(this.root, filename), wOptions);
     var wasError = false;
     // Adding for event metadata for file upload (STOR)
     var startTime = new Date();
     var uploadSize = 0;
-
-    if (initialBuffers) {
-      // TODO: Use `writeToStreamAsync` (handle back-pressure).
-      initialBuffers.forEach((b) => storeStream.write(b));
-    }
-
-    // If this is called from _storeUsingWriteFile (when the buffer got full),
-    // then we have a dataSocket that is already min-transfer. It is important
-    // we don't delay (do some async logic) before attaching event listeners or
-    // we might miss some data/events.
-    if (dataSocket) {
-      doStuff(dataSocket);
-    } else {
-      this._whenDataReady((socket) => {
-        dataSocket = socket;
-        doStuff(dataSocket);
-      });
-    }
-
-    const doStuff = (dataSocket) => {
-      var isPaused = false;
-      dataSocket.on('data', (buff) => {
-        var result = storeStream.write(buff);
-        // Handle back-pressure
-        if (result === false) {
-          dataSocket.pause();
-          isPaused = true;
-          storeStream.once('drain', () => {
-            dataSocket.resume();
-            isPaused = false;
-          });
-        }
-      });
-      dataSocket.once('error', () => {
-        wasError = true;
-        storeStream.end();
-      });
-      dataSocket.once('finish', () => {
-        if (isPaused) {
-          storeStream.once('drain', () => {
-            storeStream.end();
-          });
-        } else {
-          storeStream.end();
-        }
-      });
-    };
 
     storeStream.on('open', () => {
       this._log(LOG.DEBUG, 'File opened/created: ' + filename);
@@ -615,9 +569,54 @@ class FtpConnection extends EventEmitter {
       }
       // TODO: Close data socket.
     });
+
+    const pipeFromSocket = () => {
+      var isBufferFull = false;
+      dataSocket.on('data', (data) => {
+        var result = storeStream.write(data);
+        // Handle back-pressure
+        if (result === false) {
+          isBufferFull = true;
+          dataSocket.pause();
+          storeStream.once('drain', () => {
+            isBufferFull = false;
+            dataSocket.resume();
+          });
+        }
+      });
+      dataSocket.once('error', () => {
+        wasError = true;
+        storeStream.end();
+      });
+      dataSocket.once('finish', () => {
+        if (isBufferFull) {
+          storeStream.once('drain', () => {
+            storeStream.end();
+          });
+        } else {
+          storeStream.end();
+        }
+      });
+    };
+
+    // If this is called from _storeUsingWriteFile (slurp size exceeded),
+    // then we have a dataSocket that is already mid-transfer.
+    if (initialBuffers) {
+      dataSocket.pause();
+      writeToStreamAsync(initialBuffers, storeStream, () => {
+        pipeFromSocket();
+        dataSocket.resume();
+      });
+    } else {
+      this._whenDataReady((socket) => {
+        dataSocket = socket;
+        pipeFromSocket();
+      });
+    }
+
   }
 
-  _storeUsingWriteFile(filename, flag) {
+  _storeUsingWriteFile(filename, flags) {
     var wasError = false;
     var slurpBuf = new Buffer(1024); // TODO: Why is there a magic number here?
     var totalBytes = 0;
@@ -651,7 +650,7 @@ class FtpConnection extends EventEmitter {
         // TODO: pause dataSocket first?
         this._storeUsingCreateWriteStream(
           filename,
-          flag,
+          flags,
           [slurpBuf.slice(0, totalBytes), buf],
           dataSocket
         );
@@ -682,7 +681,9 @@ class FtpConnection extends EventEmitter {
       if (wasError) {
         return;
       }
-      var wOptions = {flag: flag || 'w', mode: 0o644};
+      // This is not a typo: `writeFile` uses `flag`, but `createWriteStream`
+      // uses `flags`.
+      var wOptions = {flag: flags || 'w', mode: 0o644};
       var contents = {filename: filename, data: slurpBuf.slice(0, totalBytes)};
       this.emit('file:stor:contents', contents);
       this.fs.writeFile(pathModule.join(this.root, filename), contents.data, wOptions, (err) => {
