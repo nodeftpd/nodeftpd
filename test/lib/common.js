@@ -8,23 +8,7 @@ var Client = require('jsftp');
 var should = require('should');
 
 var Server = ftpd.FtpServer;
-var LogLevels = ftpd.LOG_LEVELS;
-var LogLevelNames = Object.keys(LogLevels).reduce(function(map, name) {
-  var value = LogLevels[name];
-  map[value] = name;
-  return map;
-}, {});
-
 var fixturesPath = path.join(__dirname, '../../fixture');
-
-function toString(value) {
-  var isPrimitive = Object(value) !== value;
-  if (isPrimitive) {
-    return JSON.stringify(value);
-  } else {
-    return ('toString' in value) ? value.toString() : Object.prototype.toString(value);
-  }
-}
 
 var options = {
   host: process.env.IP || '127.0.0.1',
@@ -79,34 +63,6 @@ var common = module.exports = {
         }
       });
     });
-    var origLogIf = server._logIf;
-    server.suppressExpecteErrMsgs = [];
-    server._logIf = function logIfNotExpected(verbosity, message, conn) {
-      var expecteErrMsgs = server.suppressExpecteErrMsgs;
-      message = String(message).split(fixturesPath).join('fixture:/');
-      if ((expecteErrMsgs.length > 0) && (verbosity < LogLevels.LOG_INFO)) {
-        var expected = expecteErrMsgs.shift();
-        if (message === expected) {
-          return;
-        }
-        if ((expected instanceof RegExp) && expected.test(message)) {
-          return;
-        }
-        if ((typeof expected) === 'function') {
-          message = expected(message);
-          if (message === '') {
-            return;
-          }
-        } else {
-          console.error(
-            '\nExpected log message:\n' + toString(expected) + '\n' +
-            'did not match [' + LogLevelNames[verbosity] + ']:\n' +
-            JSON.stringify(message)
-          );
-        }
-      }
-      return origLogIf.call(this, verbosity, message, conn);
-    };
     server.listen(customOptions.port);
     return server;
   },

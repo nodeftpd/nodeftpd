@@ -5,6 +5,9 @@
 var common = require('./lib/common');
 var async = require('async');
 var collectStream = require('collect-stream');
+var sinon = require('sinon');
+
+var logSpy = sinon.spy();
 
 describe('Tricky paths', function() {
   var client;
@@ -16,7 +19,10 @@ describe('Tricky paths', function() {
     describe('with useReadFile = ' + useReadFile, function() {
 
       beforeEach(function(done) {
-        server = common.server({useReadFile: useReadFile});
+        server = common.server({
+          useReadFile: useReadFile,
+          logFunction: logSpy,
+          logTtyColors: false});
         client = common.client(done);
       });
 
@@ -38,12 +44,14 @@ describe('Tricky paths', function() {
         async.waterfall([
           function strangePathRedundantEscape(nxt) {
             var dirRfcQuoted = dirPath.replace(/"/g, '""');
-            server.suppressExpecteErrMsgs.push(
-              /^CWD [\S\s]+: Error: ENOENT/
-            );
             client.raw('CWD', dirRfcQuoted, function(error) {
               common.should.exist(error);
               error.code.should.equal(550);
+              sinon.assert.calledWithMatch(logSpy, 'ERROR',
+                sinon.match.any,
+                sinon.match.any,
+                sinon.match.any,
+                'ENOENT');
               nxt();
             });
           },

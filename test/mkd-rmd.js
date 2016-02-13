@@ -1,4 +1,7 @@
 var common = require('./lib/common');
+var sinon = require('sinon');
+
+var logSpy = sinon.spy();
 
 describe('MKD/RMD commands', function() {
   'use strict';
@@ -8,7 +11,7 @@ describe('MKD/RMD commands', function() {
   var directory = '/testdir';
 
   beforeEach(function(done) {
-    server = common.server();
+    server = common.server({logFunction: logSpy, logTtyColors: false});
     client = common.client(done);
   });
 
@@ -22,11 +25,9 @@ describe('MKD/RMD commands', function() {
     });
 
     it('should not create a duplicate directory', function(done) {
-      server.suppressExpecteErrMsgs.push(
-        /^MKD \S+: Error: EEXIST/
-      );
       client.raw('MKD', directory, function(error) {
         error.code.should.equal(550);
+        sinon.assert.calledWithMatch(logSpy, 'ERROR', sinon.match.any, sinon.match.any, sinon.match.any, 'EEXIST');
         done();
       });
     });
@@ -42,10 +43,9 @@ describe('MKD/RMD commands', function() {
     });
 
     it('should not delete a non-existent directory', function(done) {
-      server.suppressExpecteErrMsgs.push(
-        /^RMD \S+: Error: ENOENT/);
       client.raw('RMD', directory, function(error) {
         error.code.should.equal(550);
+        sinon.assert.calledWithMatch(logSpy, 'ERROR', sinon.match.any, sinon.match.any, sinon.match.any, 'ENOENT');
         done();
       });
     });
