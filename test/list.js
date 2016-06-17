@@ -88,7 +88,7 @@ describe('LIST command', function() {
     });
   });
 
-  describe('corner cases', function() {
+  describe('corner case', function() {
     'use strict';
 
     var files;
@@ -97,7 +97,6 @@ describe('LIST command', function() {
       server = common.server({
         fs: {
           stat: function(path, callback) {
-            console.log('STAT', path);
             callback(
               undefined /* err */,
               new fs.Stats(0,32768 /* file mode */,0,0,0,0,0,0,0,43 /* size */,0,0,0,0)
@@ -113,13 +112,28 @@ describe('LIST command', function() {
     });
 
 
-    it.only('supports directories with only a few files', function(done) {
+    it('supports directories with only a few files', function(done) {
       files = ['a'];
       client.list('/', function(error, listing) {
         error.should.equal(false);
         console.log(listing);
         listing = common.splitResponseLines(listing);
         listing.should.have.lengthOf(1);
+        done();
+      });
+    });
+
+    it.only('supports directories with many files', function(done) {
+      function ArrayWithStrings(n) {
+        return Array.apply(null, Array(n)).map(function(x, i) {
+          return i.toString();
+        });
+      }
+      files = ArrayWithStrings(3000);
+      client.list('/', function(error, listing) {
+        error.should.equal(false);
+        listing = common.splitResponseLines(listing);
+        listing.should.have.lengthOf(files.length);
         done();
       });
     });
