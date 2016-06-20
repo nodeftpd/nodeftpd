@@ -130,7 +130,7 @@ describe('LIST command', function() {
           return i.toString();
         });
       }
-      files = ArrayWithStrings(3000);
+      files = ArrayWithStrings(6000);
       client.list('/', function(error, listing) {
         error.should.equal(false);
         listing = common.splitResponseLines(listing);
