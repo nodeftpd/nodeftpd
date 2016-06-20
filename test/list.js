@@ -97,7 +97,8 @@ describe('LIST command', function() {
       server = common.server({
         fs: {
           stat: function(path, callback) {
-            callback(
+            process.nextTick(
+              callback,
               undefined /* err */,
               new fs.Stats(0,32768 /* file mode */,0,0,0,0,0,0,0,43 /* size */,0,0,0,0)
             );
