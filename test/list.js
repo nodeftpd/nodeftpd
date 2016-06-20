@@ -104,27 +104,33 @@ describe('LIST command', function() {
             );
           },
           readdir: function(path, callback) {
-            console.log('READDIR', path);
-            callback(undefined, files);
+            process.nextTick(callback, undefined, files);
           },
         },
       });
       client = common.client(done);
     });
 
+    it('supports directories without files', function(done) {
+      files = [];
+      client.list('/', function(error, listing) {
+        error.should.equal(false);
+        listing.should.equal('');
+        done();
+      });
+    });
 
     it('supports directories with only a few files', function(done) {
       files = ['a'];
       client.list('/', function(error, listing) {
         error.should.equal(false);
-        console.log(listing);
         listing = common.splitResponseLines(listing);
         listing.should.have.lengthOf(1);
         done();
       });
     });
 
-    it.only('supports directories with many files', function(done) {
+    it('supports directories with many files', function(done) {
       function ArrayWithStrings(n) {
         return Array.apply(null, Array(n)).map(function(x, i) {
           return i.toString();
