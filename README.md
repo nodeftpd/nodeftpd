@@ -197,8 +197,9 @@ The following must be implemented:
     - specific object properties: `{ mode, isDirectory(), size, mtime }`
 - if `useWriteFile` option is not set or is false
     - `createWriteStream`: _Returns a writable stream, requiring:_
-        - events: 'open', 'error', 'close'
-        - functions: 'write'
+        - events: 'open', 'error', 'finish'
+        - functions: 'write', 'end'
+        - properties: 'bytesWritten'
 - if `useWriteFile` option is set to 'true'
     - `writeFile`
 - if `useReadFile` option is not set or is false
