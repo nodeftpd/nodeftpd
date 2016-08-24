@@ -122,6 +122,7 @@
     "jsftp": "git://github.com/sergi/jsftp.git#master",
     "mocha": "^2.3.4",
     "should": "~3.1.2",
-    "ftp": "^0.3.10"
+    "ftp": "^0.3.10",
+    "sinon": "^1.17.3"
   }
 }

@@ -1,5 +1,8 @@
 var common = require('./lib/common');
 var Client = require('jsftp');
+var sinon = require('sinon');
+
+var logSpy = sinon.spy();
 
 describe('initialization', function() {
   'use strict';
@@ -37,15 +40,16 @@ describe('initialization', function() {
 
   it('should bail if getRoot fails', function(done) {
     server = common.server({
+      logFunction: logSpy,
+      logTtyColors: false,
       getRoot: function(connection, callback) {
-        server.suppressExpecteErrMsgs.push(
-          'getRoot signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },
     });
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {
       error.code.should.eql(421);
+      sinon.assert.calledWithMatch(logSpy, 'ERROR', sinon.match.any, sinon.match.any, sinon.match.any, 'intentional failure');
       done();
     });
   });
@@ -84,15 +88,16 @@ describe('initialization', function() {
 
   it('should bail if getInitialCwd fails', function(done) {
     server = common.server({
+      logFunction: logSpy,
+      logTtyColors: false,
       getInitialCwd: function(connection, callback) {
-        server.suppressExpecteErrMsgs.push(
-          'getInitialCwd signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },
     });
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {
       error.code.should.eql(421);
+      sinon.assert.calledWithMatch(logSpy, 'ERROR', sinon.match.any, sinon.match.any, sinon.match.any, 'intentional failure');
       done();
     });
   });

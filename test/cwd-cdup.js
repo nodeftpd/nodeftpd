@@ -1,4 +1,7 @@
 var common = require('./lib/common');
+var sinon = require('sinon');
+
+var logSpy = sinon.spy();
 
 describe('CWD/CDUP commands', function() {
   'use strict';
@@ -20,7 +23,7 @@ describe('CWD/CDUP commands', function() {
   }
 
   beforeEach(function(done) {
-    server = common.server();
+    server = common.server({logFunction: logSpy, logTtyColors: false});
     client = common.client(done);
   });
 
@@ -41,11 +44,9 @@ describe('CWD/CDUP commands', function() {
     it('should not change to non-existent directory', function(done) {
       client.raw('CWD', pathExisting, function(error, response) {
         response.code.should.equal(250);
-        server.suppressExpecteErrMsgs.push(
-          /^CWD \S+: Error: ENOENT/
-        );
         client.raw('CWD', pathExisting, function(error) {
           error.code.should.equal(550);
+          sinon.assert.calledWithMatch(logSpy, 'ERROR', sinon.match.any, sinon.match.any, sinon.match.any, 'ENOENT');
           done();
         });
       });
