@@ -163,9 +163,10 @@ The user is not able to escape this directory.
 - `tlsOptions`: _(default: undefined)_
     - If this is set, the server will allow explicit TLS authentication.
     - Value should be a dictionary which is suitable as the `options` argument of `tls.createServer`.
+    - `tlsOptions.requestCert` can be set to true to require a certificate from clients.
+    - `tlsOptions.rejectUnauthorized` is ignored unless `tlsOptions.requestCert` is true and if it is set then only clients with certificates signed by trusted CA are allowed to connect.
 - `tlsOnly`: _(default: false)_
     - If this is set to `true`, and `tlsOptions` is also set, then the server will not allow logins over non-secure connections.
-- `allowUnauthorizedTls`: ?? I obviously set this to true when tlsOnly is on -someone needs to update this.
 - `pasvPortRangeStart`: _(default: random?)_
     - Integer, specifies the lower-bound port (min port) for creating PASV connections
 - `pasvPortRangeEnd`: _(default: random?)_
