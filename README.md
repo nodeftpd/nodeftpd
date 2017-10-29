@@ -1,3 +1,6 @@
+# Scoped version, warning
+This version of nodeftpd is a scoped version to be used in [ipcam2mqtt](https://github.com/svrooij/ipcam2mqtt)
+
 # Simple, Extensible FTP Server in Pure JavaScript
 [![Build Status](https://travis-ci.org/sstur/nodeftpd.png?branch=master)](https://travis-ci.org/sstur/nodeftpd)
 

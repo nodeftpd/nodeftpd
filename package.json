@@ -1,25 +1,22 @@
 {
-  "name": "ftpd",
-  "version": "0.2.14",
-  "description": "Node FTP Server",
+  "name": "@svrooij/ftpd",
+  "version": "0.2.15",
+  "description": "Node FTP Server (scoped version)",
   "main": "./ftpd.js",
-  "engines": {
-    "node": ">=0.10.0"
-  },
   "scripts": {
     "test": "eslint --max-warnings 0 . && ./node_modules/.bin/istanbul test _mocha",
     "lint": "eslint --max-warnings 0 ."
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:sstur/nodeftpd.git"
+    "url": "git@github.com:svrooij/nodeftpd.git"
   },
   "keywords": [
     "ftp",
     "ftp-server",
     "ftpd"
   ],
-  "author": "sstur",
+  "author": "Stephan van Rooij <github@svrooij.nl> (https://svrooij.nl)",
   "contributors": [
     {
       "name": "Alex Drummond",
@@ -108,7 +105,7 @@
   ],
   "license": "BSD-2-Clause",
   "bugs": {
-    "url": "https://github.com/sstur/nodeftpd/issues"
+    "url": "https://github.com/nodeftpd/nodeftpd/issues"
   },
   "dependencies": {
     "dateformat": "1.0.7-1.2.3",
