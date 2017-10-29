@@ -1,6 +1,6 @@
 {
   "name": "@svrooij/ftpd",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "description": "Node FTP Server (scoped version)",
   "main": "./ftpd.js",
   "scripts": {
@@ -108,8 +108,8 @@
     "url": "https://github.com/nodeftpd/nodeftpd/issues"
   },
   "dependencies": {
-    "dateformat": "1.0.7-1.2.3",
-    "stat-mode": "^0.2.1"
+    "dateformat": "3.0.2",
+    "stat-mode": "^0.2.2"
   },
   "devDependencies": {
     "async": "~0.1.15",
