@@ -24,7 +24,7 @@ describe('USER command', function() {
     client = new Client(options);
     client.auth(options.user, options.pass, function(error) {
       error.code.should.eql(530);
-      client.raw.user(options.user, function(error) {
+      client.raw('user', options.user, function(error) {
         error.code.should.eql(530);
         done();
       });
@@ -37,7 +37,7 @@ describe('USER command', function() {
     client = new Client(options);
     client.auth(badUser, options.pass, function(error) {
       error.code.should.eql(530);
-      client.raw.user(badUser, function(error) {
+      client.raw('user', badUser, function(error) {
         error.code.should.eql(530);
         done();
       });

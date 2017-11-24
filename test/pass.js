@@ -23,9 +23,9 @@ describe('PASS command', function() {
     client = new Client(options);
     client.auth(options.user, badPass, function(error) {
       error.code.should.eql(530);
-      client.raw.user(options.user, function(error, reply) {
+      client.raw('user', options.user, function(error, reply) {
         reply.code.should.eql(331);
-        client.raw.pass(badPass, function(error) {
+        client.raw('pass', badPass, function(error) {
           error.code.should.eql(530);
           done();
         });
@@ -35,7 +35,7 @@ describe('PASS command', function() {
 
   it('should reject PASS without USER', function(done) {
     client = new Client(options);
-    client.raw.pass(options.pass, function(error) {
+    client.raw('pass', options.pass, function(error) {
       error.code.should.eql(503);
       done();
     });
