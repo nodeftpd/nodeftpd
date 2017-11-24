@@ -38,7 +38,7 @@ describe('initialization', function() {
   it('should bail if getRoot fails', function(done) {
     server = common.server({
       getRoot: function(connection, callback) {
-        server.suppressExpecteErrMsgs.push(
+        server.suppressExpectedErrMsgs.push(
           'getRoot signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },
@@ -85,7 +85,7 @@ describe('initialization', function() {
   it('should bail if getInitialCwd fails', function(done) {
     server = common.server({
       getInitialCwd: function(connection, callback) {
-        server.suppressExpecteErrMsgs.push(
+        server.suppressExpectedErrMsgs.push(
           'getInitialCwd signaled error [Error: intentional failure]');
         callback(new Error('intentional failure'));
       },

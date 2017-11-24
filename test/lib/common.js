@@ -80,12 +80,12 @@ var common = module.exports = {
       });
     });
     var origLogIf = server._logIf;
-    server.suppressExpecteErrMsgs = [];
+    server.suppressExpectedErrMsgs = [];
     server._logIf = function logIfNotExpected(verbosity, message, conn) {
-      var expecteErrMsgs = server.suppressExpecteErrMsgs;
+      var expectedErrMsgs = server.suppressExpectedErrMsgs;
       message = String(message).split(fixturesPath).join('fixture:/');
-      if ((expecteErrMsgs.length > 0) && (verbosity < LogLevels.LOG_INFO)) {
-        var expected = expecteErrMsgs.shift();
+      if ((expectedErrMsgs.length > 0) && (verbosity < LogLevels.LOG_INFO)) {
+        var expected = expectedErrMsgs.shift();
         if (message === expected) {
           return;
         }

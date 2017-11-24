@@ -41,7 +41,7 @@ describe('CWD/CDUP commands', function() {
     it('should not change to non-existent directory', function(done) {
       client.raw('CWD', pathExisting, function(error, response) {
         response.code.should.equal(250);
-        server.suppressExpecteErrMsgs.push(
+        server.suppressExpectedErrMsgs.push(
           /^CWD \S+: Error: ENOENT/
         );
         client.raw('CWD', pathExisting, function(error) {
