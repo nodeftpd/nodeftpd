@@ -1,12 +1,12 @@
-var common = require('./lib/common');
+var common = require('./lib/common')
 
-describe('UNSUPPORTED commands', function() {
-  'use strict';
+describe('UNSUPPORTED commands', function () {
+  'use strict'
 
-  var client;
-  var server;
+  var client
+  var server
   var commands = [
-    //RFC959
+    // RFC959
     'ABOR',
     'HELP',
     'MODE',
@@ -16,34 +16,34 @@ describe('UNSUPPORTED commands', function() {
     'SMNT',
     'STOU',
     'STRU',
-    //Fake
+    // Fake
     'FAKE',
     'COMMAND',
     'LS',
-    'CD',
-  ];
+    'CD'
+  ]
 
-  beforeEach(function(done) {
-    server = common.server();
-    client = common.client(done);
-  });
+  beforeEach(function (done) {
+    server = common.server()
+    client = common.client(done)
+  })
 
-  commands.forEach(function(command) {
-    it('should reply 502 to ' + command, function(done) {
-      var callback = function(error) {
-        error.code.should.eql(502);
-        done();
-      };
-      command = command.toLowerCase();
-      if (client.raw[command]) {
-        client.raw[command](callback);
-      } else {
-        client.execute(command, callback);
+  commands.forEach(function (command) {
+    it('should reply 502 to ' + command, function (done) {
+      var callback = function (error) {
+        error.code.should.eql(502)
+        done()
       }
-    });
-  });
+      command = command.toLowerCase()
+      if (client.raw[command]) {
+        client.raw[command](callback)
+      } else {
+        client.execute(command, callback)
+      }
+    })
+  })
 
-  afterEach(function() {
-    server.close();
-  });
-});
+  afterEach(function () {
+    server.close()
+  })
+})

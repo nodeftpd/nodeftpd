@@ -2,7 +2,7 @@
 This version of nodeftpd is a scoped version to be used in [ipcam2mqtt](https://github.com/svrooij/ipcam2mqtt)
 
 # Simple, Extensible FTP Server in Pure JavaScript
-[![Build Status](https://travis-ci.org/sstur/nodeftpd.png?branch=master)](https://travis-ci.org/sstur/nodeftpd)
+[![Build Status](https://travis-ci.org/svrooij/nodeftpd.png?branch=master)](https://travis-ci.org/svrooij/nodeftpd)
 
 - [Introduction](#introduction)
 - [Usage](#usage)
@@ -26,17 +26,15 @@ This is a simple but very configurable FTP server. Notable features include:
 * Provides hooks for handling authentication, content modification, etc.
 * Supports TLS with explicit AUTH.
 
-
 ## Installation
 
     npm install ftpd
-
 
 ## Usage
 
 See example code in `test.js`
 
-### FtpServer options:
+### FtpServer options
 
 #### host (string) - IP Address
 

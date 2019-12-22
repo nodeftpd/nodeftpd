@@ -1,4 +1,10 @@
 language: node_js
+
 node_js:
-  - "5"
-  - "4"
+  - 10
+  - lts/*
+  - 13
+
+branches:
+  only:
+    - "master"

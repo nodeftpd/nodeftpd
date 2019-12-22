@@ -1,80 +1,80 @@
-var common = require('./lib/common');
-var path = require('path');
+var common = require('./lib/common')
+var path = require('path')
 
-describe('PWD command', function() {
-  'use strict';
+describe('PWD command', function () {
+  'use strict'
 
-  var client;
-  var server;
+  var client
+  var server
   var directories = [
     path.sep,
     path.join(path.sep, 'public_html'),
     path.join(path.sep, 'public_html', 'tmp'),
-    path.join(path.sep, 'tmp'),
-  ];
+    path.join(path.sep, 'tmp')
+  ]
   var falseyDirectories = [
     '',
     null,
-    undefined,
-  ];
+    undefined
+  ]
 
-  directories.forEach(function(directory) {
-    describe('CWD = "' + directory + '"', function() {
-      beforeEach(function(done) {
+  directories.forEach(function (directory) {
+    describe('CWD = "' + directory + '"', function () {
+      beforeEach(function (done) {
         server = common.server({
-          getInitialCwd: function() {
-            return directory;
-          },
-        });
-        client = common.client(done);
-      });
+          getInitialCwd: function () {
+            return directory
+          }
+        })
+        client = common.client(done)
+      })
 
-      it('should be "' + directory + '"', function(done) {
-        client.raw.pwd(function(error, reply) {
-          common.should.not.exist(error);
-          reply.code.should.equal(257);
-          reply.text.should.startWith('257 "' + directory + '"');
-          done();
-        });
-      });
+      it('should be "' + directory + '"', function (done) {
+        client.raw.pwd(function (error, reply) {
+          common.should.not.exist(error)
+          reply.code.should.equal(257)
+          reply.text.should.startWith('257 "' + directory + '"')
+          done()
+        })
+      })
 
-      it('should reject parameters', function(done) {
-        client.raw.pwd(directory, function(error, reply) {
-          error.code.should.equal(501);
-          reply.code.should.equal(501);
-          done();
-        });
-      });
+      it('should reject parameters', function (done) {
+        client.raw.pwd(directory, function (error, reply) {
+          error.code.should.equal(501)
+          reply.code.should.equal(501)
+          done()
+        })
+      })
 
-      afterEach(function() {
-        server.close();
-      });
-    });
-  });
+      afterEach(function () {
+        server.close()
+      })
+    })
+  })
 
-  falseyDirectories.forEach(function(directory) {
-    describe('CWD = "' + directory + '"', function() {
-      beforeEach(function(done) {
+  falseyDirectories.forEach(function (directory) {
+    describe('CWD = "' + directory + '"', function () {
+      beforeEach(function (done) {
         server = common.server({
-          getInitialCwd: function() {
-            return directory;
-          },
-        });
-        client = common.client(done);
-      });
+          getInitialCwd: function () {
+            return directory
+          }
+        })
+        client = common.client(done)
+      })
 
-      it('should be "/"', function(done) {
-        client.raw.pwd(function(error, reply) {
-          common.should.not.exist(error);
-          reply.code.should.equal(257);
-          reply.text.should.startWith('257 "/"');
-          done();
-        });
-      });
+      it('should be "/"', function (done) {
+        client.raw.pwd(function (error, reply) {
+          common.should.not.exist(error)
+          reply.code.should.equal(257)
+          reply.text.should.startWith('257 "/"')
+          done()
+        })
+      })
 
-      afterEach(function() {
-        server.close();
-      });
-    });
-  });
-});
+      afterEach(function () {
+        server.close()
+      })
+    })
+  })
+})

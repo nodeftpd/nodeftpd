@@ -1,6 +1,6 @@
 {
   "name": "@svrooij/ftpd",
-  "version": "0.2.16",
+  "version": "0.3.0",
   "description": "Node FTP Server (scoped version)",
   "main": "./ftpd.js",
   "scripts": {
@@ -108,17 +108,17 @@
     "url": "https://github.com/nodeftpd/nodeftpd/issues"
   },
   "dependencies": {
-    "dateformat": "3.0.2",
-    "stat-mode": "^0.2.2"
+    "dateformat": "3.0.3",
+    "stat-mode": "^1.0.0"
   },
   "devDependencies": {
-    "async": "~0.1.15",
-    "collect-stream": "^1.1.1",
-    "eslint": "^1.10.3",
-    "istanbul": "~0.2.4",
+    "async": "3.1.0",
+    "collect-stream": "^1.2.1",
+    "eslint": "^6.8.0",
+    "istanbul": "^0.4.5",
     "jsftp": "git://github.com/sergi/jsftp.git#master",
-    "mocha": "^2.3.4",
-    "should": "~3.1.2",
+    "mocha": "^6.2.2",
+    "should": "^13.2.3",
     "ftp": "^0.3.10"
   }
 }
