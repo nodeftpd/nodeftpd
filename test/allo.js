@@ -1,25 +1,23 @@
-var common = require('./lib/common')
+const common = require('./lib/common');
 
-describe('ALLO command', function () {
-  'use strict'
+describe('ALLO command', () => {
+  let client;
+  let server;
 
-  var client
-  var server
+  beforeEach((done) => {
+    server = common.server();
+    client = common.client(done);
+  });
 
-  beforeEach(function (done) {
-    server = common.server()
-    client = common.client(done)
-  })
+  it('should reply 202', (done) => {
+    client.execute('ALLO', (error, reply) => {
+      common.should.not.exist(error);
+      reply.code.should.equal(202);
+      done();
+    });
+  });
 
-  it('should reply 202', function (done) {
-    client.execute('ALLO', function (error, reply) {
-      common.should.not.exist(error)
-      reply.code.should.equal(202)
-      done()
-    })
-  })
-
-  afterEach(function () {
-    server.close()
-  })
-})
+  afterEach(() => {
+    server.close();
+  });
+});

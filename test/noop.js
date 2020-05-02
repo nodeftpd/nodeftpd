@@ -1,25 +1,23 @@
-var common = require('./lib/common')
+const common = require('./lib/common');
 
-describe('NOOP command', function () {
-  'use strict'
+describe('NOOP command', () => {
+  let client;
+  let server;
 
-  var client
-  var server
+  beforeEach((done) => {
+    server = common.server();
+    client = common.client(done);
+  });
 
-  beforeEach(function (done) {
-    server = common.server()
-    client = common.client(done)
-  })
+  it('should perform a NOOP', (done) => {
+    client.raw('NOOP', (error, response) => {
+      common.should.not.exist(error);
+      response.code.should.equal(200);
+      done();
+    });
+  });
 
-  it('should perform a NOOP', function (done) {
-    client.raw('NOOP', function (error, response) {
-      common.should.not.exist(error)
-      response.code.should.equal(200)
-      done()
-    })
-  })
-
-  afterEach(function () {
-    server.close()
-  })
-})
+  afterEach(() => {
+    server.close();
+  });
+});

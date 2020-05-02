@@ -1,117 +1,117 @@
-var common = require('./lib/common')
-var Client = require('jsftp')
+const Client = require('jsftp');
+const common = require('./lib/common');
 
-describe('initialization', function () {
-  'use strict'
-
-  var client
-  var server
-  var options = {
+describe('initialization', () => {
+  let client;
+  let server;
+  const options = {
     host: '127.0.0.1',
     port: 7002,
     user: 'jose',
-    pass: 'esoj'
-  }
+    pass: 'esoj',
+  };
 
-  beforeEach(function (done) {
-    done()
-  })
+  beforeEach((done) => {
+    done();
+  });
 
-  it('should getRoot synchronously', function (done) {
+  it('should getRoot synchronously', (done) => {
     server = common.server({
-      getRoot: function () {
-        return '../fixture/'
-      }
-    })
-    client = common.client(done)
-  })
+      getRoot() {
+        return '../fixture/';
+      },
+    });
+    client = common.client(done);
+  });
 
-  it('should getRoot asynchronously', function (done) {
+  it('should getRoot asynchronously', (done) => {
     server = common.server({
-      getRoot: function (connection, callback) {
-        callback(null, '../fixture/')
-      }
-    })
-    client = common.client(done)
-  })
+      getRoot(connection, callback) {
+        callback(null, '../fixture/');
+      },
+    });
+    client = common.client(done);
+  });
 
-  it('should bail if getRoot fails', function (done) {
+  it('should bail if getRoot fails', (done) => {
     server = common.server({
-      getRoot: function (connection, callback) {
+      getRoot(connection, callback) {
         server.suppressExpecteErrMsgs.push(
-          'getRoot signaled error [Error: intentional failure]')
-        callback(new Error('intentional failure'))
-      }
-    })
-    client = new Client(options)
-    client.auth(options.user, options.pass, function (error) {
-      error.code.should.eql(421)
-      done()
-    })
-  })
+          'getRoot signaled error [Error: intentional failure]',
+        );
+        callback(new Error('intentional failure'));
+      },
+    });
+    client = new Client(options);
+    client.auth(options.user, options.pass, (error) => {
+      error.code.should.eql(421);
+      done();
+    });
+  });
 
-  it('should throw if getRoot is null', function (done) {
-    var fail = false
+  it('should throw if getRoot is null', (done) => {
+    let fail = false;
     try {
       server = common.server({
-        getRoot: null
-      })
+        getRoot: null,
+      });
     } catch (error) {
-      server = common.server()
-      fail = true
+      server = common.server();
+      fail = true;
     }
-    fail.should.eql(true)
-    done()
-  })
+    fail.should.eql(true);
+    done();
+  });
 
-  it('should getInitialCwd synchronously', function (done) {
+  it('should getInitialCwd synchronously', (done) => {
     server = common.server({
-      getInitialCwd: function () {
-        return '/'
-      }
-    })
-    client = common.client(done)
-  })
+      getInitialCwd() {
+        return '/';
+      },
+    });
+    client = common.client(done);
+  });
 
-  it('should getInitialCwd asynchronously', function (done) {
+  it('should getInitialCwd asynchronously', (done) => {
     server = common.server({
-      getInitialCwd: function (connection, callback) {
-        callback(null, '/')
-      }
-    })
-    client = common.client(done)
-  })
+      getInitialCwd(connection, callback) {
+        callback(null, '/');
+      },
+    });
+    client = common.client(done);
+  });
 
-  it('should bail if getInitialCwd fails', function (done) {
+  it('should bail if getInitialCwd fails', (done) => {
     server = common.server({
-      getInitialCwd: function (connection, callback) {
+      getInitialCwd(connection, callback) {
         server.suppressExpecteErrMsgs.push(
-          'getInitialCwd signaled error [Error: intentional failure]')
-        callback(new Error('intentional failure'))
-      }
-    })
-    client = new Client(options)
-    client.auth(options.user, options.pass, function (error) {
-      error.code.should.eql(421)
-      done()
-    })
-  })
+          'getInitialCwd signaled error [Error: intentional failure]',
+        );
+        callback(new Error('intentional failure'));
+      },
+    });
+    client = new Client(options);
+    client.auth(options.user, options.pass, (error) => {
+      error.code.should.eql(421);
+      done();
+    });
+  });
 
-  it('should throw if getInitialCwd is null', function (done) {
-    var fail = false
+  it('should throw if getInitialCwd is null', (done) => {
+    let fail = false;
     try {
       server = common.server({
-        getInitialCwd: null
-      })
+        getInitialCwd: null,
+      });
     } catch (error) {
-      server = common.server()
-      fail = true
+      server = common.server();
+      fail = true;
     }
-    fail.should.eql(true)
-    done()
-  })
+    fail.should.eql(true);
+    done();
+  });
 
-  afterEach(function () {
-    server.close()
-  })
-})
+  afterEach(() => {
+    server.close();
+  });
+});

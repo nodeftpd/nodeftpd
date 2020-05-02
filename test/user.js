@@ -1,50 +1,48 @@
-var common = require('./lib/common')
-var Client = require('jsftp')
+const Client = require('jsftp');
+const common = require('./lib/common');
 
-describe('USER command', function () {
-  'use strict'
-
-  var client
-  var server
-  var options = {
+describe('USER command', () => {
+  let client;
+  let server;
+  const options = {
     host: '127.0.0.1',
     port: 7002,
     user: 'jose',
-    pass: 'esoj'
-  }
+    pass: 'esoj',
+  };
 
-  beforeEach(function (done) {
-    done()
-  })
+  beforeEach((done) => {
+    done();
+  });
 
-  it('should reject non-secure USER when tlsOnly', function (done) {
+  it('should reject non-secure USER when tlsOnly', (done) => {
     server = common.server({
-      tlsOnly: true
-    })
-    client = new Client(options)
-    client.auth(options.user, options.pass, function (error) {
-      error.code.should.eql(530)
-      client.raw.user(options.user, function (error) {
-        error.code.should.eql(530)
-        done()
-      })
-    })
-  })
+      tlsOnly: true,
+    });
+    client = new Client(options);
+    client.auth(options.user, options.pass, (error) => {
+      error.code.should.eql(530);
+      client.raw.user(options.user, (error) => {
+        error.code.should.eql(530);
+        done();
+      });
+    });
+  });
 
-  it('should reject invalid username', function (done) {
-    var badUser = options.user + '_invalid'
-    server = common.server()
-    client = new Client(options)
-    client.auth(badUser, options.pass, function (error) {
-      error.code.should.eql(530)
-      client.raw.user(badUser, function (error) {
-        error.code.should.eql(530)
-        done()
-      })
-    })
-  })
+  it('should reject invalid username', (done) => {
+    const badUser = `${options.user}_invalid`;
+    server = common.server();
+    client = new Client(options);
+    client.auth(badUser, options.pass, (error) => {
+      error.code.should.eql(530);
+      client.raw.user(badUser, (error) => {
+        error.code.should.eql(530);
+        done();
+      });
+    });
+  });
 
-  afterEach(function () {
-    server.close()
-  })
-})
+  afterEach(() => {
+    server.close();
+  });
+});

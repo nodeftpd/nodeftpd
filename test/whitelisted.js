@@ -1,55 +1,53 @@
-var common = require('./lib/common')
+const common = require('./lib/common');
 
-describe('Whitelisted commands', function () {
-  'use strict'
-
-  var client
-  var server
-  var options = {
+describe('Whitelisted commands', () => {
+  let client;
+  let server;
+  const options = {
     allowedCommands: [
       'USER',
       'PASS',
       'PASV',
       'LIST',
-      'NOOP'
-    ]
-  }
+      'NOOP',
+    ],
+  };
 
-  beforeEach(function (done) {
-    server = common.server(options)
-    client = common.client(done)
-  })
+  beforeEach((done) => {
+    server = common.server(options);
+    client = common.client(done);
+  });
 
-  it('LIST should be allowed', function (done) {
-    client.list('/', function (error) {
-      common.should(error).not.be.ok
-      done()
-    })
-  })
+  it('LIST should be allowed', (done) => {
+    client.list('/', (error) => {
+      common.should(error).not.be.ok;
+      done();
+    });
+  });
 
-  it('NOOP should be allowed', function (done) {
-    client.raw('NOOP', function (error, response) {
-      common.should.not.exist(error)
-      response.code.should.equal(200)
-      done()
-    })
-  })
+  it('NOOP should be allowed', (done) => {
+    client.raw('NOOP', (error, response) => {
+      common.should.not.exist(error);
+      response.code.should.equal(200);
+      done();
+    });
+  });
 
-  it('DELE should reply 502', function (done) {
-    client.execute('DELE', function (error) {
-      error.code.should.eql(502)
-      done()
-    })
-  })
+  it('DELE should reply 502', (done) => {
+    client.execute('DELE', (error) => {
+      error.code.should.eql(502);
+      done();
+    });
+  });
 
-  it('RETR should reply 502', function (done) {
-    client.get('/myfile', function (error) {
-      error.code.should.eql(502)
-      done()
-    })
-  })
+  it('RETR should reply 502', (done) => {
+    client.get('/myfile', (error) => {
+      error.code.should.eql(502);
+      done();
+    });
+  });
 
-  afterEach(function () {
-    server.close()
-  })
-})
+  afterEach(() => {
+    server.close();
+  });
+});

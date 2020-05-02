@@ -1,12 +1,12 @@
 {
   "name": "@svrooij/ftpd",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Node FTP Server (scoped version)",
   "main": "./ftpd.js",
   "scripts": {
-    "test": "eslint . && ./node_modules/.bin/istanbul test _mocha",
+    "test": "eslint .",
+    "test-original": "eslint . && ./node_modules/.bin/istanbul test _mocha",
     "test-only": "./node_modules/.bin/istanbul test _mocha",
-    "lint": "eslint .",
     "lint-fix": "eslint --fix ."
   },
   "repository": {
