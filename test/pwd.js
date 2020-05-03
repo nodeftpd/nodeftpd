@@ -16,6 +16,10 @@ describe('PWD command', () => {
     undefined,
   ];
 
+  const options = {
+    port: 7030
+  }
+
   directories.forEach((directory) => {
     describe(`CWD = "${directory}"`, () => {
       beforeEach((done) => {
@@ -23,23 +27,24 @@ describe('PWD command', () => {
           getInitialCwd() {
             return directory;
           },
+          port: options.port
         });
-        client = common.client(done);
+        client = common.client(done, options);
       });
 
       test(`should be "${directory}"`, (done) => {
-        client.raw.pwd((error, reply) => {
-          common.should.not.exist(error);
-          reply.code.should.equal(257);
+        client.raw('pwd', (error, reply) => {
+          expect(error).toBeNull();
+          expect(reply.code).toBe(257);
           reply.text.should.startWith(`257 "${directory}"`);
           done();
         });
       });
 
       test('should reject parameters', (done) => {
-        client.raw.pwd(directory, (error, reply) => {
-          error.code.should.equal(501);
-          reply.code.should.equal(501);
+        client.raw('pwd', directory, (error, reply) => {
+          expect(reply.code).toBe(501);
+          expect(error.code).toBe(501);
           done();
         });
       });
@@ -57,14 +62,15 @@ describe('PWD command', () => {
           getInitialCwd() {
             return directory;
           },
+          port: options.port
         });
-        client = common.client(done);
+        client = common.client(done, options);
       });
 
       test('should be "/"', (done) => {
-        client.raw.pwd((error, reply) => {
-          common.should.not.exist(error);
-          reply.code.should.equal(257);
+        client.raw('pwd', (error, reply) => {
+          expect(error).toBeNull();
+          expect(reply.code).toBe(257);
           reply.text.should.startWith('257 "/"');
           done();
         });

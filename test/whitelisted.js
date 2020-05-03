@@ -11,11 +11,14 @@ describe('Whitelisted commands', () => {
       'LIST',
       'NOOP',
     ],
+    port: 7035
   };
+
+  const clientOptions = { port: options.port };
 
   beforeEach((done) => {
     server = common.server(options);
-    client = common.client(done);
+    client = common.client(done, clientOptions);
   });
 
   test('LIST should be allowed', (done) => {

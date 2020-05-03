@@ -21,9 +21,13 @@ describe('UNSUPPORTED commands', () => {
     'CD',
   ];
 
+  const options = {
+    port: 7040
+  }
+
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   commands.forEach((command) => {

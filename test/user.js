@@ -21,9 +21,9 @@ describe('USER command', () => {
     });
     client = new Client(options);
     client.auth(options.user, options.pass, (error) => {
-      error.code.should.eql(530);
-      client.raw.user(options.user, (error) => {
-        error.code.should.eql(530);
+      expect(error.code).toBe(530);
+      client.raw('user',options.user, (error) => {
+        expect(error.code).toBe(530);
         done();
       });
     });
@@ -34,9 +34,9 @@ describe('USER command', () => {
     server = common.server();
     client = new Client(options);
     client.auth(badUser, options.pass, (error) => {
-      error.code.should.eql(530);
-      client.raw.user(badUser, (error) => {
-        error.code.should.eql(530);
+      expect(error.code).toBe(530);
+      client.raw('user', badUser, (error) => {
+        expect(error.code).toBe(530);
         done();
       });
     });
