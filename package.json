@@ -1,7 +1,7 @@
 {
   "name": "@svrooij/ftpd",
   "version": "0.4.1",
-  "description": "Node FTP Server (scoped version)",
+  "description": "Node FTP Server (reboot)",
   "main": "./ftpd.js",
   "scripts": {
     "lint": "eslint .",
@@ -19,8 +19,7 @@
     "ftpd"
   ],
   "author": "Stephan van Rooij <github@svrooij.nl> (https://svrooij.nl)",
-  "contributors": [
-    {
+  "contributors": [{
       "name": "Alex Drummond",
       "url": "https://github.com/addrummond"
     },
@@ -29,24 +28,16 @@
       "url": "https://github.com/alanszlosek"
     },
     {
-      "name": "asylumfunk",
-      "url": "https://github.com/asylumfunk"
+      "name": "Alan Wong",
+      "url": "https://github.com/pye2k"
     },
     {
       "name": "Andrew Johnston",
       "url": "https://github.com/billywhizz"
     },
     {
-      "name": "Mark Bogdanoff",
-      "url": "https://github.com/bog"
-    },
-    {
-      "name": "Gordon Barrs",
-      "url": "https://github.com/britebit"
-    },
-    {
-      "name": "Indra Gunawan",
-      "url": "https://github.com/coderbuzz"
+      "name": "asylumfunk",
+      "url": "https://github.com/asylumfunk"
     },
     {
       "name": "Eric Newton",
@@ -57,9 +48,23 @@
       "url": "https://github.com/ericfong"
     },
     {
+      "name": "Ernesto Méndez",
+      "url": "https://github.com/mendezcode"
+    },
+
+    {
+      "name": "Gordon Barrs",
+      "url": "https://github.com/britebit"
+    },
+    {
       "name": "headconnect",
       "url": "https://github.com/headconnect"
     },
+    {
+      "name": "Indra Gunawan",
+      "url": "https://github.com/coderbuzz"
+    },
+
     {
       "name": "José F. Romaniello",
       "url": "https://github.com/jfromaniello"
@@ -68,26 +73,24 @@
       "name": "Joshua Hull",
       "url": "https://github.com/joshbuddy"
     },
-    {
-      "name": "Ernesto Méndez",
-      "url": "https://github.com/mendezcode"
-    },
+
     {
       "name": "M.K.",
       "url": "https://github.com/mk-pmb"
     },
     {
-      "name": "Phillip Green II",
-      "url": "https://github.com/phillipgreenii"
+      "name": "Mark Bogdanoff",
+      "url": "https://github.com/bog"
     },
     {
       "name": "Oleksiy Krivoshey",
       "url": "https://github.com/oleksiyk"
     },
     {
-      "name": "Alan Wong",
-      "url": "https://github.com/pye2k"
+      "name": "Phillip Green II",
+      "url": "https://github.com/phillipgreenii"
     },
+
     {
       "name": "Rogier Schouten",
       "url": "https://github.com/rogierschouten"
@@ -101,13 +104,17 @@
       "url": "https://github.com/sstur"
     },
     {
+      "name": "Stephan van Rooij",
+      "url": "https://github.com/svrooij"
+    },
+    {
       "name": "Thomas Schaaf",
       "url": "https://github.com/thomaschaaf"
     }
   ],
   "license": "BSD-2-Clause",
   "bugs": {
-    "url": "https://github.com/nodeftpd/nodeftpd/issues"
+    "url": "https://github.com/svrooij/nodeftpd/issues"
   },
   "dependencies": {
     "dateformat": "3.0.3",
