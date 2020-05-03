@@ -159,6 +159,7 @@ module.exports = {
 
   // This option allows use of a custom test runner
   // testRunner: "jasmine2",
+  testTimeout: 10000,
 
   // This option sets the URL for the jsdom environment. It is reflected in properties such as location.href
   // testURL: "http://localhost",

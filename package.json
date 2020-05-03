@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "test": "eslint .",
-    "test-suites": "jest ./test/*.js || true"
+    "test-suites": "jest --ci --forceExit ./test/*.js || true"
   },
   "repository": {
     "type": "git",
