@@ -23,7 +23,7 @@ describe('CWD/CDUP commands', () => {
   });
 
   describe('CWD command', () => {
-    it('should change to existing directory', (done) => {
+    test('should change to existing directory', (done) => {
       client.raw('CWD', pathExisting, (error, response) => {
         const pathCwd = pathExtract(response);
         response.code.should.equal(250);
@@ -36,7 +36,7 @@ describe('CWD/CDUP commands', () => {
       });
     });
 
-    it('should not change to non-existent directory', (done) => {
+    test('should not change to non-existent directory', (done) => {
       client.raw('CWD', pathExisting, (error, response) => {
         response.code.should.equal(250);
         server.suppressExpecteErrMsgs.push(
@@ -49,14 +49,14 @@ describe('CWD/CDUP commands', () => {
       });
     });
 
-    it('should not change to regular file', (done) => {
+    test('should not change to regular file', (done) => {
       client.raw('CWD', pathFile, (error) => {
         error.code.should.equal(550);
         done();
       });
     });
 
-    it('should escape quotation marks', (done) => {
+    test('should escape quotation marks', (done) => {
       client.raw('MKD', pathWithQuotes, (error, response) => {
         const pathEscaped = pathEscape(pathWithQuotes);
         const pathMkd = pathExtract(response);
@@ -76,7 +76,7 @@ describe('CWD/CDUP commands', () => {
   });
 
   describe('CDUP command', () => {
-    it('should change to parent directory', (done) => {
+    test('should change to parent directory', (done) => {
       client.raw('CWD', pathExisting, (error, response) => {
         response.code.should.equal(250);
         client.raw('CDUP', (error, response) => {

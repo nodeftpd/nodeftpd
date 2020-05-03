@@ -12,7 +12,7 @@ describe('RETR command', () => {
         client = common.client(done);
       });
 
-      it('should contain "hola!"', (done) => {
+      test('should contain "hola!"', (done) => {
         let str = '';
         client.get('/data.txt', (error, socket) => {
           common.should.not.exist(error);
@@ -26,7 +26,7 @@ describe('RETR command', () => {
         });
       });
 
-      it('should fail when file not found', (done) => {
+      test('should fail when file not found', (done) => {
         client.get('/bad.file', (error) => {
           common.should.exist(error);
           done();

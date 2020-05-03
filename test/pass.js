@@ -16,7 +16,7 @@ describe('PASS command', () => {
     done();
   });
 
-  it('should reject invalid password', (done) => {
+  test('should reject invalid password', (done) => {
     const badPass = `${options.pass}_invalid`;
     client = new Client(options);
     client.auth(options.user, badPass, (error) => {
@@ -31,7 +31,7 @@ describe('PASS command', () => {
     });
   });
 
-  it('should reject PASS without USER', (done) => {
+  test('should reject PASS without USER', (done) => {
     client = new Client(options);
     client.raw.pass(options.pass, (error) => {
       error.code.should.eql(503);

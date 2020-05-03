@@ -27,7 +27,7 @@ describe('UNSUPPORTED commands', () => {
   });
 
   commands.forEach((command) => {
-    it(`should reply 502 to ${command}`, (done) => {
+    test(`should reply 502 to ${command}`, (done) => {
       const callback = function (error) {
         error.code.should.eql(502);
         done();

@@ -15,7 +15,7 @@ describe('initialization', () => {
     done();
   });
 
-  it('should getRoot synchronously', (done) => {
+  test('should getRoot synchronously', (done) => {
     server = common.server({
       getRoot() {
         return '../fixture/';
@@ -24,7 +24,7 @@ describe('initialization', () => {
     client = common.client(done);
   });
 
-  it('should getRoot asynchronously', (done) => {
+  test('should getRoot asynchronously', (done) => {
     server = common.server({
       getRoot(connection, callback) {
         callback(null, '../fixture/');
@@ -33,7 +33,7 @@ describe('initialization', () => {
     client = common.client(done);
   });
 
-  it('should bail if getRoot fails', (done) => {
+  test('should bail if getRoot fails', (done) => {
     server = common.server({
       getRoot(connection, callback) {
         server.suppressExpecteErrMsgs.push(
@@ -49,7 +49,7 @@ describe('initialization', () => {
     });
   });
 
-  it('should throw if getRoot is null', (done) => {
+  test('should throw if getRoot is null', (done) => {
     let fail = false;
     try {
       server = common.server({
@@ -63,7 +63,7 @@ describe('initialization', () => {
     done();
   });
 
-  it('should getInitialCwd synchronously', (done) => {
+  test('should getInitialCwd synchronously', (done) => {
     server = common.server({
       getInitialCwd() {
         return '/';
@@ -72,7 +72,7 @@ describe('initialization', () => {
     client = common.client(done);
   });
 
-  it('should getInitialCwd asynchronously', (done) => {
+  test('should getInitialCwd asynchronously', (done) => {
     server = common.server({
       getInitialCwd(connection, callback) {
         callback(null, '/');
@@ -81,7 +81,7 @@ describe('initialization', () => {
     client = common.client(done);
   });
 
-  it('should bail if getInitialCwd fails', (done) => {
+  test('should bail if getInitialCwd fails', (done) => {
     server = common.server({
       getInitialCwd(connection, callback) {
         server.suppressExpecteErrMsgs.push(
@@ -97,7 +97,7 @@ describe('initialization', () => {
     });
   });
 
-  it('should throw if getInitialCwd is null', (done) => {
+  test('should throw if getInitialCwd is null', (done) => {
     let fail = false;
     try {
       server = common.server({

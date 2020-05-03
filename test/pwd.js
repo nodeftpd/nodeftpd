@@ -27,7 +27,7 @@ describe('PWD command', () => {
         client = common.client(done);
       });
 
-      it(`should be "${directory}"`, (done) => {
+      test(`should be "${directory}"`, (done) => {
         client.raw.pwd((error, reply) => {
           common.should.not.exist(error);
           reply.code.should.equal(257);
@@ -36,7 +36,7 @@ describe('PWD command', () => {
         });
       });
 
-      it('should reject parameters', (done) => {
+      test('should reject parameters', (done) => {
         client.raw.pwd(directory, (error, reply) => {
           error.code.should.equal(501);
           reply.code.should.equal(501);
@@ -61,7 +61,7 @@ describe('PWD command', () => {
         client = common.client(done);
       });
 
-      it('should be "/"', (done) => {
+      test('should be "/"', (done) => {
         client.raw.pwd((error, reply) => {
           common.should.not.exist(error);
           reply.code.should.equal(257);

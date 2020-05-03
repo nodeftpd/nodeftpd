@@ -9,7 +9,7 @@ describe('NOOP command', () => {
     client = common.client(done);
   });
 
-  it('should perform a NOOP', (done) => {
+  test('should perform a NOOP', (done) => {
     client.raw('NOOP', (error, response) => {
       common.should.not.exist(error);
       response.code.should.equal(200);

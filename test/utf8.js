@@ -9,7 +9,7 @@ describe('UTF8 support', () => {
     client = common.client(done);
   });
 
-  it('should support UTF8 in LIST command', (done) => {
+  test('should support UTF8 in LIST command', (done) => {
     const filename = 'привіт.txt';
     client.list(`/${filename}`, (error, listing) => {
       error.should.equal(false);
@@ -20,7 +20,7 @@ describe('UTF8 support', () => {
     });
   });
 
-  it('should RETR file with UTF8 in filename', (done) => {
+  test('should RETR file with UTF8 in filename', (done) => {
     const filename = 'привіт.txt';
     let str = '';
     client.get(`/${filename}`, (error, socket) => {

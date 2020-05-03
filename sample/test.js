@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const ftpd = require('.');
+const ftpd = require('..');
 
 let keyFile;
 let certFile;

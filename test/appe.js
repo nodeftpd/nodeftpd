@@ -25,7 +25,7 @@ describe('APPE command', () => {
         });
       });
 
-      it('should append data to existing file', (done) => {
+      test('should append data to existing file', (done) => {
         const fileSize = fs.statSync(__filename).size;
         client.put(__filename, `/uploads/${basename}`, (err) => {
           common.should.not.exist(err);

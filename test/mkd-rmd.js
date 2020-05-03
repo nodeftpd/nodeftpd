@@ -11,7 +11,7 @@ describe('MKD/RMD commands', () => {
   });
 
   describe('MKD command', () => {
-    it('should create a new directory', (done) => {
+    test('should create a new directory', (done) => {
       client.raw('MKD', directory, (error, response) => {
         common.should.not.exist(error);
         response.text.should.startWith(257);
@@ -19,7 +19,7 @@ describe('MKD/RMD commands', () => {
       });
     });
 
-    it('should not create a duplicate directory', (done) => {
+    test('should not create a duplicate directory', (done) => {
       server.suppressExpecteErrMsgs.push(
         /^MKD \S+: Error: EEXIST/,
       );
@@ -31,7 +31,7 @@ describe('MKD/RMD commands', () => {
   });
 
   describe('RMD command', () => {
-    it('should delete an existing directory', (done) => {
+    test('should delete an existing directory', (done) => {
       client.raw('RMD', directory, (error, response) => {
         common.should.not.exist(error);
         response.text.should.startWith(250);
@@ -39,7 +39,7 @@ describe('MKD/RMD commands', () => {
       });
     });
 
-    it('should not delete a non-existent directory', (done) => {
+    test('should not delete a non-existent directory', (done) => {
       server.suppressExpecteErrMsgs.push(
         /^RMD \S+: Error: ENOENT/,
       );

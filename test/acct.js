@@ -9,7 +9,7 @@ describe('ACCT command', () => {
     client = common.client(done);
   });
 
-  it('should reply 202', (done) => {
+  test('should reply 202', (done) => {
     client.execute('ACCT', (error, reply) => {
       common.should.not.exist(error);
       reply.code.should.equal(202);

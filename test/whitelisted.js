@@ -18,14 +18,14 @@ describe('Whitelisted commands', () => {
     client = common.client(done);
   });
 
-  it('LIST should be allowed', (done) => {
+  test('LIST should be allowed', (done) => {
     client.list('/', (error) => {
       common.should(error).not.be.ok;
       done();
     });
   });
 
-  it('NOOP should be allowed', (done) => {
+  test('NOOP should be allowed', (done) => {
     client.raw('NOOP', (error, response) => {
       common.should.not.exist(error);
       response.code.should.equal(200);
@@ -33,14 +33,14 @@ describe('Whitelisted commands', () => {
     });
   });
 
-  it('DELE should reply 502', (done) => {
+  test('DELE should reply 502', (done) => {
     client.execute('DELE', (error) => {
       error.code.should.eql(502);
       done();
     });
   });
 
-  it('RETR should reply 502', (done) => {
+  test('RETR should reply 502', (done) => {
     client.get('/myfile', (error) => {
       error.code.should.eql(502);
       done();

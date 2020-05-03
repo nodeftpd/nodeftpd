@@ -4,7 +4,7 @@ const glob = require('../lib/glob');
 const { matchPattern } = glob;
 
 describe('glob.matchPattern', () => {
-  it('should match ? and * glob characters', () => {
+  test('should match ? and * glob characters', () => {
     assert.equal(matchPattern('foo*', 'foooxx'), true);
     assert.equal(matchPattern('foo*', 'foo'), true);
     assert.equal(matchPattern('foo*', 'fo'), false);

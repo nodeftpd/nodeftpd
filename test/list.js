@@ -13,7 +13,7 @@ describe('LIST command', () => {
     return String(rgx).replace(/^\/|\/$/g, '');
   }
 
-  it('should return "-" as first character for files', (done) => {
+  test('should return "-" as first character for files', (done) => {
     client.list('/', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, / data\d*\.txt$/);
@@ -23,7 +23,7 @@ describe('LIST command', () => {
     });
   });
 
-  it('should return "d" as first character for directories', (done) => {
+  test('should return "d" as first character for directories', (done) => {
     client.list('/', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing, / usr$/);
@@ -33,7 +33,7 @@ describe('LIST command', () => {
     });
   });
 
-  it('should list files similar to ls -l', (done) => {
+  test('should list files similar to ls -l', (done) => {
     client.list('/usr', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing);
@@ -56,7 +56,7 @@ describe('LIST command', () => {
     });
   });
 
-  it('should list a single file', (done) => {
+  test('should list a single file', (done) => {
     const filename = 'data.txt';
     client.list(`/${filename}`, (error, listing) => {
       error.should.equal(false);
@@ -67,7 +67,7 @@ describe('LIST command', () => {
     });
   });
 
-  it('should list a subdirectory', (done) => {
+  test('should list a subdirectory', (done) => {
     client.list('/usr', (error, listing) => {
       error.should.equal(false);
       listing = common.splitResponseLines(listing);

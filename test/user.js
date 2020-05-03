@@ -15,7 +15,7 @@ describe('USER command', () => {
     done();
   });
 
-  it('should reject non-secure USER when tlsOnly', (done) => {
+  test('should reject non-secure USER when tlsOnly', (done) => {
     server = common.server({
       tlsOnly: true,
     });
@@ -29,7 +29,7 @@ describe('USER command', () => {
     });
   });
 
-  it('should reject invalid username', (done) => {
+  test('should reject invalid username', (done) => {
     const badUser = `${options.user}_invalid`;
     server = common.server();
     client = new Client(options);

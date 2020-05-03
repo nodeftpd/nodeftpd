@@ -18,7 +18,7 @@ describe('Tricky paths', () => {
         client = common.client(done);
       });
 
-      it('should cope with unusual paths', (done) => {
+      test('should cope with unusual paths', (done) => {
         const coolGlasses = '\uD83D\uDE0E';
         const trickyName = "b\\\\s\\l, \"\"q'u\"o\"te''; pi|p|e & ^up^";
         const dirPath = `tricky_paths/${trickyName}`;
