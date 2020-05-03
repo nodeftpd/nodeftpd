@@ -1,3 +1,9 @@
 fixture
-test
+test/
 testcert
+sample/
+coverage/
+jest.config.js
+.github
+.eslintignore
+.eslintrc.js
