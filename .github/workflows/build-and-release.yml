@@ -17,5 +17,8 @@ jobs:
       run: npm ci
     - name: Run test
       run: npm run test
-    - name: Run testsuite
-      run: npm run test-only && exit 0
+    - name: Semantic Release
+    uses: cycjimmy/semantic-release-action@v2
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
