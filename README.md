@@ -4,8 +4,8 @@
 [![npm][badge_npm]][link_npm]
 [![github issues][badge_issues]][link_issues]
 [![Build and test](https://github.com/svrooij/nodeftpd/workflows/Build%20and%20test/badge.svg)][link_build]
-[![Coverage Status][badge_coveralls]](link_coveralls)
-[![semantic-release][badge_semantic]](link_semantic)
+[![Coverage Status][badge_coveralls]][link_coveralls]
+[![semantic-release][badge_semantic]][link_semantic]
 
 This version of nodeftpd started as a scoped version to get [ipcam2mqtt](https://github.com/svrooij/ipcam2mqtt) running again.
 
