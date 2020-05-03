@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "test": "eslint .",
-    "test-suites": "jest ./test/*.js"
+    "test-suites": "jest ./test/*.js || true"
   },
   "repository": {
     "type": "git",
@@ -121,6 +121,7 @@
     "eslint-plugin-import": "^2.20.2",
     "ftp": "^0.3.10",
     "jest": "^25.5.4",
-    "jsftp": "git://github.com/sergi/jsftp.git#master"
+    "jsftp": "git://github.com/sergi/jsftp.git#master",
+    "should": "^13.2.3"
   }
 }
