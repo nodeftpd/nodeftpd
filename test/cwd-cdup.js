@@ -3,6 +3,9 @@ const common = require('./lib/common');
 describe('CWD/CDUP commands', () => {
   let client;
   let server;
+  const options = {
+    port: 7014
+  };
   const pathExisting = 'usr/local';
   const pathWithQuotes = '/"quote"';
   const pathFile = 'data.txt';
@@ -18,8 +21,8 @@ describe('CWD/CDUP commands', () => {
   }
 
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   describe('CWD command', () => {

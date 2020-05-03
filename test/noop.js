@@ -4,9 +4,13 @@ describe('NOOP command', () => {
   let client;
   let server;
 
+  const options = {
+    port: 7020
+  };
+
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   test('should perform a NOOP', (done) => {

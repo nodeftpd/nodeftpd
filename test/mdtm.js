@@ -4,9 +4,13 @@ describe('MDTM command', () => {
   let client;
   let server;
 
+  const options = {
+    port: 7018
+  };
+
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   test('should respond 213 for a valid file', (done) => {

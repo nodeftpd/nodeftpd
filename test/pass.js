@@ -6,7 +6,7 @@ describe('PASS command', () => {
   let server;
   const options = {
     host: '127.0.0.1',
-    port: 7002,
+    port: 7021,
     user: 'jose',
     pass: 'esoj',
   };

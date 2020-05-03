@@ -5,9 +5,13 @@ describe('MKD/RMD commands', () => {
   let server;
   const directory = '/testdir';
 
+  const options = {
+    port: 7019
+  };
+
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   describe('MKD command', () => {

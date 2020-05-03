@@ -44,7 +44,7 @@ describe('initialization', () => {
     });
     client = new Client(options);
     client.auth(options.user, options.pass, (error) => {
-      error.code.should.eql(421);
+      expect(error.code).toBe(421);
       done();
     });
   });

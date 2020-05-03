@@ -8,8 +8,8 @@ describe('RETR command', () => {
   [true, false].forEach((useReadFile) => {
     describe(`with useReadFile = ${useReadFile}`, () => {
       beforeEach((done) => {
-        server = common.server({ useReadFile });
-        client = common.client(done);
+        server = common.server({ useReadFile, port: 7025 });
+        client = common.client(done, { port: 7025 });
       });
 
       test('should contain "hola!"', (done) => {

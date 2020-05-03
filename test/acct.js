@@ -4,15 +4,19 @@ describe('ACCT command', () => {
   let client;
   let server;
 
+  const options = {
+    port: 7011
+  };
+
   beforeEach((done) => {
-    server = common.server();
-    client = common.client(done);
+    server = common.server(options);
+    client = common.client(done, options);
   });
 
   test('should reply 202', (done) => {
     client.execute('ACCT', (error, reply) => {
-      common.should.not.exist(error);
-      reply.code.should.equal(202);
+      expect(error).toBeNull();
+      expect(reply.code).toBe(202);
       done();
     });
   });
