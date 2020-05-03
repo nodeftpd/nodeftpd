@@ -1,0 +1,21 @@
+name: Build and test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Install depencencies
+      run: npm ci
+    - name: Run test
+      run: npm run test
+    - name: Run testsuite
+      run: npm run test-only && exit 0
