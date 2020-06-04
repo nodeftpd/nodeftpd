@@ -12,7 +12,7 @@ describe('UTF8 support', () => {
   test('should support UTF8 in LIST command', (done) => {
     const filename = 'привіт.txt';
     client.list(`/${filename}`, (error, listing) => {
-      error.should.equal(false);
+      should.not.exist(error);
       listing = common.splitResponseLines(listing, ` ${filename}`);
       listing.should.have.lengthOf(1);
       listing[0].indexOf(filename).should.be.above(-1);
@@ -24,7 +24,7 @@ describe('UTF8 support', () => {
     const filename = 'привіт.txt';
     let str = '';
     client.get(`/${filename}`, (error, socket) => {
-      common.should.not.exist(error);
+      should.not.exist(error);
       socket.on('data', (data) => {
         str += data.toString();
       }).on('close', (error) => {
