@@ -73,7 +73,7 @@ var common = module.exports = {
       });
       connection.on('command:pass', function(pass, success, failure) {
         if (pass === customOptions.pass) {
-          success(username);
+          success(username, customOptions.fs);
         } else {
           failure();
         }
