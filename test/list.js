@@ -41,8 +41,8 @@ describe('LIST command', function() {
       listing = common.splitResponseLines(listing);
       listing.should.have.lengthOf(1);
       var lsLongRgx = [
-        /($# file modes: ___|)[d-]([r-][w-][x-]){3}/,
-        /($# ?¿?¿? inodes?: |)\d+/,
+        /($# file modes: ___|)[d-]([r-][w-][xSstT-]){3}/,
+        /($# inodes________ |)\d+/,
         /($# owner name: ___|)\S+/,
         /($# owner group: __|)\S+/,
         /($# size in bytes: |)\d+/,
