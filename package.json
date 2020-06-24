@@ -14,7 +14,7 @@
   "devDependencies": {
     "async": "~0.1.15",
     "collect-stream": "^1.1.1",
-    "eslint": "^1.10.3",
+    "eslint": "^7.3.1",
     "istanbul": "~0.2.4",
     "jsftp": "git://github.com/sergi/jsftp.git#master",
     "mocha": "^2.3.4",
