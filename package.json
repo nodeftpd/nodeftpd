@@ -3,24 +3,44 @@
   "version": "0.2.14",
   "description": "Node FTP Server",
   "main": "./ftpd.js",
-  "engines": {
-    "node": ">=0.10.0"
-  },
   "scripts": {
     "test": "eslint --max-warnings 0 . && ./node_modules/.bin/istanbul test _mocha",
     "lint": "eslint --max-warnings 0 ."
   },
+  "dependencies": {
+    "dateformat": "1.0.7-1.2.3",
+    "stat-mode": "^0.2.1"
+  },
+  "devDependencies": {
+    "async": "~0.1.15",
+    "collect-stream": "^1.1.1",
+    "eslint": "^1.10.3",
+    "istanbul": "~0.2.4",
+    "jsftp": "git://github.com/sergi/jsftp.git#master",
+    "mocha": "^2.3.4",
+    "should": "~3.1.2",
+    "ftp": "^0.3.10"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
   "repository": {
     "type": "git",
-    "url": "git@github.com:sstur/nodeftpd.git"
+    "url": "git@github.com:nodeftpd/nodeftpd.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nodeftpd/nodeftpd/issues"
   },
   "keywords": [
     "ftp",
     "ftp-server",
     "ftpd"
   ],
-  "author": "sstur",
   "contributors": [
+    {
+      "name": "Simon Sturmer",
+      "url": "https://github.com/sstur"
+    },
     {
       "name": "Alex Drummond",
       "url": "https://github.com/addrummond"
@@ -99,29 +119,12 @@
     },
     {
       "name": "Simon Sturmer",
-      "url": "https://github.com/sstur"
+      "url": "https://github.com/nodeftpd"
     },
     {
       "name": "Thomas Schaaf",
       "url": "https://github.com/thomaschaaf"
     }
   ],
-  "license": "BSD-2-Clause",
-  "bugs": {
-    "url": "https://github.com/sstur/nodeftpd/issues"
-  },
-  "dependencies": {
-    "dateformat": "1.0.7-1.2.3",
-    "stat-mode": "^0.2.1"
-  },
-  "devDependencies": {
-    "async": "~0.1.15",
-    "collect-stream": "^1.1.1",
-    "eslint": "^1.10.3",
-    "istanbul": "~0.2.4",
-    "jsftp": "git://github.com/sergi/jsftp.git#master",
-    "mocha": "^2.3.4",
-    "should": "~3.1.2",
-    "ftp": "^0.3.10"
-  }
+  "license": "BSD-2-Clause"
 }
