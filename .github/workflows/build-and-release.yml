@@ -17,14 +17,23 @@ jobs:
       run: npm ci
     - name: Run linting
       run: npm run lint
-    - name: Semantic Release
-      uses: cycjimmy/semantic-release-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Run test suites
       run: npm run test-suites
     - name: Send data to Coveralls
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create package
+      run: npm pack
+    - name: Upload package for testing
+      uses: actions/upload-artifact@v1
+      with:
+        name: dev-package
+        path: ftpd-0.0.0-dev.tgz
+    # - name: Semantic Release
+    #   if: ${{ success() && !startsWith(github.repository, 'svrooij/')}}
+    #   uses: cycjimmy/semantic-release-action@v2
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+

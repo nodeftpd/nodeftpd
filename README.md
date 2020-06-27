@@ -7,8 +7,6 @@
 [![Coverage Status][badge_coveralls]][link_coveralls]
 [![semantic-release][badge_semantic]][link_semantic]
 
-This version of nodeftpd started as a scoped version to get [ipcam2mqtt](https://github.com/svrooij/ipcam2mqtt) running again.
-
 Recently I'm trying to reboot the release of this package again. Some tests are still broken (but ignored) but once we get all the tests fixed they will be enforced for each PR. The package it automatically tested and released by a [workflow][link_build].
 
 ## Simple, Extensible FTP Server in Pure JavaScript
@@ -35,7 +33,7 @@ This is a simple but very configurable FTP server. Notable features include:
 
 ## Installation
 
-`npm install @svrooij/ftpd`
+`npm install ftpd`
 
 ## Usage
 
@@ -220,14 +218,14 @@ The following must be implemented:
 emits `close` and `error` events.
 
 [badge_coveralls]: https://coveralls.io/repos/github/svrooij/nodeftpd/badge.svg?branch=master
-[badge_issues]: https://img.shields.io/github/issues/svrooij/nodeftpd
-[badge_npm]: https://img.shields.io/npm/v/@svrooij/ftpd
+[badge_issues]: https://img.shields.io/github/issues/nodeftpd/nodeftpd
+[badge_npm]: https://img.shields.io/npm/v/ftpd
 [badge_semantic]: https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg
 [badge_sponsor]: https://img.shields.io/badge/Sponsor-on%20Github-red
 
-[link_build]: https://github.com/svrooij/nodeftpd/actions
+[link_build]: https://github.com/nodeftpd/nodeftpd/actions
 [link_coveralls]: https://coveralls.io/github/svrooij/nodeftpd?branch=master
-[link_issues]: https://github.com/svrooij/nodeftpd/issues
-[link_npm]: https://www.npmjs.com/package/@svrooij/ftpd
+[link_issues]: https://github.com/nodeftpd/nodeftpd/issues
+[link_npm]: https://www.npmjs.com/package/ftpd
 [link_semantic]: https://github.com/semantic-release/semantic-release
 [link_sponsor]: https://github.com/sponsors/svrooij
