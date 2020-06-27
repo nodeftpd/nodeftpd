@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const common = require('./lib/common');
 
-describe('APPE command', () => {
+describe.skip('APPE command', () => {
   const client = new FtpClient();
   let server;
   const basename = path.basename(__filename);

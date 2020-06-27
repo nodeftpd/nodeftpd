@@ -6,7 +6,7 @@ const async = require('async');
 const collectStream = require('collect-stream');
 const common = require('./lib/common');
 
-describe('Tricky paths', () => {
+describe.skip('Tricky paths', () => {
   let client;
   let server;
 
