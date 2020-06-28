@@ -12,7 +12,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-
     - name: Install depencencies
       run: npm ci
     - name: Run linting
@@ -30,10 +29,36 @@ jobs:
       with:
         name: dev-package
         path: ftpd-0.0.0-dev.tgz
-    # - name: Semantic Release
-    #   if: ${{ success() && !startsWith(github.repository, 'svrooij/')}}
-    #   uses: cycjimmy/semantic-release-action@v2
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  test-and-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.repository, 'svrooij/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install depencencies
+        run: npm ci
+      - name: Run eslint
+        run: npm run lint
+      - name: Run test suites
+        run: npm run test-suites
+      - name: Send data to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: microsoft/variable-substitution@v1 
+        with:
+          files: 'package.json'
+        env:
+          name: "@svrooij/ftpd"
+          description: "Node FTP Server (reboot)"
+          repository.url: "git@github.com:svrooij/nodeftpd.git"
+          bugs.url: "https://github.com/svrooij/nodeftpd/issues"
+      - name: Semantic Release
+        if: success()
+        uses: cycjimmy/semantic-release-action@v2
+        with:
+          dry_run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -9,16 +9,35 @@
     "test": "eslint .",
     "test-suites": "jest --ci --forceExit ./test/*.js || true"
   },
+  "dependencies": {
+    "dateformat": "3.0.3",
+    "stat-mode": "^1.0.0"
+  },
+  "devDependencies": {
+    "async": "3.1.0",
+    "collect-stream": "^1.2.1",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.2",
+    "ftp": "^0.3.10",
+    "jest": "^25.5.4",
+    "jsftp": "git://github.com/sergi/jsftp.git#master",
+    "should": "^13.2.3"
+  },
   "repository": {
     "type": "git",
-    "url": "git@github.com:svrooij/nodeftpd.git"
+    "url": "git@github.com:nodeftpd/nodeftpd.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nodeftpd/nodeftpd/issues"
   },
   "keywords": [
     "ftp",
     "ftp-server",
     "ftpd"
   ],
-  "contributors": [{
+  "contributors": [
+    {
       "name": "Alex Drummond",
       "url": "https://github.com/addrummond"
     },
@@ -50,7 +69,6 @@
       "name": "Ernesto Méndez",
       "url": "https://github.com/mendezcode"
     },
-
     {
       "name": "Gordon Barrs",
       "url": "https://github.com/britebit"
@@ -63,7 +81,6 @@
       "name": "Indra Gunawan",
       "url": "https://github.com/coderbuzz"
     },
-
     {
       "name": "José F. Romaniello",
       "url": "https://github.com/jfromaniello"
@@ -72,7 +89,6 @@
       "name": "Joshua Hull",
       "url": "https://github.com/joshbuddy"
     },
-
     {
       "name": "M.K.",
       "url": "https://github.com/mk-pmb"
@@ -89,7 +105,6 @@
       "name": "Phillip Green II",
       "url": "https://github.com/phillipgreenii"
     },
-
     {
       "name": "Rogier Schouten",
       "url": "https://github.com/rogierschouten"
@@ -100,7 +115,7 @@
     },
     {
       "name": "Simon Sturmer",
-      "url": "https://github.com/sstur"
+      "url": "https://github.com/nodeftpd"
     },
     {
       "name": "Stephan van Rooij",
@@ -111,23 +126,5 @@
       "url": "https://github.com/thomaschaaf"
     }
   ],
-  "license": "BSD-2-Clause",
-  "bugs": {
-    "url": "https://github.com/nodeftpd/nodeftpd/issues"
-  },
-  "dependencies": {
-    "dateformat": "3.0.3",
-    "stat-mode": "^1.0.0"
-  },
-  "devDependencies": {
-    "async": "3.1.0",
-    "collect-stream": "^1.2.1",
-    "eslint": "^6.8.0",
-    "eslint-config-airbnb-base": "^14.1.0",
-    "eslint-plugin-import": "^2.20.2",
-    "ftp": "^0.3.10",
-    "jest": "^25.5.4",
-    "jsftp": "git://github.com/sergi/jsftp.git#master",
-    "should": "^13.2.3"
-  }
+  "license": "BSD-2-Clause"
 }
