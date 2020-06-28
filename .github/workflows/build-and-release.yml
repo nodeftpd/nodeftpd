@@ -9,6 +9,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.repository, 'svrooij/') }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -48,9 +49,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: microsoft/variable-substitution@v1 
         with:
-          files: 'package.json'
+          files: 'package.json, package-lock.json'
         env:
           name: "@svrooij/ftpd"
+          version: "0.0.0-dev"
           description: "Node FTP Server (reboot)"
           repository.url: "git@github.com:svrooij/nodeftpd.git"
           bugs.url: "https://github.com/svrooij/nodeftpd/issues"
@@ -58,7 +60,7 @@ jobs:
         if: success()
         uses: cycjimmy/semantic-release-action@v2
         with:
-          dry_run: true
+          dry_run: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -3,7 +3,7 @@
 [![Support me on Github][badge_sponsor]][link_sponsor]
 [![npm][badge_npm]][link_npm]
 [![github issues][badge_issues]][link_issues]
-[![Build and test](https://github.com/svrooij/nodeftpd/workflows/Build%20and%20test/badge.svg)][link_build]
+[![Build and test][badge_build]][link_build]
 [![Coverage Status][badge_coveralls]][link_coveralls]
 [![semantic-release][badge_semantic]][link_semantic]
 
@@ -222,6 +222,7 @@ emits `close` and `error` events.
 [badge_npm]: https://img.shields.io/npm/v/ftpd
 [badge_semantic]: https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg
 [badge_sponsor]: https://img.shields.io/badge/Sponsor-on%20Github-red
+[badge_build]: https://github.com/svrooij/nodeftpd/workflows/Build%20and%20test/badge.svg
 
 [link_build]: https://github.com/nodeftpd/nodeftpd/actions
 [link_coveralls]: https://coveralls.io/github/svrooij/nodeftpd?branch=master
