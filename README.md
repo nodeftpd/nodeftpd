@@ -170,6 +170,14 @@ The user is not able to escape this directory.
     - Integer, specifies the lower-bound port (min port) for creating PASV connections
 - `pasvPortRangeEnd`: _(default: random?)_
     - Integer, specifies the upper-bound port (max port) for creating PASV connections
+- `pasvHostAliases`: _(default: auto-detect)_
+    - Dictionary object string &rarr; string, mapping auto-detected IP addresses (key) to addresses that shall be announced (value).
+      The values must be IPv4 addresses (four decimal numbers separated by dots) that shall be sent as the server IP in the PASV reply.
+      This is required when you want to use PASV transfers with the FTP server behind a NAT, especially if the internal network uses IPv6.
+    - If you want to support PASV connections inside the FTP server's network, you'll need separate IPs for the internal connections and the NAT connections.
+      Internal clients that accidentially connect to the IP configured for NAT will receive announcements for the external IP, which may cause redundant NAT traffic or might just fail.
+    - If the auto-detected IP address doesn't have its own entry, the fallback entry with key `*` (U+002A asterisk) will be tried.
+      Thus, in simple scenarios where your NAT only has one external IP and you do not need PASV mode inside the network behind the NAT, you can always use the fallback key `*`.
 
 
 ## Filesystem Abstraction
